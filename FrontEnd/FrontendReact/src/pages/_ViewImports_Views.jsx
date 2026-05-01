@@ -1,14 +1,5 @@
-import React from 'react';
+function ViewImportsViews() {
+  return null;
+}
 
-const ViewImportsViewsjsx = () => {
-    return (
-        <>
-            {/* using */} FindFootballOppsite
-{/* using */} FindFootballOppsite.Models
-{/* addTagHelper */} *, Microsoft.AspNetCore.Mvc.TagHelpers
-
-        </>
-    );
-};
-
-export default ViewImportsViewsjsx;
+export default ViewImportsViews;

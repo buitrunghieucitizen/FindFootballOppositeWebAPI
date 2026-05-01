@@ -1,60 +1,45 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
+import { AdminLayout, MetricGrid, SurfaceCard } from '../components/portal-ui';
+import { adminMetrics, adminShortcuts } from '../data/portalMockData';
 
-const IndexAdminjsx = () => {
-    return (
+function IndexAdmin() {
+  return (
+    <AdminLayout
+      title="Bảng điều hướng quản trị"
+      subtitle="Đây là màn vào nhanh cho admin sau khi các view Razor cũ đã được chuyển sang route và JSX phía client."
+      actions={
         <>
-            {/* RAZOR BLOCK: 
-    ViewData["Title"] = "Quản trị viên";
-    Layout = "~/Views/Shared/_Layout.cshtml";
- */}
-
-<section className="section-top ffo-page-banner">
-    <div className="container">
-        <div className="col-lg-10 offset-lg-1 col-xs-12 text-center">
-            <div className="section-top-title wow fadeInRight" data-wow-duration="1s" data-wow-delay="0.3s" data-wow-offset="0">
-                <h1>Bảng điều khiển Quản trị viên</h1>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section className="section-padding">
-    <div className="container">
-        <div className="row">
-            <div className="col-md-3">
-                <div className="ffo-role-card">
-                    <h3>Quản lý Người Dùng</h3>
-                    <p>Phân quyền, cập nhật thông tin người dùng.</p>
-                    <a href="{/* Url.Action( */}"Users", "Admin")" className="ffo-btn-primary mt-3">Quản lý ngay</a>
-                </div>
-            </div>
-            <div className="col-md-3">
-                <div className="ffo-role-card">
-                    <h3>Quản lý Đội Bóng</h3>
-                    <p>Tạo, sửa, xóa các đội bóng trong hệ thống.</p>
-                    <a href="{/* Url.Action( */}"Teams", "Admin")" className="ffo-btn-primary mt-3">Quản lý ngay</a>
-                </div>
-            </div>
-            <div className="col-md-3">
-                <div className="ffo-role-card">
-                    <h3>Quản lý Sân Bóng</h3>
-                    <p>Xem danh sách, chi tiết thông tin sân bóng.</p>
-                    <a href="{/* Url.Action( */}"Stadiums", "Admin")" className="ffo-btn-primary mt-3">Quản lý ngay</a>
-                </div>
-            </div>
-            <div className="col-md-3">
-                <div className="ffo-role-card">
-                    <h3>Quản lý Trận Đấu</h3>
-                    <p>Điều phối, tạo và cập nhật trận đấu.</p>
-                    <a href="{/* Url.Action( */}"Matches", "Admin")" className="ffo-btn-primary mt-3">Quản lý ngay</a>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
+          <Link className="portal-button" to="/admin/overview">
+            Mở điều hành chi tiết
+          </Link>
+          <Link className="portal-button ghost" to="/">
+            Xem trang khách
+          </Link>
         </>
-    );
-};
+      }
+    >
+      <MetricGrid items={adminMetrics} />
+      <div className="card-grid">
+        {adminShortcuts.map((item) => (
+          <Link className="quick-link" key={item.to} to={item.to}>
+            <span className="section-eyebrow">Shortcut</span>
+            <h3>{item.title}</h3>
+            <p className="muted">{item.description}</p>
+          </Link>
+        ))}
+      </div>
+      <SurfaceCard
+        title="Tình trạng migration"
+        subtitle="Các module quản trị đã không còn `Url.Action`, `Model.Any()` hoặc block C# chen trong JSX."
+      >
+        <ul className="plain-list">
+          <li>Route quản trị đã map sang React Router.</li>
+          <li>Bảng và form đều dùng dữ liệu mẫu đồng nhất.</li>
+          <li>Có thể nối API CRUD thật mà không cần dọn lại syntax cũ.</li>
+        </ul>
+      </SurfaceCard>
+    </AdminLayout>
+  );
+}
 
-export default IndexAdminjsx;
+export default IndexAdmin;

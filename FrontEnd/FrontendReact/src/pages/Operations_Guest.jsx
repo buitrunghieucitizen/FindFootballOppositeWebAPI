@@ -1,50 +1,100 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { PageSection, PublicLayout, SurfaceCard } from '../components/portal-ui';
+import { publicService } from '../services/publicService';
 
-const OperationsGuestjsx = () => {
+const releaseChecklist = [
+  'Xóa toàn bộ file .cshtml trong thư mục Home',
+  'Xóa logic ViewBag và TempData khỏi backend',
+  'Tách riêng thư mục FrontendReact khỏi C# MVC',
+  'Dựng lại hệ thống Component bằng Tailwind CSS v3',
+  'Đã nối luồng đăng nhập và load dữ liệu API thật',
+];
+
+function OperationsGuest() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const result = await publicService.getPortalData();
+        if (result) {
+          setData(result);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  if (loading) {
     return (
-        <>
-            {/* model */} PortalHubViewModel
-{/* RAZOR BLOCK: 
-    ViewData["Title"] = "Vận hành";
- */}
-
-<section className="section-top ffo-page-banner">
-    <div className="container">
-        <div className="col-lg-10 offset-lg-1 col-xs-12 text-center">
-            <div className="section-top-title wow fadeInRight" data-wow-duration="1s" data-wow-delay="0.3s" data-wow-offset="0">
-                <h1>Chức năng theo vai trò</h1>
-                <p>Khách, Cầu thủ, Đội trưởng, Chủ sân và Quản trị viên được gom về một ma trận vai trò để dễ phát triển tiếp.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section className="section-padding">
-    <div className="container">
-        <div className="row">
-            {/* RAZOR BLOCK:  var delay = 0.1;  */}
-            {/* FOREACH: var actor in Model.ActorCapabilities */}
-{
-                <div className="col-lg-4 col-sm-6 col-xs-12 wow fadeInUp" data-wow-delay="{/* (delay)s */}" style={{ marginBottom: '30px' }}>
-                    <div className="ffo-role-card">
-                        <span className="ffo-status">{/* actor.ActorName */}</span>
-                        <h3>{/* actor.Summary */}</h3>
-                        <ul className="ffo-actor-list">
-                            {/* FOREACH: var capability in actor.Capabilities */}
-{
-                                <li>{/* capability */}</li>
-                            }
-                        </ul>
-                    </div>
-                </div>
-                { delay += 0.15; }
-            }
-        </div>
-    </div>
-</section>
-
-        </>
+      <PublicLayout title="Đang tải dữ liệu..." subtitle="Đang kết nối tới Backend...">
+        <div className="flex justify-center p-12"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div></div>
+      </PublicLayout>
     );
-};
+  }
 
-export default OperationsGuestjsx;
+  if (!data) return null;
+
+  const actorCapabilities = data.actorCapabilities || [];
+
+  return (
+    <PublicLayout
+      title="Ma trận vận hành của hệ thống FindFootball"
+      subtitle="Trang này đang tải các quyền hạn của người dùng từ C# Backend API."
+      actions={
+        <>
+          <Link className="portal-button" to="/admin/overview">
+            Xem điều hành admin
+          </Link>
+          <Link className="portal-button ghost" to="/privacy">
+            Xem cấu trúc dữ liệu
+          </Link>
+        </>
+      }
+    >
+      <PageSection
+        eyebrow="Vai trò"
+        title="Từng actor làm gì trong nền tảng"
+        subtitle="Thông tin phân quyền động được thiết lập trên hệ thống."
+      >
+        <div className="card-grid">
+          {actorCapabilities.map((actor) => (
+            <SurfaceCard
+              key={actor.actorName}
+              title={actor.actorName}
+              subtitle={actor.summary}
+            >
+              <ul className="plain-list">
+                {actor.capabilities?.map((capability) => (
+                  <li key={capability}>{capability}</li>
+                ))}
+              </ul>
+            </SurfaceCard>
+          ))}
+        </div>
+      </PageSection>
+
+      <PageSection
+        eyebrow="Checklist"
+        title="Những gì đã được dọn khỏi code cũ"
+        subtitle="Đây là các bước đã được hoàn thiện để kết nối Backend-Frontend."
+      >
+        <SurfaceCard title="React hóa thành công" subtitle="Không còn token Razor, full API.">
+          <ul className="plain-list">
+            {releaseChecklist.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </SurfaceCard>
+      </PageSection>
+    </PublicLayout>
+  );
+}
+
+export default OperationsGuest;

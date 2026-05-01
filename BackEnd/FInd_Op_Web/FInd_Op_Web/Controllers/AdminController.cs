@@ -31,7 +31,7 @@ namespace FInd_Op_Web.Controllers
         // 1. User Management CRUD
         // ============================
         [HttpGet]
-        public async Task<IActionResult> Users(string search, int page = 1)
+        public async Task<IActionResult> Users(string? search, int page = 1)
         {
             var query = _context.Users.Include(u => u.Roles).AsQueryable();
             
@@ -154,7 +154,7 @@ namespace FInd_Op_Web.Controllers
         // 2. Team Management CRUD
         // ============================
         [HttpGet]
-        public async Task<IActionResult> Teams(string search, int page = 1)
+        public async Task<IActionResult> Teams(string? search, int page = 1)
         {
             var query = _context.Teams.Include(t => t.Captain).AsQueryable();
             
@@ -234,7 +234,7 @@ namespace FInd_Op_Web.Controllers
         // 3. Stadium Management CRUD
         // ============================
         [HttpGet]
-        public async Task<IActionResult> Stadiums(string search, int page = 1)
+        public async Task<IActionResult> Stadiums(string? search, int page = 1)
         {
             var query = _context.Stadiums.Include(s => s.Owner).AsQueryable();
             
@@ -322,7 +322,7 @@ namespace FInd_Op_Web.Controllers
         // 4. Match Management CRUD
         // ============================
         [HttpGet]
-        public async Task<IActionResult> Matches(string search, int page = 1)
+        public async Task<IActionResult> Matches(string? search, int page = 1)
         {
             var query = _context.Matches.Include(m => m.HomeTeam).Include(m => m.AwayTeam).Include(m => m.Schedule).AsQueryable();
             

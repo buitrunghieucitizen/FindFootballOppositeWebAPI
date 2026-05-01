@@ -1,50 +1,59 @@
-import React from 'react';
+import { CrudPage } from '../components/portal-ui';
+import { sampleSelections, teams } from '../data/portalMockData';
 
-const EditMatchAdminjsx = () => {
-    return (
-        <>
-            {/* model */} FindFootballOppsite.Models.Match
-{/* RAZOR BLOCK: 
-    ViewData["Title"] = "Sửa Trận đấu";
-    Layout = "~/Views/Shared/_AdminLayout.cshtml";
- */}
+function EditMatchAdmin() {
+  const match = sampleSelections.primaryMatch;
 
-<div className="ff-dashboard-hero ff-animate-in" style={{ background: 'linear-gradient(135deg,#7c3aed,#2563eb)' }}>
-  <h2><i className="ti ti-calendar-event"></i> Sửa Trận Đấu #{/* Model.MatchId */}</h2>
-  <p>Cập nhật thông tin trận đấu.</p>
-</div>
+  return (
+    <CrudPage
+      title={`Sửa trận #${match.id}`}
+      subtitle="Trang cập nhật trạng thái trận đã được React hóa đầy đủ."
+      secondaryTo="/admin/matches"
+      primaryLabel="Lưu trận đấu"
+      fields={[
+        {
+          label: 'Đội nhà',
+          as: 'select',
+          defaultValue: match.homeTeamName,
+          options: teams.map((team) => ({ value: team.name, label: team.name })),
+        },
+        {
+          label: 'Đội khách',
+          as: 'select',
+          defaultValue: match.awayTeamName,
+          options: [
+            ...teams.map((team) => ({ value: team.name, label: team.name })),
+            { value: 'Chờ đối thủ', label: 'Chờ đối thủ' },
+          ],
+        },
+        { label: 'Khung giờ', defaultValue: match.kickoffLabel },
+        { label: 'Sân thi đấu', defaultValue: match.venueLabel },
+        {
+          label: 'Trạng thái',
+          as: 'select',
+          defaultValue: match.matchStatus,
+          options: [
+            { value: 'Proposed', label: 'Proposed' },
+            { value: 'Accepted', label: 'Accepted' },
+            { value: 'Completed', label: 'Completed' },
+            { value: 'Cancelled', label: 'Cancelled' },
+          ],
+        },
+        {
+          label: 'Ghi chú điểm danh',
+          as: 'textarea',
+          span: 'full',
+          defaultValue: match.attendanceSummary,
+        },
+      ]}
+      asideTitle="Luồng cập nhật trận"
+      asideItems={[
+        'Khi status chuyển Completed, nên khóa sửa roster và venue.',
+        'Nếu đổi venue, cần kiểm tra xung đột slot sân.',
+        'Nếu còn trạng thái Proposed, recruitment có thể vẫn được mở.',
+      ]}
+    />
+  );
+}
 
-<a href="{/* Url.Action( */}"Matches", "Admin")" className="ff-btn ff-btn-outline mb-3"><i className="ti ti-arrow-left"></i> Quay lại</a>
-
-<div className="ff-form-card">
-  <div className="ff-card-header"><h5><i className="ti ti-calendar-event"></i> Chỉnh sửa</h5></div>
-  <div className="ff-card-body">
-    <form asp-action="EditMatch" method="post">
-      <input type="hidden" asp-htmlFor="MatchId" />
-      <div className="ff-form-group"><label asp-htmlFor="HomeTeamId">ID Đội nhà</label><input asp-htmlFor="HomeTeamId" type="number" /></div>
-      <div className="ff-form-group"><label asp-htmlFor="AwayTeamId">ID Đội khách</label><input asp-htmlFor="AwayTeamId" type="number" /></div>
-      <div className="ff-form-group"><label asp-htmlFor="ScheduleId">ID Lịch sân</label><input asp-htmlFor="ScheduleId" type="number" /></div>
-      <div className="ff-form-group">
-        <label asp-htmlFor="MatchStatus">Trạng thái</label>
-        <select asp-htmlFor="MatchStatus">
-          <option value="Proposed">Đề xuất</option>
-          <option value="Accepted">Đã chấp nhận</option>
-          <option value="Completed">Hoàn thành</option>
-          <option value="CancelPending">Chờ hủy</option>
-          <option value="Cancelled">Đã hủy</option>
-        </select>
-      </div>
-      <div className="ff-form-group"><label asp-htmlFor="CancelReason">Lý do hủy</label><textarea asp-htmlFor="CancelReason" rows="2" placeholder="Nếu có..."></textarea></div>
-      <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
-        <button type="submit" className="ff-btn ff-btn-primary ff-btn-lg"><i className="ti ti-check"></i> Cập nhật</button>
-        <a href="{/* Url.Action( */}"Matches", "Admin")" className="ff-btn ff-btn-outline ff-btn-lg">Hủy</a>
-      </div>
-    </form>
-  </div>
-</div>
-
-        </>
-    );
-};
-
-export default EditMatchAdminjsx;
+export default EditMatchAdmin;

@@ -51,32 +51,39 @@ namespace FInd_Op_Web.Controllers
             return Ok(new { view = "~/Views/Home/Authentication/Login.cshtml" });
         }
 
-        [HttpPost]
-                public async Task<IActionResult> Login(string username, string password, string userRole)
+        public class LoginRequest
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(userRole))
+            public string Username { get; set; }
+            public string Password { get; set; }
+            public string UserRole { get; set; }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.UserRole))
             {
                 ModelState.AddModelError("", "Vui lòng nhập đầy đủ tên đăng nhập, mật khẩu và chọn vai trò");
-                return Ok(new { view = "~/Views/Home/Authentication/Login.cshtml" });
+                return BadRequest(ModelState);
             }
 
-            var user = await _authService.LoginAsync(username, password, userRole);
+            var user = await _authService.LoginAsync(request.Username, request.Password, request.UserRole);
 
             if (user == null)
             {
                 ModelState.AddModelError("", "Tên đăng nhập, mật khẩu hoặc vai trò không đúng");
-                return Ok(new { view = "~/Views/Home/Authentication/Login.cshtml" });
+                return Unauthorized(new { message = "Tên đăng nhập, mật khẩu hoặc vai trò không đúng" });
             }
 
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
                 new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(ClaimTypes.Role, userRole)
+                new Claim(ClaimTypes.Role, request.UserRole)
             };
 
             var token = GenerateJwtToken(claims);
-            return Ok(new { token = token, role = userRole, username = user.FullName });
+            return Ok(new { token = token, role = request.UserRole, username = user.FullName });
         }
 
         [HttpGet]
@@ -88,32 +95,43 @@ namespace FInd_Op_Web.Controllers
             return Ok(new { view = "~/Views/Home/Authentication/Register.cshtml" });
         }
 
-        [HttpPost]
-                public async Task<IActionResult> Register(string username, string fullName, string phone, string password, string confirmPassword, string userRole)
+        public class RegisterRequest
         {
-            if (password != confirmPassword)
+            public string Username { get; set; }
+            public string FullName { get; set; }
+            public string Phone { get; set; }
+            public string Password { get; set; }
+            public string ConfirmPassword { get; set; }
+            public string UserRole { get; set; }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+        {
+            if (request == null || request.Password != request.ConfirmPassword)
             {
                 ModelState.AddModelError("", "Mật khẩu xác nhận không khớp");
-                return Ok(new { view = "~/Views/Home/Authentication/Register.cshtml" });
+                return BadRequest(new { message = "Mật khẩu xác nhận không khớp" });
             }
 
-            var user = await _authService.RegisterAsync(username, fullName, phone, password, userRole ?? "Player");
+            var userRole = string.IsNullOrWhiteSpace(request.UserRole) ? "Player" : request.UserRole;
+            var user = await _authService.RegisterAsync(request.Username, request.FullName, request.Phone, request.Password, userRole);
 
             if (user == null)
             {
                 ModelState.AddModelError("", "Tên đăng nhập đã tồn tại hoặc thông tin không hợp lệ");
-                return Ok(new { view = "~/Views/Home/Authentication/Register.cshtml" });
+                return BadRequest(new { message = "Tên đăng nhập đã tồn tại hoặc thông tin không hợp lệ (Mật khẩu phải có ít nhất 8 ký tự, gồm chữ hoa, chữ thường và số)" });
             }
 
             var claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
                 new Claim(ClaimTypes.Name, user.FullName),
-                new Claim(ClaimTypes.Role, userRole ?? "Player")
+                new Claim(ClaimTypes.Role, userRole)
             };
 
             var token = GenerateJwtToken(claims);
-            return Ok(new { token = token, role = userRole ?? "Player", username = user.FullName });
+            return Ok(new { token = token, role = userRole, username = user.FullName });
         }
 
         [HttpPost]

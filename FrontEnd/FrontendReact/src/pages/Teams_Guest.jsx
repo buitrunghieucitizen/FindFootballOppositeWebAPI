@@ -1,81 +1,106 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Badge, PageSection, PublicLayout, SurfaceCard } from '../components/portal-ui';
+import { publicService } from '../services/publicService';
 
-const TeamsGuestjsx = () => {
-    return (
+function TeamsGuest() {
+  const [data, setData] = useState({ teams: [], players: [] });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const result = await publicService.getPortalData();
+        if (result) {
+          setData(result);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const teams = data.teams || [];
+  const freeAgents = (data.players || []).filter(p => p.isFreeAgent);
+
+  return (
+    <PublicLayout
+      title="Quản lý đội bóng và cầu thủ tự do"
+      subtitle="Dữ liệu này đang được tải trực tiếp từ Backend (C# ASP.NET Core) thông qua API."
+      actions={
         <>
-            {/* model */} PortalHubViewModel
-{/* RAZOR BLOCK: 
-    ViewData["Title"] = "Đội bóng";
- */}
-
-<section className="section-top ffo-page-banner">
-    <div className="container">
-        <div className="col-lg-10 offset-lg-1 col-xs-12 text-center">
-            <div className="section-top-title wow fadeInRight" data-wow-duration="1s" data-wow-delay="0.3s" data-wow-offset="0">
-                <h1>Quản lý đội bóng & cầu thủ tự do</h1>
-                <p>Đội trưởng duyệt thành viên, cầu thủ tìm đội, và hệ thống gom danh sách cầu thủ đang rảnh.</p>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section className="our_team section-padding">
-    <div className="container">
-        <div className="section-title text-center wow zoomIn">
-            <h2>Danh sách đội bóng</h2>
-            <div></div>
-        </div>
-        <div className="row text-center">
-            {/* FOREACH: var team in Model.Teams */}
-{
-                <div className="col-lg-4 col-sm-6 col-xs-12 wow fadeInUp">
-                    <div className="single_team ffo-single-team">
-                        <div style={{ overflow: 'hidden' }}>
-                            <img src="~/assets/img/team/team-{/* ((team.TeamId */} % 4) + 1).jpg" className="img-fluid" alt="{/* team.TeamName */}" />
-                        </div>
-                        <h3>{/* team.TeamName */}</h3>
-                        <p>{/* team.CaptainName */} — {/* team.QualityLevel */}</p>
-                        <ul className="ffo-mini-list text-left mt-3" style={{ padding: '0 20px 20px' }}>
-                            <li>{/* team.History */}</li>
-                            <li>Khu vực: {/* team.HomeArea */}</li>
-                            <li>{/* team.RecentForm */}</li>
-                            <li>Thành viên: {/* string.Join( */}", ", team.Members)</li>
-                        </ul>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-</section>
-
-<section className="section-padding" style={{ background: 'var(--ffo-bg)' }}>
-    <div className="container">
-        <div className="section-title text-center wow zoomIn">
-            <h2>Cầu thủ tự do đang rảnh</h2>
-            <div></div>
-        </div>
-        <div className="row">
-            {/* foreach */} (var player in Model.Players.Where(player => player.IsFreeAgent))
-            {
-                <div className="col-lg-4 col-sm-6 col-xs-12 wow fadeInUp" style={{ marginBottom: '30px' }}>
-                    <div className="ffo-info-card">
-                        <span className="ffo-status ffo-status-alt">Cầu thủ tự do</span>
-                        <h3>{/* player.FullName */}</h3>
-                        <ul className="ffo-mini-list">
-                            <li>Vị trí: {/* player.PreferredPosition */}</li>
-                            <li>Khu vực: {/* player.ActiveArea */}</li>
-                            <li>{/* player.AvailabilityNote */}</li>
-                            <li>Vai trò: {/* string.Join( */}", ", player.Roles)</li>
-                        </ul>
-                    </div>
-                </div>
-            }
-        </div>
-    </div>
-</section>
-
+          <Link className="portal-button" to="/recruitment">
+            Xem tin tuyển quân
+          </Link>
+          <Link className="portal-button ghost" to="/captain">
+            Mở dashboard đội trưởng
+          </Link>
         </>
-    );
-};
+      }
+    >
+      {loading ? (
+        <div className="flex justify-center p-12"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div></div>
+      ) : (
+        <>
+          <PageSection
+            eyebrow="Đội bóng"
+            title="Các đội đang hoạt động"
+            subtitle="Mỗi đội giữ lại những thông tin quan trọng: captain, khu vực, phong độ và nhu cầu ghép đối."
+          >
+            <div className="card-grid">
+              {teams.map((team) => (
+                <SurfaceCard
+                  key={team.teamId}
+                  title={team.teamName}
+                  subtitle={`${team.captainName} · ${team.homeArea}`}
+                  aside={
+                    <Badge tone={team.lookingForOpponent ? 'teal' : 'navy'}>
+                      {team.qualityLevel}
+                    </Badge>
+                  }
+                >
+                  <ul className="meta-list">
+                    <li>{team.history}</li>
+                    <li>Phong độ: {team.recentForm}.</li>
+                    <li>Thành viên chính: {team.members?.join(', ')}.</li>
+                    <li>
+                      Trạng thái kèo: {team.lookingForOpponent ? 'Đang mở ghép đối.' : 'Đang ưu tiên nội bộ.'}
+                    </li>
+                  </ul>
+                </SurfaceCard>
+              ))}
+            </div>
+          </PageSection>
 
-export default TeamsGuestjsx;
+          <PageSection
+            eyebrow="Cầu thủ rảnh"
+            title="Nguồn bổ sung nhanh cho các kèo đá bù"
+            subtitle="Những cầu thủ đang bật trạng thái tự do."
+          >
+            <div className="card-grid">
+              {freeAgents.map((player) => (
+                <article className="team-card" key={player.userId}>
+                  <div className="row-inline">
+                    <Badge tone="amber">{player.preferredPosition}</Badge>
+                    <Badge tone="sand">{player.activeArea}</Badge>
+                  </div>
+                  <h3>{player.fullName}</h3>
+                  <p className="muted">{player.teamName}</p>
+                  <ul className="meta-list">
+                    <li>{player.availabilityNote}</li>
+                    <li>Vai trò: {player.roles?.join(', ')}.</li>
+                  </ul>
+                </article>
+              ))}
+            </div>
+          </PageSection>
+        </>
+      )}
+    </PublicLayout>
+  );
+}
+
+export default TeamsGuest;
