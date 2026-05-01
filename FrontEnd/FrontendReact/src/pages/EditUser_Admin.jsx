@@ -1,50 +1,46 @@
-import React from 'react';
+import { CrudPage } from '../components/portal-ui';
+import { sampleSelections } from '../data/portalMockData';
 
-const EditUserAdminjsx = () => {
-    return (
-        <>
-            {/* model */} FindFootballOppsite.Models.User
-{/* RAZOR BLOCK: 
-    ViewData["Title"] = "Sửa Người dùng";
-    Layout = "~/Views/Shared/_AdminLayout.cshtml";
- */}
+function EditUserAdmin() {
+  const user = sampleSelections.primaryUser;
 
-<div className="ff-dashboard-hero ff-animate-in">
-  <h2><i className="ti ti-user-edit"></i> Sửa Thông Tin Người Dùng</h2>
-  <p>Cập nhật thông tin tài khoản #{/* Model.UserId */}</p>
-</div>
+  return (
+    <CrudPage
+      title={`Sửa người dùng #${user.id}`}
+      subtitle="Mẫu cập nhật tài khoản đã được chuyển sang JSX sạch."
+      secondaryTo="/admin/users"
+      primaryLabel="Lưu thay đổi"
+      fields={[
+        { label: 'Họ và tên', defaultValue: user.fullName },
+        { label: 'Tên đăng nhập', defaultValue: user.username },
+        { label: 'Số điện thoại', defaultValue: user.phone },
+        {
+          label: 'Vai trò chính',
+          as: 'select',
+          defaultValue: user.roles[0],
+          options: [
+            { value: 'Player', label: 'Player' },
+            { value: 'Captain', label: 'Captain' },
+            { value: 'StadiumOwner', label: 'StadiumOwner' },
+            { value: 'Admin', label: 'Admin' },
+          ],
+        },
+        { label: 'Ngày tạo', defaultValue: user.createdAt },
+        {
+          label: 'Ghi chú nội bộ',
+          as: 'textarea',
+          span: 'full',
+          defaultValue: 'Tài khoản mẫu sau migration. Chưa gắn API update thật.',
+        },
+      ]}
+      asideTitle="Kiểm tra trước khi lưu"
+      asideItems={[
+        'Nếu đổi role, cần đồng bộ lại các màn dashboard liên quan.',
+        'Số điện thoại nên có chuẩn normalize trước khi lưu thật.',
+        'Audit log nên ghi nhận ai cập nhật và thời điểm cập nhật.',
+      ]}
+    />
+  );
+}
 
-<a href="{/* Url.Action( */}"Users", "Admin")" className="ff-btn ff-btn-outline mb-3 ff-animate-in"><i className="ti ti-arrow-left"></i> Quay lại danh sách</a>
-
-<div className="ff-form-card ff-animate-in">
-  <div className="ff-card-header"><h5><i className="ti ti-user-edit"></i> Chỉnh sửa thông tin</h5></div>
-  <div className="ff-card-body">
-    <form asp-action="EditUser" method="post">
-      <input type="hidden" asp-htmlFor="UserId" />
-      <input type="hidden" asp-htmlFor="CreatedAt" />
-      <div className="ff-form-group">
-        <label asp-htmlFor="Username">Tên đăng nhập</label>
-        <input asp-htmlFor="Username" required />
-        <span asp-validation-htmlFor="Username" style={{ fontSize: '0.78rem', color: 'var(--ff-danger)' }}></span>
-      </div>
-      <div className="ff-form-group">
-        <label asp-htmlFor="FullName">Họ và Tên</label>
-        <input asp-htmlFor="FullName" required />
-      </div>
-      <div className="ff-form-group">
-        <label asp-htmlFor="Phone">Số điện thoại</label>
-        <input asp-htmlFor="Phone" />
-      </div>
-      <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
-        <button type="submit" className="ff-btn ff-btn-primary ff-btn-lg"><i className="ti ti-check"></i> Cập nhật</button>
-        <a href="{/* Url.Action( */}"Users", "Admin")" className="ff-btn ff-btn-outline ff-btn-lg">Hủy</a>
-      </div>
-    </form>
-  </div>
-</div>
-
-        </>
-    );
-};
-
-export default EditUserAdminjsx;
+export default EditUserAdmin;

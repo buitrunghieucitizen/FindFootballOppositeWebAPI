@@ -1,47 +1,56 @@
-import React from 'react';
+import { CrudPage } from '../components/portal-ui';
+import { teams } from '../data/portalMockData';
 
-const CreateMatchAdminjsx = () => {
-    return (
-        <>
-            {/* model */} FindFootballOppsite.Models.Match
-{/* RAZOR BLOCK: 
-    ViewData["Title"] = "Thêm Trận đấu";
-    Layout = "~/Views/Shared/_AdminLayout.cshtml";
- */}
+function CreateMatchAdmin() {
+  return (
+    <CrudPage
+      title="Thêm trận đấu"
+      subtitle="Mẫu tạo trận mới sau khi thay toàn bộ block C# bằng React form."
+      secondaryTo="/admin/matches"
+      fields={[
+        {
+          label: 'Đội nhà',
+          as: 'select',
+          defaultValue: teams[0].name,
+          options: teams.map((team) => ({ value: team.name, label: team.name })),
+        },
+        {
+          label: 'Đội khách',
+          as: 'select',
+          defaultValue: teams[1].name,
+          options: [
+            ...teams.map((team) => ({ value: team.name, label: team.name })),
+            { value: 'Chờ đối thủ', label: 'Chờ đối thủ' },
+          ],
+        },
+        { label: 'Khung giờ', placeholder: '19:30 · 03/05/2026' },
+        { label: 'Sân thi đấu', placeholder: 'Sân Sao Biển - Sân 7A' },
+        {
+          label: 'Trạng thái',
+          as: 'select',
+          defaultValue: 'Proposed',
+          options: [
+            { value: 'Proposed', label: 'Proposed' },
+            { value: 'Accepted', label: 'Accepted' },
+            { value: 'Completed', label: 'Completed' },
+            { value: 'Cancelled', label: 'Cancelled' },
+          ],
+        },
+        {
+          label: 'Ghi chú vận hành',
+          as: 'textarea',
+          span: 'full',
+          placeholder: 'Ví dụ: đang chờ xác nhận sân, thiếu thủ môn...',
+        },
+      ]}
+      asideTitle="Điểm lưu ý khi tạo trận"
+      asideItems={[
+        'Nếu chưa có đội khách, cho phép lưu trạng thái Proposed.',
+        'Kickoff và venue nên chuẩn hóa kiểu dữ liệu ở backend thật.',
+        'Attendance summary có thể tính từ danh sách xác nhận thành viên.',
+      ]}
+    />
+  );
+}
 
-<div className="ff-dashboard-hero ff-animate-in" style={{ background: 'linear-gradient(135deg,#7c3aed,#2563eb)' }}>
-  <h2><i className="ti ti-calendar-plus"></i> Thêm Trận Đấu Mới</h2>
-  <p>Tạo kèo đấu mới cho các đội bóng.</p>
-</div>
-
-<a href="{/* Url.Action( */}"Matches", "Admin")" className="ff-btn ff-btn-outline mb-3"><i className="ti ti-arrow-left"></i> Quay lại</a>
-
-<div className="ff-form-card">
-  <div className="ff-card-header"><h5><i className="ti ti-calendar-plus"></i> Thông tin trận đấu</h5></div>
-  <div className="ff-card-body">
-    <form asp-action="CreateMatch" method="post">
-      <div className="ff-form-group"><label asp-htmlFor="HomeTeamId">ID Đội nhà</label><input asp-htmlFor="HomeTeamId" type="number" placeholder="ID đội nhà" /></div>
-      <div className="ff-form-group"><label asp-htmlFor="AwayTeamId">ID Đội khách</label><input asp-htmlFor="AwayTeamId" type="number" placeholder="ID đội khách" /></div>
-      <div className="ff-form-group"><label asp-htmlFor="ScheduleId">ID Lịch sân</label><input asp-htmlFor="ScheduleId" type="number" placeholder="Có thể để trống" /></div>
-      <div className="ff-form-group">
-        <label asp-htmlFor="MatchStatus">Trạng thái</label>
-        <select asp-htmlFor="MatchStatus">
-          <option value="Proposed">Đề xuất</option>
-          <option value="Accepted">Đã chấp nhận</option>
-          <option value="Completed">Hoàn thành</option>
-          <option value="Cancelled">Đã hủy</option>
-        </select>
-      </div>
-      <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
-        <button type="submit" className="ff-btn ff-btn-primary ff-btn-lg"><i className="ti ti-check"></i> Lưu trận đấu</button>
-        <a href="{/* Url.Action( */}"Matches", "Admin")" className="ff-btn ff-btn-outline ff-btn-lg">Hủy</a>
-      </div>
-    </form>
-  </div>
-</div>
-
-        </>
-    );
-};
-
-export default CreateMatchAdminjsx;
+export default CreateMatchAdmin;

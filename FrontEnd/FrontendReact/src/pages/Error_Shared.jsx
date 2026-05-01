@@ -1,36 +1,38 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
+import { EmptyState, PublicLayout } from '../components/portal-ui';
 
-const ErrorSharedjsx = () => {
-    return (
+function ErrorShared() {
+  return (
+    <PublicLayout
+      title="Không tìm thấy trang bạn đang mở"
+      subtitle="Route này đóng vai trò thay cho trang lỗi cũ, nhưng đã được viết lại hoàn toàn bằng React thay vì view Razor."
+      actions={
         <>
-            {/* model */} ErrorViewModel
-{/* RAZOR BLOCK: 
-    ViewData["Title"] = "Error";
- */}
-
-<h1 className="text-danger">Error.</h1>
-<h2 className="text-danger">An error occurred while processing your request.</h2>
-
-{/* IF: Model.ShowRequestId */}
-{
-    <p>
-        <strong>Request ID:</strong> <code>{/* Model.RequestId */}</code>
-    </p>
+          <Link className="portal-button" to="/">
+            Về trang chủ
+          </Link>
+          <Link className="portal-button ghost" to="/admin-dashboard">
+            Mở dashboard
+          </Link>
+        </>
+      }
+    >
+      <EmptyState
+        title="Route không tồn tại"
+        description="Kiểm tra lại đường dẫn hoặc quay về một trong các màn chính đã được cấu hình trong React Router."
+        action={
+          <div className="hero-actions">
+            <Link className="portal-button ghost" to="/teams">
+              Đội bóng
+            </Link>
+            <Link className="portal-button ghost" to="/stadiums">
+              Sân bóng
+            </Link>
+          </div>
+        }
+      />
+    </PublicLayout>
+  );
 }
 
-<h3>Development Mode</h3>
-<p>
-    Swapping to <strong>Development</strong> environment will display more detailed information about the error that occurred.
-</p>
-<p>
-    <strong>The Development environment shouldn't be enabled for deployed applications.</strong>
-    It can result in displaying sensitive information from exceptions to end users.
-    For local debugging, enable the <strong>Development</strong> environment by setting the <strong>ASPNETCORE_ENVIRONMENT</strong> environment variable to <strong>Development</strong>
-    and restarting the app.
-</p>
-
-        </>
-    );
-};
-
-export default ErrorSharedjsx;
+export default ErrorShared;

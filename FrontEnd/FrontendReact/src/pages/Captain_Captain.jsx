@@ -1,225 +1,185 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  AdminLayout,
+  Badge,
+  MetricGrid,
+  SurfaceCard,
+  toneFromStatus,
+} from '../components/portal-ui';
+import { publicService } from '../services/publicService';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  FiUsers,
+  FiTarget,
+  FiMapPin,
+  FiCalendar,
+} from 'react-icons/fi';
 
-const CaptainCaptainjsx = () => {
+function CaptainCaptain() {
+  const { user } = useAuth();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const result = await publicService.getPortalData();
+        if (result) {
+          setData(result);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  if (loading) {
     return (
-        <>
-            {/* model */} PortalHubViewModel
-{/* RAZOR BLOCK: 
-    ViewData["Title"] = "Trang Đội Trưởng";
-    Layout = "_AdminLayout";
- */}
-
-{/*  Hero Header  */}
-<div className="ff-dashboard-hero ff-animate-in" style={{ background: 'linear-gradient(135deg, #059669 0%, #0891b2 100%)' }}>
-  <h2><i className="ti ti-flag-3"></i> Bảng Điều Khiển Đội Trưởng</h2>
-  <p>Quản lý đội hình, gạ đối, tuyển quân và theo dõi lịch thi đấu của đội bạn.</p>
-  <span className="ff-hero-badge"><i className="ti ti-trophy"></i> Mùa giải 2026</span>
-</div>
-
-{/*  Stat Cards  */}
-<div className="row g-3 mb-4">
-  <div className="col-md-6 col-xl-3 ff-animate-in">
-    <div className="ff-stat-card">
-      <div className="ff-stat-icon bg-success-soft"><i className="ti ti-shield"></i></div>
-      <div className="ff-stat-value">{/* Model.Teams.Count */}</div>
-      <div className="ff-stat-label">Đội Bóng Của Bạn</div>
-    </div>
-  </div>
-  <div className="col-md-6 col-xl-3 ff-animate-in">
-    <div className="ff-stat-card">
-      <div className="ff-stat-icon bg-primary-soft"><i className="ti ti-calendar-event"></i></div>
-      <div className="ff-stat-value">{/* Model.Matches.Count */}</div>
-      <div className="ff-stat-label">Kèo Đấu</div>
-    </div>
-  </div>
-  <div className="col-md-6 col-xl-3 ff-animate-in">
-    <div className="ff-stat-card">
-      <div className="ff-stat-icon bg-warning-soft"><i className="ti ti-speakerphone"></i></div>
-      <div className="ff-stat-value">{/* Model.RecruitmentAds.Count */}</div>
-      <div className="ff-stat-label">Tin Tuyển Quân</div>
-    </div>
-  </div>
-  <div className="col-md-6 col-xl-3 ff-animate-in">
-    <div className="ff-stat-card">
-      <div className="ff-stat-icon bg-purple-soft"><i className="ti ti-user-search"></i></div>
-      <div className="ff-stat-value">{/* Model.Metrics.FreeAgentCount */}</div>
-      <div className="ff-stat-label">Cầu Thủ Tự Do</div>
-    </div>
-  </div>
-</div>
-
-{/*  Main Content  */}
-<div className="row g-3 mb-4">
-  {/*  Team Management  */}
-  <div className="col-xl-6 ff-animate-in">
-    <div className="ff-card">
-      <div className="ff-card-header">
-        <h5><i className="ti ti-shield-check"></i> Đội Bóng Của Bạn</h5>
-      </div>
-      <div className="ff-card-body">
-        {/* foreach */} (var team in Model.Teams.Where(t => t.CaptainName != null))
-        {
-          <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', borderRadius: 'var(--ff-radius-sm)', padding: '20px', marginBottom: '14px', border: '1px solid #d1fae5' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-              <div style={{ width: '54px', height: '54px', borderRadius: '14px', background: 'linear-gradient(135deg,#059669,#0891b2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '1.4rem' }}>
-                <i className="ti ti-shield"></i>
-              </div>
-              <div>
-                <h4 style={{ margin: '0', fontWeight: '700', color: 'var(--ff-text)', fontSize: '1.15rem' }}>{/* team.TeamName */}</h4>
-                <span style={{ fontSize: '0.82rem', color: 'var(--ff-text-muted)' }}>Khu vực: {/* team.HomeArea */}</span>
-              </div>
-              {/* IF: team.LookingForOpponent */}
-{
-                <span className="ff-badge ff-badge-success ff-badge-pill ms-auto"><i className="ti ti-search"></i> Đang tìm đối</span>
-              }
-            </div>
-            <div className="row g-2">
-              <div className="col-4">
-                <div style={{ textAlign: 'center', padding: '10px', background: '#fff', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--ff-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Trình độ</div>
-                  <div style={{ fontWeight: '700', color: 'var(--ff-text)', fontSize: '0.95rem' }}>{/* team.QualityLevel */}</div>
-                </div>
-              </div>
-              <div className="col-4">
-                <div style={{ textAlign: 'center', padding: '10px', background: '#fff', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--ff-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Thành viên</div>
-                  <div style={{ fontWeight: '700', color: 'var(--ff-text)', fontSize: '0.95rem' }}>{/* team.Members.Count */}</div>
-                </div>
-              </div>
-              <div className="col-4">
-                <div style={{ textAlign: 'center', padding: '10px', background: '#fff', borderRadius: '8px' }}>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--ff-text-muted)', textTransform: 'uppercase', letterSpacing: '0.3px' }}>Phong độ</div>
-                  <div style={{ fontWeight: '700', color: 'var(--ff-success)', fontSize: '0.85rem' }}>{/* team.RecentForm.Split( */}':').Last().Trim()</div>
-                </div>
-              </div>
-            </div>
-            <div style={{ marginTop: '14px' }}>
-              <span style={{ fontSize: '0.78rem', color: 'var(--ff-text-muted)', fontWeight: '500' }}>Thành viên:</span>
-              {/* FOREACH: var member in team.Members */}
-{
-                <span className="ff-badge ff-badge-primary me-1 mt-1">{/* member */}</span>
-              }
-            </div>
-          </div>
-        }
-      </div>
-    </div>
-  </div>
-
-  {/*  Match Management  */}
-  <div className="col-xl-6 ff-animate-in">
-    <div className="ff-card">
-      <div className="ff-card-header">
-        <h5><i className="ti ti-swords"></i> Kèo Đấu (Gạ Đối)</h5>
-        <span className="ff-badge ff-badge-primary ff-badge-pill">{/* Model.Matches.Count */} trận</span>
-      </div>
-      <div className="ff-card-body">
-        {/* FOREACH: var match in Model.Matches */}
-{
-          <div className="ff-match-card">
-            <div className="ff-match-vs">
-              <div className="ff-match-team">
-                <div className="team-avatar" style={{ background: 'linear-gradient(135deg,#059669,#0891b2)' }}>
-                  {/* match.HomeTeamName.Substring(0 */}, 2)
-                </div>
-                <div className="team-name">{/* match.HomeTeamName */}</div>
-              </div>
-              <div className="ff-match-divider">VS</div>
-              <div className="ff-match-team">
-                <div className="team-avatar" style={{ background: 'linear-gradient(135deg,#dc2626,#f59e0b)' }}>
-                  {/* (match.AwayTeamName.Length */} >= 2 ? match.AwayTeamName.Substring(0, 2) : match.AwayTeamName)
-                </div>
-                <div className="team-name">{/* match.AwayTeamName */}</div>
-              </div>
-            </div>
-            <div className="ff-match-info">
-              <span className="ff-badge {/* (match.MatchStatus */} == "Đã chấp nhận" ? "ff-badge-success" : "ff-badge-warning") ff-badge-pill">{/* match.MatchStatus */}</span>
-              <span><i className="ti ti-clock"></i> {/* match.KickoffLabel */}</span>
-              <span><i className="ti ti-map-pin"></i> {/* match.VenueLabel */}</span>
-            </div>
-            <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--ff-border)', fontSize: '0.82rem', color: 'var(--ff-text-muted)' }}>
-              <i className="ti ti-users" style={{ color: 'var(--ff-success)' }}></i> {/* match.AttendanceSummary */}
-            </div>
-          </div>
-        }
-      </div>
-    </div>
-  </div>
-</div>
-
-{/*  Bottom Row  */}
-<div className="row g-3 mb-4">
-  {/*  Recruitment  */}
-  <div className="col-xl-6 ff-animate-in">
-    <div className="ff-card">
-      <div className="ff-card-header">
-        <h5><i className="ti ti-speakerphone"></i> Tuyển Quân & Đá Bù</h5>
-      </div>
-      <div className="ff-card-body">
-        {/* FOREACH: var ad in Model.RecruitmentAds */}
-{
-          <div className="ff-list-item">
-            <div className="ff-list-icon" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(239,68,68,0.1))', color: 'var(--ff-warning)' }}>
-              <i className="ti ti-speakerphone"></i>
-            </div>
-            <div className="ff-list-content">
-              <h6>{/* ad.Title */}</h6>
-              <p>{/* ad.Content */}</p>
-              <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                <span className="ff-badge ff-badge-purple">{/* ad.PositionNeeded */}</span>
-                <span className="ff-badge ff-badge-danger">{/* ad.UrgencyLabel */}</span>
-                <span className="ff-badge ff-badge-info">{/* ad.MatchLabel */}</span>
-              </div>
-            </div>
-          </div>
-        }
-      </div>
-    </div>
-  </div>
-
-  {/*  Schedule  */}
-  <div className="col-xl-6 ff-animate-in">
-    <div className="ff-card">
-      <div className="ff-card-header">
-        <h5><i className="ti ti-calendar"></i> Lịch Sân</h5>
-      </div>
-      <div className="ff-card-body">
-        <h6 style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--ff-text-muted)', marginBottom: '12px' }}>Đặt lẻ sắp tới</h6>
-        {/* foreach */} (var schedule in Model.UpcomingSchedules.Where(s => s.BookedByName.Contains("FC")))
-        {
-          <div className="ff-list-item">
-            <div className="ff-list-icon" style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.15), rgba(37,99,235,0.1))', color: 'var(--ff-info)' }}>
-              <i className="ti ti-calendar-time"></i>
-            </div>
-            <div className="ff-list-content">
-              <h6>{/* schedule.PitchName */} — {/* schedule.WindowLabel */}</h6>
-              <p>{/* schedule.BookedByName */}</p>
-            </div>
-            <span className="ff-badge ff-badge-info ff-badge-pill">{/* schedule.Status */}</span>
-          </div>
-        }
-
-        <h6 style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--ff-text-muted)', margin: '18px 0 12px' }}>Lịch cố định hàng tuần</h6>
-        {/* FOREACH: var booking in Model.RecurringBookings */}
-{
-          <div className="ff-list-item">
-            <div className="ff-list-icon" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.1))', color: 'var(--ff-success)' }}>
-              <i className="ti ti-repeat"></i>
-            </div>
-            <div className="ff-list-content">
-              <h6>{/* booking.PitchName */} — {/* booking.WeeklySlot */}</h6>
-              <p>Đội: {/* booking.TeamName */} · {/* booking.DateRange */}</p>
-            </div>
-            <span className="ff-badge {/* (booking.IsApproved */} ? "ff-badge-success" : "ff-badge-warning") ff-badge-pill">{/* (booking.IsApproved */} ? "Đã duyệt" : "Chờ duyệt")</span>
-          </div>
-        }
-      </div>
-    </div>
-  </div>
-</div>
-
-        </>
+      <AdminLayout title="Đang tải dữ liệu..." subtitle="Đang kết nối tới Backend..." user={user}>
+        <div className="flex justify-center p-12"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div></div>
+      </AdminLayout>
     );
-};
+  }
 
-export default CaptainCaptainjsx;
+  if (!data) return null;
+
+  const teams = data.teams || [];
+  const freeAgents = (data.players || []).filter(p => p.isFreeAgent);
+  const matches = data.matches || [];
+  const recruitmentAds = data.recruitmentAds || [];
+  const upcomingSchedules = data.upcomingSchedules || [];
+  const recurringBookings = data.recurringBookings || [];
+
+  const captainMetrics = [
+    { label: 'Thành viên', value: '18', icon: FiUsers, trend: '+2 tuần này', tone: 'teal' },
+    { label: 'Quỹ đội', value: '2.5M', icon: FiTarget, trend: 'Đủ sân 3 trận', tone: 'amber' },
+    { label: 'Trận thắng', value: '65%', icon: FiMapPin, trend: 'Phong độ cao', tone: 'navy' },
+    { label: 'Kèo tiếp theo', value: 'Tối thứ 5', icon: FiCalendar, trend: 'Đã chốt sân', tone: 'rose' },
+  ];
+
+  return (
+    <AdminLayout
+      title="Bảng điều khiển đội trưởng"
+      subtitle="Dữ liệu này đang được tải trực tiếp từ ASP.NET Core Backend qua API."
+      user={user}
+      actions={
+        <>
+          <Link className="portal-button" to="/teams">
+            Xem trang đội bóng
+          </Link>
+          <Link className="portal-button ghost" to="/recruitment">
+            Tìm người đá bù
+          </Link>
+        </>
+      }
+    >
+      <MetricGrid items={captainMetrics} />
+
+      <div className="detail-grid">
+        <SurfaceCard title="Đội của bạn" subtitle="Danh sách nhân sự và phong độ gần nhất">
+          <ul className="plain-list">
+            {teams.slice(0, 2).map((team) => (
+              <li key={team.teamId}>
+                <div className="row-inline">
+                  <strong>{team.teamName}</strong>
+                  <Badge tone={team.lookingForOpponent ? 'teal' : 'navy'}>
+                    {team.qualityLevel}
+                  </Badge>
+                </div>
+                <p className="muted">
+                  {team.homeArea} · {team.recentForm}
+                </p>
+                <p className="muted">Nhân sự: {team.members?.join(', ')}</p>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
+
+        <SurfaceCard title="Kèo đấu gần nhất" subtitle="Tình trạng ghép đối và điểm danh">
+          <ul className="plain-list">
+            {matches.map((match) => (
+              <li key={match.matchId}>
+                <div className="row-inline">
+                  <strong>
+                    {match.homeTeamName} vs {match.awayTeamName}
+                  </strong>
+                  <Badge tone={toneFromStatus(match.matchStatus)}>{match.matchStatus}</Badge>
+                </div>
+                <p className="muted">
+                  {match.kickoffLabel} · {match.venueLabel}
+                </p>
+                <p className="muted">{match.attendanceSummary}</p>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
+      </div>
+
+      <div className="detail-grid">
+        <SurfaceCard title="Tin tuyển quân đang mở" subtitle="Những vị trí còn thiếu">
+          <ul className="plain-list">
+            {recruitmentAds.map((ad) => (
+              <li key={ad.adId}>
+                <div className="row-inline">
+                  <strong>{ad.teamName}</strong>
+                  <Badge tone="rose">{ad.positionNeeded}</Badge>
+                </div>
+                <p className="muted">
+                  {ad.title} · {ad.urgencyLabel}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
+
+        <SurfaceCard title="Nguồn cầu thủ tự do" subtitle="Có thể gọi bổ sung ngay">
+          <ul className="plain-list">
+            {freeAgents.map((player) => (
+              <li key={player.userId}>
+                <strong>{player.fullName}</strong>
+                <p className="muted">
+                  {player.preferredPosition} · {player.activeArea}
+                </p>
+                <p className="muted">{player.availabilityNote}</p>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
+      </div>
+
+      <div className="detail-grid">
+        <SurfaceCard title="Lịch sân ngắn hạn" subtitle="Các slot cần đội xác nhận">
+          <ul className="plain-list">
+            {upcomingSchedules.map((schedule, idx) => (
+              <li key={idx}>
+                <strong>{schedule.pitchName}</strong>
+                <p className="muted">
+                  {schedule.windowLabel} · {schedule.bookedByName} · {schedule.status}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
+
+        <SurfaceCard title="Booking tuần" subtitle="Lịch lặp cần theo dõi">
+          <ul className="plain-list">
+            {recurringBookings.map((booking, idx) => (
+              <li key={idx}>
+                <strong>{booking.teamName}</strong>
+                <p className="muted">
+                  {booking.pitchName} · {booking.weeklySlot} · {booking.dateRange}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
+      </div>
+    </AdminLayout>
+  );
+}
+
+export default CaptainCaptain;

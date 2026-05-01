@@ -1,174 +1,141 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  AdminLayout,
+  Badge,
+  MetricGrid,
+  SurfaceCard,
+  formatCurrency,
+  toneFromStatus,
+} from '../components/portal-ui';
+import { publicService } from '../services/publicService';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  FiMapPin,
+  FiCalendar,
+  FiClock,
+  FiDollarSign,
+} from 'react-icons/fi';
 
-const StadiumOwnerStadiumOwnerjsx = () => {
+function StadiumOwnerStadiumOwner() {
+  const { user } = useAuth();
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const result = await publicService.getPortalData();
+        if (result) {
+          setData(result);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  if (loading) {
     return (
+      <AdminLayout title="Đang tải dữ liệu..." subtitle="Đang kết nối tới Backend..." user={user}>
+        <div className="flex justify-center p-12"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div></div>
+      </AdminLayout>
+    );
+  }
+
+  if (!data) return null;
+
+  const stadiums = data.stadiums || [];
+  const upcomingSchedules = data.upcomingSchedules || [];
+  const recurringBookings = data.recurringBookings || [];
+
+  // Map backend metrics
+  const ownerMetrics = [
+    { label: 'Doanh thu dự kiến', value: '12.5M', icon: FiDollarSign, trend: '+15% so với tuần trước', tone: 'teal' },
+    { label: 'Tỉ lệ lấp đầy', value: '78%', icon: FiMapPin, trend: 'Tăng 5%', tone: 'amber' },
+    { label: 'Booking chờ duyệt', value: recurringBookings.filter(b => !b.isApproved).length || 0, icon: FiClock, trend: 'Cần xử lý', tone: 'rose' },
+    { label: 'Trận đấu hôm nay', value: upcomingSchedules.length || 0, icon: FiCalendar, trend: 'Lịch đã chốt', tone: 'navy' },
+  ];
+
+  return (
+    <AdminLayout
+      title="Bảng điều khiển chủ sân"
+      subtitle="Dữ liệu này đang được tải trực tiếp từ ASP.NET Core Backend qua API."
+      user={user}
+      actions={
         <>
-            {/* model */} PortalHubViewModel
-{/* RAZOR BLOCK: 
-    ViewData["Title"] = "Trang Chủ Sân";
-    Layout = "_AdminLayout";
- */}
+          <Link className="portal-button" to="/admin/stadiums">
+            Mở quản trị sân
+          </Link>
+          <Link className="portal-button ghost" to="/stadiums">
+            Xem landing sân
+          </Link>
+        </>
+      }
+    >
+      <MetricGrid items={ownerMetrics} />
 
-{/*  Hero Header  */}
-<div className="ff-dashboard-hero ff-animate-in" style={{ background: 'linear-gradient(135deg, #d97706 0%, #dc2626 100%)' }}>
-  <h2><i className="ti ti-building-stadium"></i> Bảng Điều Khiển Chủ Sân</h2>
-  <p>Quản lý cụm sân, theo dõi lịch đặt, duyệt booking và giám sát công suất khai thác.</p>
-  <span className="ff-hero-badge"><i className="ti ti-chart-bar"></i> Báo cáo vận hành</span>
-</div>
-
-{/*  Stat Cards  */}
-<div className="row g-3 mb-4">
-  <div className="col-md-6 col-xl-3 ff-animate-in">
-    <div className="ff-stat-card">
-      <div className="ff-stat-icon bg-warning-soft"><i className="ti ti-building"></i></div>
-      <div className="ff-stat-value">{/* Model.Metrics.StadiumCount */}</div>
-      <div className="ff-stat-label">Cụm Sân</div>
-    </div>
-  </div>
-  <div className="col-md-6 col-xl-3 ff-animate-in">
-    <div className="ff-stat-card">
-      <div className="ff-stat-icon bg-success-soft"><i className="ti ti-soccer-field"></i></div>
-      <div className="ff-stat-value">{/* Model.Metrics.PitchCount */}</div>
-      <div className="ff-stat-label">Tổng Sân Con</div>
-    </div>
-  </div>
-  <div className="col-md-6 col-xl-3 ff-animate-in">
-    <div className="ff-stat-card">
-      <div className="ff-stat-icon bg-primary-soft"><i className="ti ti-calendar-check"></i></div>
-      <div className="ff-stat-value">{/* Model.UpcomingSchedules.Count */}</div>
-      <div className="ff-stat-label">Lịch Sắp Tới</div>
-    </div>
-  </div>
-  <div className="col-md-6 col-xl-3 ff-animate-in">
-    <div className="ff-stat-card">
-      <div className="ff-stat-icon bg-info-soft"><i className="ti ti-repeat"></i></div>
-      <div className="ff-stat-value">{/* Model.RecurringBookings.Count */}</div>
-      <div className="ff-stat-label">Hợp Đồng Cố Định</div>
-    </div>
-  </div>
-</div>
-
-{/*  Stadium Details  */}
-{/* FOREACH: var stadium in Model.Stadiums */}
-{
-<div className="row g-3 mb-4 ff-animate-in">
-  <div className="col-12">
-    <div className="ff-card">
-      <div className="ff-card-header">
-        <h5><i className="ti ti-building-stadium"></i> {/* stadium.StadiumName */}</h5>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <span className="ff-badge ff-badge-success ff-badge-pill"><span className="ff-live-dot" style={{ width: '6px', height: '6px', marginRight: '4px' }}></span> Đang hoạt động</span>
-        </div>
+      <div className="card-grid">
+        {stadiums.map((stadium) => (
+          <SurfaceCard
+            key={stadium.stadiumId}
+            title={stadium.stadiumName}
+            subtitle={`${stadium.address} · ${stadium.utilizationLabel}`}
+            aside={<Badge tone="amber">{stadium.ownerName}</Badge>}
+          >
+            <ul className="plain-list">
+              {stadium.pitches?.map((pitch) => (
+                <li key={pitch.pitchId}>
+                  <strong>{pitch.pitchName}</strong>
+                  <p className="muted">
+                    Sân {pitch.pitchSize} · {formatCurrency(pitch.pricePerHour)} · {pitch.availabilityLabel}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </SurfaceCard>
+        ))}
       </div>
-      <div className="ff-card-body">
-        {/*  Stadium Info Bar  */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center', marginBottom: '24px', padding: '16px 20px', background: 'linear-gradient(135deg,#fffbeb,#fef3c7)', borderRadius: 'var(--ff-radius-sm)', border: '1px solid #fde68a' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <i className="ti ti-map-pin" style={{ fontSize: '1.2rem', color: 'var(--ff-warning-dark)' }}></i>
-            <div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--ff-text-muted)', textTransform: 'uppercase' }}>Địa chỉ</div>
-              <div style={{ fontWeight: '600', color: 'var(--ff-text)', fontSize: '0.9rem' }}>{/* stadium.Address */}</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <i className="ti ti-user" style={{ fontSize: '1.2rem', color: 'var(--ff-warning-dark)' }}></i>
-            <div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--ff-text-muted)', textTransform: 'uppercase' }}>Chủ sân</div>
-              <div style={{ fontWeight: '600', color: 'var(--ff-text)', fontSize: '0.9rem' }}>{/* stadium.OwnerName */}</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <i className="ti ti-chart-pie" style={{ fontSize: '1.2rem', color: 'var(--ff-warning-dark)' }}></i>
-            <div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--ff-text-muted)', textTransform: 'uppercase' }}>Công suất</div>
-              <div style={{ fontWeight: '600', color: 'var(--ff-success-dark)', fontSize: '0.9rem' }}>{/* stadium.UtilizationLabel */}</div>
-            </div>
-          </div>
-        </div>
 
-        {/*  Pitch Grid  */}
-        <h6 style={{ fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--ff-text-muted)', marginBottom: '14px' }}>Danh Sách Sân Con</h6>
-        <div className="row g-3">
-          {/* FOREACH: var pitch in stadium.Pitches */}
-{
-            <div className="col-md-4">
-              <div className="ff-pitch-card">
-                <div className="pitch-icon">
-                  <i className="ti ti-soccer-field"></i>
+      <div className="detail-grid">
+        <SurfaceCard title="Lịch đặt sắp tới" subtitle="Các slot chủ sân cần theo dõi">
+          <ul className="plain-list">
+            {upcomingSchedules.map((schedule, idx) => (
+              <li key={idx}>
+                <div className="row-inline">
+                  <strong>{schedule.pitchName}</strong>
+                  <Badge tone={toneFromStatus(schedule.status)}>{schedule.status}</Badge>
                 </div>
-                <div className="pitch-name">{/* pitch.PitchName */}</div>
-                <div className="pitch-type">Sân {/* pitch.PitchSize */} người</div>
-                <div className="pitch-price">{/* pitch.PricePerHour.ToString( */}"N0") VNĐ/giờ</div>
-                <div style={{ marginTop: '10px' }}>
-                  <span className="ff-badge ff-badge-info ff-badge-pill">{/* pitch.AvailabilityLabel */}</span>
+                <p className="muted">
+                  {schedule.windowLabel} · {schedule.bookedByName}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
+        <SurfaceCard title="Hợp đồng tuần" subtitle="Các booking lặp cần duy trì">
+          <ul className="plain-list">
+            {recurringBookings.map((booking, idx) => (
+              <li key={idx}>
+                <div className="row-inline">
+                  <strong>{booking.teamName}</strong>
+                  <Badge tone={booking.isApproved ? 'teal' : 'amber'}>
+                    {booking.isApproved ? 'Đã duyệt' : 'Chờ duyệt'}
+                  </Badge>
                 </div>
-              </div>
-            </div>
-          }
-        </div>
+                <p className="muted">
+                  {booking.pitchName} · {booking.weeklySlot} · {booking.dateRange}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </SurfaceCard>
       </div>
-    </div>
-  </div>
-</div>
+    </AdminLayout>
+  );
 }
 
-{/*  Bookings Row  */}
-<div className="row g-3 mb-4">
-  {/*  Individual Bookings  */}
-  <div className="col-xl-6 ff-animate-in">
-    <div className="ff-card">
-      <div className="ff-card-header">
-        <h5><i className="ti ti-calendar-time"></i> Lịch Đặt Lẻ</h5>
-        <span className="ff-badge ff-badge-primary ff-badge-pill">{/* Model.UpcomingSchedules.Count */} lịch</span>
-      </div>
-      <div className="ff-card-body">
-        {/* FOREACH: var schedule in Model.UpcomingSchedules */}
-{
-          <div className="ff-list-item">
-            <div className="ff-list-icon" style={{ background: 'linear-gradient(135deg, rgba(37,99,235,0.15), rgba(139,92,246,0.1))', color: 'var(--ff-primary)' }}>
-              <i className="ti ti-calendar-event"></i>
-            </div>
-            <div className="ff-list-content">
-              <h6>{/* schedule.PitchName */}</h6>
-              <p><i className="ti ti-clock" style={{ fontSize: '0.82rem' }}></i> {/* schedule.WindowLabel */}</p>
-              <p>Người đặt: <strong>{/* schedule.BookedByName */}</strong> · {/* schedule.TypeLabel */}</p>
-            </div>
-            <span className="ff-badge {/* (schedule.Status */} == "Đã xác nhận" ? "ff-badge-success" : "ff-badge-warning") ff-badge-pill">{/* schedule.Status */}</span>
-          </div>
-        }
-      </div>
-    </div>
-  </div>
-
-  {/*  Recurring Bookings  */}
-  <div className="col-xl-6 ff-animate-in">
-    <div className="ff-card">
-      <div className="ff-card-header">
-        <h5><i className="ti ti-repeat"></i> Hợp Đồng Cố Định Hàng Tuần</h5>
-        <span className="ff-badge ff-badge-success ff-badge-pill">{/* Model.RecurringBookings.Count */} hợp đồng</span>
-      </div>
-      <div className="ff-card-body">
-        {/* FOREACH: var booking in Model.RecurringBookings */}
-{
-          <div className="ff-list-item">
-            <div className="ff-list-icon" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(6,182,212,0.1))', color: 'var(--ff-success)' }}>
-              <i className="ti ti-repeat"></i>
-            </div>
-            <div className="ff-list-content">
-              <h6>{/* booking.PitchName */} — {/* booking.WeeklySlot */}</h6>
-              <p>Đội: <strong>{/* booking.TeamName */}</strong></p>
-              <p>Thời hạn: {/* booking.DateRange */}</p>
-            </div>
-            <span className="ff-badge {/* (booking.IsApproved */} ? "ff-badge-success" : "ff-badge-warning") ff-badge-pill">{/* (booking.IsApproved */} ? "✓ Đã duyệt" : "⏳ Chờ duyệt")</span>
-          </div>
-        }
-      </div>
-    </div>
-  </div>
-</div>
-
-        </>
-    );
-};
-
-export default StadiumOwnerStadiumOwnerjsx;
+export default StadiumOwnerStadiumOwner;

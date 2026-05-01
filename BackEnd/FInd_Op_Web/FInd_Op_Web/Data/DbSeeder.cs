@@ -27,9 +27,10 @@ namespace FInd_Op_Web.Data
 
         private static void AddUser(ApplicationDbContext context, string username, string fullName, string roleName)
         {
-            if (!context.Users.Any(u => u.Username == username))
+            var user = context.Users.FirstOrDefault(u => u.Username == username);
+            if (user == null)
             {
-                var user = new User
+                user = new User
                 {
                     Username = username,
                     FullName = fullName,
@@ -47,6 +48,12 @@ namespace FInd_Op_Web.Data
                     user.Roles.Add(role);
                     context.SaveChanges();
                 }
+            }
+            else
+            {
+                // Force update password to BCrypt hash if user exists (to fix old plaintext passwords)
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword("Pass12345", 12);
+                context.SaveChanges();
             }
         }
     }

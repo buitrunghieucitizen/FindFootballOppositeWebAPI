@@ -1,122 +1,95 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { Route, Routes } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+
+// Modern Pages
+import HomePage from './pages/Home';
+import LoginPage from './pages/Login';
+import RegisterPage from './pages/Register';
+import AdminDashboard from './pages/AdminDashboard';
+
+// Legacy Pages (keeping for backward compatibility)
+import AdminAdmin from './pages/Admin_Admin';
+import CaptainCaptain from './pages/Captain_Captain';
+import CreateMatchAdmin from './pages/CreateMatch_Admin';
+import CreateStadiumAdmin from './pages/CreateStadium_Admin';
+import CreateTeamAdmin from './pages/CreateTeam_Admin';
+import CreateUserAdmin from './pages/CreateUser_Admin';
+import EditMatchAdmin from './pages/EditMatch_Admin';
+import EditStadiumAdmin from './pages/EditStadium_Admin';
+import EditTeamAdmin from './pages/EditTeam_Admin';
+import EditUserAdmin from './pages/EditUser_Admin';
+import EditUserRoleAdmin from './pages/EditUserRole_Admin';
+import ErrorShared from './pages/Error_Shared';
+import IndexAdmin from './pages/Index_Admin';
+import IndexGuest from './pages/Index_Guest';
+import LoginAuthentication from './pages/Login_Authentication';
+import MatchesAdmin from './pages/Matches_Admin';
+import MatchesGuest from './pages/Matches_Guest';
+import OperationsGuest from './pages/Operations_Guest';
+import PrivacyGuest from './pages/Privacy_Guest';
+import RecruitmentGuest from './pages/Recruitment_Guest';
+import RegisterAuthentication from './pages/Register_Authentication';
+import StadiumDetailsAdmin from './pages/StadiumDetails_Admin';
+import StadiumOwnerStadiumOwner from './pages/StadiumOwner_StadiumOwner';
+import StadiumsAdmin from './pages/Stadiums_Admin';
+import StadiumsGuest from './pages/Stadiums_Guest';
+import TeamsAdmin from './pages/Teams_Admin';
+import TeamsGuest from './pages/Teams_Guest';
+import UsersAdmin from './pages/Users_Admin';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <AuthProvider>
+      <Routes>
+        {/* Modern Routes */}
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route 
+          path="/admin-dashboard" 
+          element={
+            <ProtectedRoute requiredRole="Admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          } 
+        />
 
-      <div className="ticks"></div>
+        {/* Legacy Guest Routes */}
+        <Route path="/legacy-home" element={<IndexGuest />} />
+        <Route path="/teams" element={<TeamsGuest />} />
+        <Route path="/stadiums" element={<StadiumsGuest />} />
+        <Route path="/matches" element={<MatchesGuest />} />
+        <Route path="/recruitment" element={<RecruitmentGuest />} />
+        <Route path="/operations" element={<OperationsGuest />} />
+        <Route path="/privacy" element={<PrivacyGuest />} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {/* Legacy Admin Routes */}
+        <Route path="/legacy-admin-dashboard" element={<IndexAdmin />} />
+        <Route path="/admin/overview" element={<AdminAdmin />} />
+        <Route path="/admin/users" element={<UsersAdmin />} />
+        <Route path="/admin/users/create" element={<CreateUserAdmin />} />
+        <Route path="/admin/users/:id/edit" element={<EditUserAdmin />} />
+        <Route path="/admin/users/:id/roles" element={<EditUserRoleAdmin />} />
+        <Route path="/admin/teams" element={<TeamsAdmin />} />
+        <Route path="/admin/teams/create" element={<CreateTeamAdmin />} />
+        <Route path="/admin/teams/:id/edit" element={<EditTeamAdmin />} />
+        <Route path="/admin/stadiums" element={<StadiumsAdmin />} />
+        <Route path="/admin/stadiums/create" element={<CreateStadiumAdmin />} />
+        <Route path="/admin/stadiums/:id" element={<StadiumDetailsAdmin />} />
+        <Route path="/admin/stadiums/:id/edit" element={<EditStadiumAdmin />} />
+        <Route path="/admin/matches" element={<MatchesAdmin />} />
+        <Route path="/admin/matches/create" element={<CreateMatchAdmin />} />
+        <Route path="/admin/matches/:id/edit" element={<EditMatchAdmin />} />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        <Route path="/stadium-owner" element={<StadiumOwnerStadiumOwner />} />
+        <Route path="/captain" element={<CaptainCaptain />} />
+
+        {/* Error Route */}
+        <Route path="*" element={<ErrorShared />} />
+      </Routes>
+    </AuthProvider>
+  );
 }
 
-export default App
+export default App;

@@ -1,5 +1,6 @@
 using FInd_Op_Web.Data;
 using FInd_Op_Web.Services;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -16,8 +17,7 @@ builder.Services.AddCors(options =>
         {
             policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173") // Default Vite port
                   .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials(); // Important for Cookie authentication
+                  .AllowAnyMethod();
         });
 });
 
@@ -59,7 +59,10 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<PortalDataService>();
 
 // Add API Controllers
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+});
 
 // Add Swagger for testing APIs
 builder.Services.AddEndpointsApiExplorer();
@@ -92,7 +95,7 @@ using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
     var context = services.GetRequiredService<ApplicationDbContext>();
-    // DbSeeder.Seed(context); // Optional: Re-enable if you want to seed again
+    DbSeeder.Seed(context);
 }
 
 if (app.Environment.IsDevelopment())
@@ -101,10 +104,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
-
-// Enable CORS
+// Enable CORS FIRST — before anything else that might send a response
 app.UseCors("AllowReactApp");
+
+// Only redirect to HTTPS in production; in dev the frontend calls HTTP directly
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();

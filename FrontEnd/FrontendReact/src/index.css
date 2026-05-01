@@ -1,111 +1,69 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
+@layer base {
+  html, body, #root {
+    @apply h-full min-h-screen bg-slate-50 text-slate-900 font-sans;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+@layer components {
+  /* Grid Layouts */
+  .card-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6;
   }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+  .detail-grid, .dashboard-grid {
+    @apply grid grid-cols-1 lg:grid-cols-2 gap-8;
   }
-}
-
-body {
-  margin: 0;
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+  .pitch-grid, .matrix-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-6;
   }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+  
+  /* Cards */
+  .team-card, .list-card, .pitch-card, .detail-card, .quick-link {
+    @apply bg-white/80 backdrop-blur-xl border border-slate-200/60 rounded-3xl p-6 sm:p-8 shadow-xl shadow-teal-900/5 hover:shadow-2xl hover:shadow-teal-900/10 hover:-translate-y-1 transition-all duration-300 relative overflow-hidden flex flex-col gap-3;
   }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  .team-card h3, .list-card strong, .pitch-card h3, .detail-card h3, .quick-link h3 {
+    @apply text-xl font-extrabold text-slate-900 tracking-tight;
+  }
+  
+  /* Lists & Utils */
+  .meta-list, .plain-list {
+    @apply flex flex-col gap-2 mt-2 text-sm font-medium text-slate-600;
+  }
+  .row-inline {
+    @apply flex flex-wrap items-center gap-2 mb-2;
+  }
+  .muted {
+    @apply text-slate-500 font-medium text-sm;
+  }
+  
+  /* Tables */
+  .table-wrap {
+    @apply overflow-x-auto border border-slate-200 rounded-3xl shadow-lg shadow-slate-200/40 bg-white;
+  }
+  .data-table {
+    @apply w-full text-left min-w-[760px];
+  }
+  .data-table th {
+    @apply px-6 py-5 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200;
+  }
+  .data-table td {
+    @apply px-6 py-5 whitespace-nowrap text-sm font-medium text-slate-600 border-b border-slate-100;
+  }
+  .table-avatar {
+    @apply inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-500 text-white font-bold shadow-md;
+  }
+  
+  /* Forms */
+  .toolbar {
+    @apply flex flex-wrap items-center justify-between gap-4 mb-8;
+  }
+  .search-shell {
+    @apply flex items-center bg-white border border-slate-200 rounded-xl px-4 py-3 w-full md:w-80 shadow-sm focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-500 transition-all;
+  }
+  .search-shell input {
+    @apply bg-transparent outline-none w-full text-sm font-bold text-slate-900 placeholder:text-slate-400;
+  }
 }

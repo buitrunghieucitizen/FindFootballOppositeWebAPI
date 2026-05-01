@@ -1,14 +1,5 @@
-import React from 'react';
+function ViewStartViews() {
+  return null;
+}
 
-const ViewStartViewsjsx = () => {
-    return (
-        <>
-            {/* RAZOR BLOCK: 
-    Layout = "_Layout";
- */}
-
-        </>
-    );
-};
-
-export default ViewStartViewsjsx;
+export default ViewStartViews;
