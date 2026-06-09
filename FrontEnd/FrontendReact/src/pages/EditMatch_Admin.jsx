@@ -8,7 +8,7 @@ function EditMatchAdmin() {
     <CrudPage
       title={`Sửa trận #${match.id}`}
       subtitle="Trang cập nhật trạng thái trận đã được React hóa đầy đủ."
-      secondaryTo="/admin/matches"
+      secondaryTo="/admin-dashboard"
       primaryLabel="Lưu trận đấu"
       fields={[
         {

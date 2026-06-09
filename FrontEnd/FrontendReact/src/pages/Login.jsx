@@ -1,20 +1,35 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { Alert } from '../components';
 import { useAuth } from '../contexts/AuthContext';
-import { FiMail, FiLock, FiUserCheck, FiArrowRight } from 'react-icons/fi';
+import { useTheme } from '../contexts/ThemeContext';
+import { FiMail, FiLock, FiUserCheck, FiArrowRight, FiSun, FiMoon, FiArrowLeft } from 'react-icons/fi';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    userRole: 'Player',
   });
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [twoFactorState, setTwoFactorState] = useState(null); // 'verify' or 'setup'
+  const [pin, setPin] = useState('');
+  const [qrCode, setQrCode] = useState('');
+  const [manualKey, setManualKey] = useState('');
 
-  const { login } = useAuth();
+  const { login, verify2FA, setup2FA } = useAuth();
+  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state?.message) {
+      setSuccessMsg(location.state.message);
+      // Clean up state so message doesn't persist on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -30,46 +45,116 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await login(formData.username, formData.password, formData.userRole);
+      let response;
+      if (twoFactorState) {
+        response = await verify2FA(formData.username, formData.password, pin);
+      } else {
+        response = await login(formData.username, formData.password);
+        if (response.requires2FA) {
+          setTwoFactorState('verify');
+          setSuccessMsg('Vui lòng nhập mã Google Authenticator (6 chữ số).');
+          return;
+        }
+        if (response.requiresSetup2FA) {
+          const setupRes = await setup2FA(formData.username, formData.password);
+          setQrCode(setupRes.qrCodeImageUrl);
+          setManualKey(setupRes.manualEntryKey);
+          setTwoFactorState('setup');
+          setSuccessMsg('Cài đặt Google Authenticator bằng cách quét mã QR.');
+          return;
+        }
+      }
       
-      // Redirect based on role
-      if (formData.userRole === 'Admin') {
-        navigate('/admin-dashboard');
-      } else if (formData.userRole === 'Captain') {
-        navigate('/captain-dashboard');
-      } else if (formData.userRole === 'StadiumOwner') {
-        navigate('/stadium-owner-dashboard');
+      if (response.role === 'Admin') {
+        navigate('/admin-home');
+      } else if (response.role === 'Captain') {
+        navigate('/captain-home');
+      } else if (response.role === 'StadiumOwner') {
+        navigate('/owner-home');
+      } else if (response.role === 'Player') {
+        navigate('/');
       } else {
         navigate('/');
       }
     } catch (err) {
-      setError(err.message || 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      const errMsg = err?.message || (typeof err === 'string' ? err : 'Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin.');
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans selection:bg-teal-500 selection:text-white flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Abstract Background */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none -z-10">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-200/30 blur-[120px]"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-200/30 blur-[120px]"></div>
+    <div className="min-h-screen bg-slate-50 dark:bg-wc-navy-950 font-sans flex page-enter">
+      {/* Left — Hero Image with WC2026 overlay */}
+      <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] relative overflow-hidden">
+        <img
+          src="/login-hero.png"
+          alt="Football match"
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-wc-navy-950/95 via-wc-navy-900/60 to-wc-red-900/30" />
+        {/* Gold particle accents */}
+        <div className="absolute top-20 right-20 w-32 h-32 bg-wc-gold-500/20 rounded-full blur-[60px] animate-stadium-pulse"></div>
+        <div className="absolute bottom-40 left-10 w-24 h-24 bg-wc-gold-500/15 rounded-full blur-[40px] animate-stadium-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute bottom-0 left-0 right-0 p-12 z-10">
+          <Link to="/" className="flex items-center gap-1 mb-8 group">
+            <span className="text-3xl font-bold text-white tracking-tighter">Sportify</span>
+            <span className="text-3xl font-bold text-wc-gold-400 transform -skew-x-12 relative -ml-0.5">X</span>
+          </Link>
+          <h2 className="text-4xl font-bold text-white leading-tight mb-4">
+            Kết Nối Đam Mê.<br />Chinh Phục Sân Cỏ.
+          </h2>
+          <p className="text-slate-300 text-lg max-w-md">
+            Nền tảng quản lý đội bóng, tìm đối thủ và đặt sân hàng đầu Việt Nam 🏆
+          </p>
+        </div>
       </div>
 
-      <Link to="/" className="absolute top-6 left-6 text-slate-500 hover:text-teal-600 transition-colors font-medium flex items-center gap-2">
-         Về Trang Chủ
-      </Link>
+      {/* Right — Form */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 lg:p-12 relative">
 
-      <div className="w-full max-w-md relative z-10 animate-fade-in-up">
-        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl shadow-teal-900/5 border border-slate-100 p-8 sm:p-10">
-          <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-cyan-600 text-white shadow-lg shadow-teal-500/30 mb-6">
-              <FiUserCheck className="text-3xl" />
-            </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Chào Mừng Trở Lại</h1>
-            <p className="text-slate-500 mt-2 font-medium">Đăng nhập để quản lý đội bóng của bạn</p>
+
+        {/* Mobile logo */}
+        <Link to="/" className="hidden">
+        </Link>
+
+        <div className="w-full max-w-md animate-fade-in-up">
+          {/* Top actions */}
+          <div className="flex items-center justify-between mb-8">
+            <Link
+              to="/"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-wc-navy-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-wc-navy-700 hover:text-slate-900 dark:hover:text-white transition-colors shadow-sm font-semibold text-sm"
+            >
+              <FiArrowLeft className="text-lg" /> Về Trang Chủ
+            </Link>
+            
+            <button
+              onClick={toggleTheme}
+              className="p-2.5 rounded-xl bg-slate-100 dark:bg-wc-navy-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-wc-navy-700 transition-colors shadow-sm"
+              title={isDark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}
+            >
+              {isDark ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
+            </button>
           </div>
+
+          <div className="mb-10">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-wc-gold-50 dark:bg-wc-gold-500/10 text-wc-gold-600 dark:text-wc-gold-400 mb-6">
+              <FiUserCheck className="text-2xl" />
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white tracking-tight">Chào Mừng Trở Lại</h1>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">Đăng nhập để quản lý và tổ chức trận đấu ⚽</p>
+          </div>
+
+          {successMsg && (
+            <Alert
+              type="success"
+              title="Thành Công"
+              message={successMsg}
+              onClose={() => setSuccessMsg('')}
+              className="mb-6 rounded-xl"
+            />
+          )}
 
           {error && (
             <Alert
@@ -82,114 +167,96 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Tên đăng nhập</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <FiMail className="text-slate-400" />
+            {!twoFactorState ? (
+              <>
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tên đăng nhập</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <FiMail className="text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <input
+                      type="text"
+                      name="username"
+                      value={formData.username}
+                      onChange={handleChange}
+                      placeholder="Nhập tên đăng nhập"
+                      required
+                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-wc-navy-800/80 border border-slate-200 dark:border-wc-navy-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-wc-gold-500/30 focus:border-wc-gold-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                  </div>
                 </div>
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  placeholder="Nhập tên đăng nhập"
-                  required
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all duration-300"
-                />
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Mật khẩu</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <FiLock className="text-slate-400" />
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Mật khẩu</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <FiLock className="text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="Nhập mật khẩu"
+                      required
+                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-wc-navy-800/80 border border-slate-200 dark:border-wc-navy-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-wc-gold-500/30 focus:border-wc-gold-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                    />
+                  </div>
                 </div>
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  placeholder="Nhập mật khẩu"
-                  required
-                  className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all duration-300"
-                />
+              </>
+            ) : (
+              <div className="space-y-4">
+                {twoFactorState === 'setup' && (
+                  <div className="bg-slate-100 dark:bg-wc-navy-800 p-4 rounded-xl text-center">
+                    <img src={qrCode} alt="QR Code" className="mx-auto mb-2 rounded shadow-sm bg-white p-2" />
+                    <p className="text-sm text-slate-600 dark:text-slate-400 font-mono bg-white dark:bg-wc-navy-900 p-2 rounded">{manualKey}</p>
+                    <p className="text-xs text-slate-500 mt-2">Quét mã QR này hoặc nhập key thủ công vào ứng dụng Google Authenticator.</p>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Mã xác thực (6 chữ số)</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                      <FiLock className="text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <input
+                      type="text"
+                      maxLength="6"
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+                      placeholder="XXXXXX"
+                      required
+                      className="w-full pl-11 pr-4 py-3 bg-white dark:bg-wc-navy-800/80 border border-slate-200 dark:border-wc-navy-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-wc-gold-500/30 focus:border-wc-gold-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500 tracking-widest text-center text-xl font-mono"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Vai trò <span className="text-rose-500">*</span></label>
-              <select
-                name="userRole"
-                value={formData.userRole}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all duration-300 font-medium"
-              >
-                <option value="Player">Cầu thủ</option>
-                <option value="Captain">Đội trưởng</option>
-                <option value="StadiumOwner">Chủ sân bóng</option>
-                <option value="Admin">Quản trị viên (Admin)</option>
-              </select>
-            </div>
+
 
             <div className="pt-2">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-gradient-to-r from-teal-600 to-cyan-600 hover:from-teal-500 hover:to-cyan-500 text-white rounded-xl font-bold text-lg shadow-lg shadow-teal-500/30 hover:shadow-teal-500/40 hover:-translate-y-0.5 transition-all duration-300 disabled:opacity-70 disabled:pointer-events-none"
+                className="w-full flex items-center justify-center gap-2 py-3.5 px-4 bg-gradient-to-r from-wc-gold-500 to-wc-gold-600 hover:from-wc-gold-400 hover:to-wc-gold-500 text-wc-navy-950 rounded-xl font-bold shadow-lg shadow-wc-gold-500/20 hover:shadow-xl hover:shadow-wc-gold-500/30 transition-all duration-200 disabled:opacity-70 disabled:pointer-events-none"
               >
-                {loading ? 'Đang xử lý...' : 'Đăng Nhập'} <FiArrowRight className={loading ? 'hidden' : 'block'} />
+                {loading ? 'Đang xử lý...' : (twoFactorState ? 'Xác Thực 2FA' : 'Đăng Nhập')} <FiArrowRight className={loading ? 'hidden' : 'block'} />
               </button>
             </div>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-            <p className="text-slate-500 font-medium">
+          <div className="mt-8 pt-6 border-t border-slate-200 dark:border-wc-navy-800 text-center">
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
               Chưa có tài khoản?{' '}
-              <Link to="/register" className="text-teal-600 font-bold hover:text-teal-500 hover:underline transition-colors">
+              <Link to="/register" className="text-wc-gold-600 dark:text-wc-gold-400 font-bold hover:underline transition-colors">
                 Tạo tài khoản mới
               </Link>
             </p>
           </div>
 
-            <div className="mt-8 p-5 bg-teal-50/50 rounded-2xl border border-teal-100">
-              <h4 className="font-bold text-teal-900 mb-3 text-sm uppercase tracking-wider">Tài Khoản Demo (Từ DbSeeder):</h4>
-              <ul className="text-sm font-medium text-teal-800 space-y-2">
-                <li className="flex items-center justify-between gap-2">
-                  <span><span className="w-5 inline-block text-center">👤</span> Admin</span>
-                  <div className="flex gap-2">
-                    <code className="bg-white px-2 py-0.5 rounded text-teal-600 shadow-sm border border-teal-100">admin</code>
-                    <span className="text-teal-300">/</span>
-                    <code className="bg-white px-2 py-0.5 rounded text-teal-600 shadow-sm border border-teal-100">Pass12345</code>
-                  </div>
-                </li>
-                <li className="flex items-center justify-between gap-2">
-                  <span><span className="w-5 inline-block text-center">🏆</span> Captain</span>
-                  <div className="flex gap-2">
-                    <code className="bg-white px-2 py-0.5 rounded text-teal-600 shadow-sm border border-teal-100">captain</code>
-                    <span className="text-teal-300">/</span>
-                    <code className="bg-white px-2 py-0.5 rounded text-teal-600 shadow-sm border border-teal-100">Pass12345</code>
-                  </div>
-                </li>
-                <li className="flex items-center justify-between gap-2">
-                  <span><span className="w-5 inline-block text-center">🏟️</span> Stadium</span>
-                  <div className="flex gap-2">
-                    <code className="bg-white px-2 py-0.5 rounded text-teal-600 shadow-sm border border-teal-100">stadiumowner</code>
-                    <span className="text-teal-300">/</span>
-                    <code className="bg-white px-2 py-0.5 rounded text-teal-600 shadow-sm border border-teal-100">Pass12345</code>
-                  </div>
-                </li>
-                <li className="flex items-center justify-between gap-2">
-                  <span><span className="w-5 inline-block text-center">⚽</span> Player</span>
-                  <div className="flex gap-2">
-                    <code className="bg-white px-2 py-0.5 rounded text-teal-600 shadow-sm border border-teal-100">player</code>
-                    <span className="text-teal-300">/</span>
-                    <code className="bg-white px-2 py-0.5 rounded text-teal-600 shadow-sm border border-teal-100">Pass12345</code>
-                  </div>
-                </li>
-              </ul>
-            </div>
+
         </div>
       </div>
     </div>

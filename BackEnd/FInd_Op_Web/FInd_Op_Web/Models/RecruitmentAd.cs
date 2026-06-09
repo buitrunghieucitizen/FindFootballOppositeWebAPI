@@ -9,6 +9,8 @@ public partial class RecruitmentAd
 
     public int? TeamId { get; set; }
 
+    public int? SportId { get; set; }
+
     public int? MatchId { get; set; }
 
     public string Title { get; set; } = null!;
@@ -21,7 +23,13 @@ public partial class RecruitmentAd
 
     public bool? IsActive { get; set; }
 
+    public bool IsBoosted { get; set; } = false;
+
+    public DateTime? BoostUntil { get; set; }
+
     public virtual Match? Match { get; set; }
 
     public virtual Team? Team { get; set; }
+
+    public virtual Sport? Sport { get; set; }
 }

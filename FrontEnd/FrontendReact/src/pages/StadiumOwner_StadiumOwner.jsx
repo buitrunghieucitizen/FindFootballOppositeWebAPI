@@ -41,7 +41,7 @@ function StadiumOwnerStadiumOwner() {
   if (loading) {
     return (
       <AdminLayout title="Đang tải dữ liệu..." subtitle="Đang kết nối tới Backend..." user={user}>
-        <div className="flex justify-center p-12"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div></div>
+        <div className="flex justify-center p-12"><div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
       </AdminLayout>
     );
   }

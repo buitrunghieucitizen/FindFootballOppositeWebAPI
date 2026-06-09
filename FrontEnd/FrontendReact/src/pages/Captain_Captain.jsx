@@ -40,7 +40,7 @@ function CaptainCaptain() {
   if (loading) {
     return (
       <AdminLayout title="Đang tải dữ liệu..." subtitle="Đang kết nối tới Backend..." user={user}>
-        <div className="flex justify-center p-12"><div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div></div>
+        <div className="flex justify-center p-12"><div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
       </AdminLayout>
     );
   }
@@ -69,7 +69,7 @@ function CaptainCaptain() {
       actions={
         <>
           <Link className="portal-button" to="/teams">
-            Xem trang đội bóng
+            Xem trang đội thể thao
           </Link>
           <Link className="portal-button ghost" to="/recruitment">
             Tìm người đá bù

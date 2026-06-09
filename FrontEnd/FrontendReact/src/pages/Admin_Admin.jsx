@@ -90,7 +90,7 @@ function AdminAdmin() {
       </div>
 
       <div className="detail-grid">
-        <SurfaceCard title="Đội bóng nổi bật" subtitle="Giữ lại nội dung điều hành nhưng render bằng card React">
+        <SurfaceCard title="Đội thể thao nổi bật" subtitle="Giữ lại nội dung điều hành nhưng render bằng card React">
           <ul className="plain-list">
             {teams.slice(0, 3).map((team) => (
               <li key={team.id}>

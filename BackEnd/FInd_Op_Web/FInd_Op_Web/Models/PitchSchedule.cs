@@ -18,6 +18,8 @@ public partial class PitchSchedule
     public DateTime EndTime { get; set; }
 
     public string? ScheduleStatus { get; set; }
+    
+    public DateTime? LockedUntil { get; set; }
 
     public virtual User? BookedBy { get; set; }
 

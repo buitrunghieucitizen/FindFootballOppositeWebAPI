@@ -15,9 +15,25 @@ public partial class User
 
     public string? Phone { get; set; }
 
+    public string? Email { get; set; }
+
+    public string? AvatarUrl { get; set; }
+
     public bool? IsFreeAgent { get; set; }
 
     public DateTime? CreatedAt { get; set; }
+
+    public string? TwoFactorSecret { get; set; }
+
+    public bool IsTwoFactorEnabled { get; set; } = false;
+
+    public string? PublicKey { get; set; }
+
+    public bool IsPremium { get; set; } = false;
+
+    public DateTime? PremiumUntil { get; set; }
+
+    public int? Tokens { get; set; } = 0;
 
     public virtual ICollection<MatchPoll> MatchPolls { get; set; } = new List<MatchPoll>();
 

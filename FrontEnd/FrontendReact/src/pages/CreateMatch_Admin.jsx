@@ -6,7 +6,7 @@ function CreateMatchAdmin() {
     <CrudPage
       title="Thêm trận đấu"
       subtitle="Mẫu tạo trận mới sau khi thay toàn bộ block C# bằng React form."
-      secondaryTo="/admin/matches"
+      secondaryTo="/admin-dashboard"
       fields={[
         {
           label: 'Đội nhà',

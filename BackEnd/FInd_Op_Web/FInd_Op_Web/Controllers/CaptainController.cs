@@ -420,8 +420,7 @@ namespace FInd_Op_Web.Controllers
                     m.MatchId,
                     m.MatchType,
                     m.MatchStatus,
-                    HomeTeam = m.HomeTeam != null ? m.HomeTeam.TeamName : null,
-                    AwayTeam = m.AwayTeam != null ? m.AwayTeam.TeamName : null,
+                    OpponentName = m.HomeTeamId == team.TeamId ? (m.AwayTeam != null ? m.AwayTeam.TeamName : null) : (m.HomeTeam != null ? m.HomeTeam.TeamName : null),
                     m.HomeScore,
                     m.AwayScore,
                     m.HomeConfirmed,
@@ -630,7 +629,11 @@ namespace FInd_Op_Web.Controllers
                 HomeTeamId = team.TeamId,
                 MatchStatus = "LookingForOpponent",
                 MatchType = "Challenge",
-                ExpiresAt = DateTime.Now.AddDays(7)
+                ExpiresAt = DateTime.Now.AddDays(7),
+                MatchDate = dto.MatchDate,
+                StartTime = dto.StartTime,
+                Location = dto.Location,
+                Notes = dto.Notes
             };
 
             _context.Matches.Add(match);

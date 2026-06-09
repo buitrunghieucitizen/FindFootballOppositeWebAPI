@@ -3,6 +3,11 @@ import apiClient from './apiClient';
 const ADMIN_API = '/admin';
 
 export const adminService = {
+  getDashboardStats: async (timeframe = 'year') => {
+    const res = await apiClient.get(`/Admin/DashboardStats?timeframe=${timeframe}`);
+    return res.data;
+  },
+
   // ===== Users =====
   getUsers: async (search = '', page = 1) => {
     try {
@@ -194,4 +199,38 @@ export const adminService = {
       throw error.response?.data || error.message;
     }
   },
+
+  // ===== Tournaments =====
+  getTournaments: async () => {
+    const res = await apiClient.get(`${ADMIN_API}/tournaments`);
+    return res.data;
+  },
+
+  // ===== Posts =====
+  getPendingPosts: async () => {
+    const res = await apiClient.get(`${ADMIN_API}/posts/pending`);
+    return res.data;
+  },
+  approvePost: async (id) => {
+    const res = await apiClient.post(`${ADMIN_API}/posts/${id}/approve`);
+    return res.data;
+  },
+  rejectPost: async (id) => {
+    const res = await apiClient.post(`${ADMIN_API}/posts/${id}/reject`);
+    return res.data;
+  },
+
+  // ===== Withdrawal Requests =====
+  getWithdrawalRequests: async (status = 'All') => {
+    const res = await apiClient.get(`/Admin/WithdrawalRequests?status=${status}`);
+    return res.data;
+  },
+  approveWithdrawal: async (id, formData) => {
+    const res = await apiClient.put(`/Admin/WithdrawalRequests/${id}/Approve`, formData);
+    return res.data;
+  },
+  rejectWithdrawal: async (id) => {
+    const res = await apiClient.put(`/Admin/WithdrawalRequests/${id}/Reject`);
+    return res.data;
+  }
 };

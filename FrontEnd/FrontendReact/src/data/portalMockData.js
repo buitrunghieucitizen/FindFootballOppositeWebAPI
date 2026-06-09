@@ -1,7 +1,7 @@
 export const publicNav = [
   { to: '/', label: 'Trang chủ' },
-  { to: '/teams', label: 'Đội bóng' },
-  { to: '/stadiums', label: 'Sân bóng' },
+  { to: '/teams', label: 'Đội thể thao' },
+  { to: '/stadiums', label: 'Sân thể thao' },
   { to: '/matches', label: 'Trận đấu' },
   { to: '/recruitment', label: 'Tuyển quân' },
   { to: '/operations', label: 'Vận hành' },
@@ -12,8 +12,8 @@ export const adminNav = [
   { to: '/admin-dashboard', label: 'Tổng quan' },
   { to: '/admin/overview', label: 'Điều hành' },
   { to: '/admin/users', label: 'Người dùng' },
-  { to: '/admin/teams', label: 'Đội bóng' },
-  { to: '/admin/stadiums', label: 'Sân bóng' },
+  { to: '/admin/teams', label: 'Đội thể thao' },
+  { to: '/admin/stadiums', label: 'Sân thể thao' },
   { to: '/admin/matches', label: 'Trận đấu' },
 ];
 
@@ -419,7 +419,7 @@ export const databaseSchema = [
   },
   {
     name: 'teams',
-    purpose: 'Đại diện đội bóng, đội trưởng, khu vực hoạt động và chất lượng đội.',
+    purpose: 'Đại diện đội thể thao, đội trưởng, khu vực hoạt động và chất lượng đội.',
     fields: ['team_id', 'team_name', 'captain_id', 'home_area', 'quality_level'],
   },
   {
@@ -448,7 +448,7 @@ export const publicMetrics = [
 
 export const adminMetrics = [
   { label: 'Người dùng', value: users.length, note: 'Tài khoản đã xác minh' },
-  { label: 'Đội bóng', value: teams.length, note: 'Đội có captain rõ ràng' },
+  { label: 'Đội thể thao', value: teams.length, note: 'Đội có captain rõ ràng' },
   { label: 'Cụm sân', value: stadiums.length, note: `${pitchCatalog.length} sân con đang mở` },
   { label: 'Tin tuyển quân', value: recruitmentAds.length, note: 'Bài đăng còn hiệu lực' },
 ];
@@ -474,12 +474,12 @@ export const adminShortcuts = [
     to: '/admin/users',
   },
   {
-    title: 'Quản lý đội bóng',
+    title: 'Quản lý đội thể thao',
     description: 'Xem chất lượng đội, captain phụ trách và tình trạng tìm đối thủ.',
     to: '/admin/teams',
   },
   {
-    title: 'Quản lý sân bóng',
+    title: 'Quản lý sân thể thao',
     description: 'Theo dõi công suất, giá sân và booking lặp theo từng cụm.',
     to: '/admin/stadiums',
   },

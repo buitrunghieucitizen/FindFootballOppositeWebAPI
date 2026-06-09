@@ -4,11 +4,11 @@ import { AuthLayout, DemoInput } from '../components/portal-ui';
 function LoginAuthentication() {
   return (
     <AuthLayout
-      title="Đăng nhập để tiếp tục điều phối đội bóng và lịch sân"
+      title="Đăng nhập để tiếp tục điều phối đội thể thao và lịch sân"
       subtitle="Mẫu form này dùng JSX thuần, đã loại bỏ hoàn toàn `ViewData.ModelState`, `asp-action` và phần render lỗi kiểu Razor."
       asideTitle="Tài khoản demo đang có"
       asideItems={[
-        'Admin để quản lý người dùng, sân bóng và trận đấu.',
+        'Admin để quản lý người dùng, sân thể thao và trận đấu.',
         'Captain để ghép đối, điểm danh thành viên và đăng tin tuyển quân.',
         'StadiumOwner để duyệt slot sân và hợp đồng đặt sân cố định.',
       ]}

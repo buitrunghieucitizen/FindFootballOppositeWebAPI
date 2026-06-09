@@ -5,7 +5,7 @@ function CreateUserAdmin() {
     <CrudPage
       title="Thêm người dùng"
       subtitle="Biểu mẫu mẫu để tạo tài khoản mới trong module admin."
-      secondaryTo="/admin/users"
+      secondaryTo="/admin-dashboard"
       fields={[
         { label: 'Họ và tên', placeholder: 'Nguyễn Văn A' },
         { label: 'Tên đăng nhập', placeholder: 'nguyenvana' },

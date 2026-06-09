@@ -8,7 +8,7 @@ function EditStadiumAdmin() {
     <CrudPage
       title={`Sửa cụm sân #${stadium.id}`}
       subtitle="Mẫu cập nhật cụm sân sau migration sang React."
-      secondaryTo="/admin/stadiums"
+      secondaryTo="/admin-dashboard"
       primaryLabel="Lưu cụm sân"
       fields={[
         { label: 'Tên cụm sân', defaultValue: stadium.name },

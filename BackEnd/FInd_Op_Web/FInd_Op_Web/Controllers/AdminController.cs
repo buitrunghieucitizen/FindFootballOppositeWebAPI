@@ -1,400 +1,1339 @@
+using FInd_Op_Web.DTOs;
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using FInd_Op_Web.Data;
 using FInd_Op_Web.Models;
+using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
+using Microsoft.AspNetCore.Http;
 
 namespace FInd_Op_Web.Controllers
 {
-    // [Authorize(Roles = "Admin")]
+
+    [Authorize(Roles = "Admin")]
     [ApiController]
-    [Route("api/[controller]/[action]")]
+    [Route("api/[controller]")]
     public class AdminController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private const int PageSize = 8;
+        private readonly Cloudinary _cloudinary;
+        private const int PageSize = 10;
 
-        public AdminController(ApplicationDbContext context)
+        public AdminController(ApplicationDbContext context, Cloudinary cloudinary)
         {
             _context = context;
+            _cloudinary = cloudinary;
         }
 
-        [HttpGet]
-        public IActionResult Index()
+        // ============================================================
+        // HELPER: Standardized Pagination Response
+        // ============================================================
+        private object CreatePaginatedResponse<T>(List<T> items, int totalItems, int currentPage)
         {
-            return Ok();
+            return new
+            {
+                items,
+                totalItems,
+                currentPage,
+                totalPages = (int)Math.Ceiling((double)totalItems / PageSize),
+                pageSize = PageSize
+            };
         }
 
-        // ============================
-        // 1. User Management CRUD
-        // ============================
-        [HttpGet]
-        public async Task<IActionResult> Users(string? search, int page = 1)
+        [HttpGet("DashboardStats")]
+        public async Task<IActionResult> GetDashboardStats([FromQuery] string timeframe = "year")
+        {
+            var now = DateTime.Now;
+            var data = new List<object>();
+
+            if (timeframe == "week")
+            {
+                // Last 7 days
+                for (int i = 6; i >= 0; i--)
+                {
+                    var date = now.Date.AddDays(-i);
+                    var users = await _context.Users.CountAsync(u => u.CreatedAt != null && u.CreatedAt.Value.Date == date);
+                    var bookings = await _context.PitchSchedules.CountAsync(ps => ps.StartTime.Date == date && ps.ScheduleStatus != "Rejected");
+                    var revenue = await _context.PaymentTransactions
+                        .Where(t => t.Status == "Paid" && t.CreatedAt.Date == date)
+                        .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+                    data.Add(new { label = date.ToString("dd/MM"), users, bookings, revenue });
+                }
+            }
+            else if (timeframe == "month")
+            {
+                // Last 4 weeks
+                for (int i = 3; i >= 0; i--)
+                {
+                    var weekStart = now.Date.AddDays(-(i * 7 + 7));
+                    var weekEnd = now.Date.AddDays(-(i * 7));
+                    var label = $"Tuần {4 - i}";
+
+                    var users = await _context.Users.CountAsync(u => u.CreatedAt != null && u.CreatedAt.Value >= weekStart && u.CreatedAt.Value < weekEnd);
+                    var bookings = await _context.PitchSchedules.CountAsync(ps => ps.StartTime >= weekStart && ps.StartTime < weekEnd && ps.ScheduleStatus != "Rejected");
+                    var revenue = await _context.PaymentTransactions
+                        .Where(t => t.Status == "Paid" && t.CreatedAt >= weekStart && t.CreatedAt < weekEnd)
+                        .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+                    data.Add(new { label, users, bookings, revenue });
+                }
+            }
+            else if (timeframe == "quarter")
+            {
+                // Current quarter (3 months)
+                int currentQuarter = (now.Month - 1) / 3 + 1;
+                int startMonth = (currentQuarter - 1) * 3 + 1;
+                for (int i = 0; i < 3; i++)
+                {
+                    int m = startMonth + i;
+                    var label = $"Tháng {m}";
+
+                    var users = await _context.Users.CountAsync(u => u.CreatedAt != null && u.CreatedAt.Value.Year == now.Year && u.CreatedAt.Value.Month == m);
+                    var bookings = await _context.PitchSchedules.CountAsync(ps => ps.StartTime.Year == now.Year && ps.StartTime.Month == m && ps.ScheduleStatus != "Rejected");
+                    var revenue = await _context.PaymentTransactions
+                        .Where(t => t.Status == "Paid" && t.CreatedAt.Year == now.Year && t.CreatedAt.Month == m)
+                        .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+                    data.Add(new { label, users, bookings, revenue });
+                }
+            }
+            else // year
+            {
+                for (int i = 1; i <= 12; i++)
+                {
+                    var label = $"Tháng {i}";
+
+                    var users = await _context.Users.CountAsync(u => u.CreatedAt != null && u.CreatedAt.Value.Year == now.Year && u.CreatedAt.Value.Month == i);
+                    var bookings = await _context.PitchSchedules.CountAsync(ps => ps.StartTime.Year == now.Year && ps.StartTime.Month == i && ps.ScheduleStatus != "Rejected");
+                    var revenue = await _context.PaymentTransactions
+                        .Where(t => t.Status == "Paid" && t.CreatedAt.Year == now.Year && t.CreatedAt.Month == i)
+                        .SumAsync(t => (decimal?)t.Amount) ?? 0;
+
+                    data.Add(new { label, users, bookings, revenue });
+                }
+            }
+
+            return Ok(data);
+        }
+
+        /// <summary>
+        /// GET api/Admin/profile
+        /// Lấy thông tin cá nhân của Admin
+        /// </summary>
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
+            {
+                return BadRequest(new { message = "Không thể xác định người dùng từ token." });
+            }
+
+            var user = await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (user == null)
+            {
+                return NotFound(new { message = "Không tìm thấy người dùng." });
+            }
+
+            return Ok(new
+            {
+                userId = user.UserId,
+                username = user.Username,
+                fullName = user.FullName,
+                phone = user.Phone,
+                isFreeAgent = user.IsFreeAgent,
+                createdAt = user.CreatedAt,
+                roles = user.Roles.Select(r => r.RoleName).ToList()
+            });
+        }
+
+        // ============================================================
+        // 1. USER MANAGEMENT (Full CRUD)
+        // ============================================================
+
+        /// <summary>
+        /// GET api/Admin/users?search=&page=1&role=
+        /// Danh sách người dùng có phân trang, tìm kiếm, lọc theo role
+        /// </summary>
+        [HttpGet("users")]
+        public async Task<IActionResult> GetUsers(string? search, int page = 1, string? role = null)
         {
             var query = _context.Users.Include(u => u.Roles).AsQueryable();
-            
+
             if (!string.IsNullOrWhiteSpace(search))
             {
-                query = query.Where(u => u.FullName.Contains(search) || u.Username.Contains(search) || u.Phone.Contains(search));
-                // ViewBag.Search = search;
+                query = query.Where(u =>
+                    u.FullName.Contains(search) ||
+                    u.Username.Contains(search) ||
+                    (u.Phone != null && u.Phone.Contains(search)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                query = query.Where(u => u.Roles.Any(r => r.RoleName == role));
             }
 
             var totalItems = await query.CountAsync();
-            var users = await query.OrderBy(u => u.UserId).Skip((page - 1) * PageSize).Take(PageSize).ToListAsync();
+            var users = await query
+                .OrderBy(u => u.UserId)
+                .Skip((page - 1) * PageSize)
+                .Take(PageSize)
+                .Select(u => new
+                {
+                    u.UserId,
+                    u.Username,
+                    u.FullName,
+                    u.Phone,
+                    u.IsFreeAgent,
+                    u.CreatedAt,
+                    roles = u.Roles.Select(r => new { r.RoleId, r.RoleName })
+                })
+                .ToListAsync();
 
-            // ViewBag.TotalItems = totalItems;
-            // ViewBag.CurrentPage = page;
-            // ViewBag.TotalPages = (int)Math.Ceiling((double)totalItems / PageSize);
-
-            return Ok(users);
+            return Ok(CreatePaginatedResponse(users, totalItems, page));
         }
 
-        [HttpGet]
-        public async Task<IActionResult> EditUserRole(int id)
+        /// <summary>
+        /// GET api/Admin/users/{id}
+        /// Lấy thông tin chi tiết người dùng theo ID
+        /// </summary>
+        [HttpGet("users/{id}")]
+        public async Task<IActionResult> GetUser(int id)
         {
-            var user = await _context.Users.Include(u => u.Roles).FirstOrDefaultAsync(u => u.UserId == id);
-            if (user == null) return NotFound();
+            var user = await _context.Users
+                .Include(u => u.Roles)
+                .Where(u => u.UserId == id)
+                .Select(u => new
+                {
+                    u.UserId,
+                    u.Username,
+                    u.FullName,
+                    u.Phone,
+                    u.IsFreeAgent,
+                    u.CreatedAt,
+                    roles = u.Roles.Select(r => new { r.RoleId, r.RoleName })
+                })
+                .FirstOrDefaultAsync();
 
-            // ViewBag.Roles = await _context.Roles.ToListAsync();
-            var userRoles = user.Roles.Select(ur => ur.RoleId).ToList();
-            // ViewBag.UserRoleIds = userRoles;
+            if (user == null)
+                return NotFound(new { message = "Không tìm thấy người dùng." });
 
             return Ok(user);
         }
 
-        [HttpPost]
-        public async Task<IActionResult> EditUserRole(int id, int[] roleIds)
+        /// <summary>
+        /// POST api/Admin/users
+        /// Tạo người dùng mới
+        /// </summary>
+        [HttpPost("users")]
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
         {
-            var user = await _context.Users.Include(u => u.Roles).FirstOrDefaultAsync(u => u.UserId == id);
-            if (user == null) return NotFound();
+            // Validate username unique
+            if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
+                return BadRequest(new { message = "Tên đăng nhập đã tồn tại." });
 
-            user.Roles.Clear();
-
-            if (roleIds != null && roleIds.Length > 0)
+            // Validate phone unique (if provided)
+            if (!string.IsNullOrWhiteSpace(dto.Phone))
             {
-                var roles = await _context.Roles.Where(r => roleIds.Contains(r.RoleId)).ToListAsync();
-                foreach (var r in roles)
+                if (!Regex.IsMatch(dto.Phone, @"^\d{10,11}$"))
+                    return BadRequest(new { message = "Số điện thoại phải có 10-11 chữ số." });
+
+                if (await _context.Users.AnyAsync(u => u.Phone == dto.Phone))
+                    return BadRequest(new { message = "Số điện thoại đã được sử dụng." });
+            }
+
+            var user = new User
+            {
+                Username = dto.Username,
+                FullName = dto.FullName,
+                Phone = dto.Phone,
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(
+                    string.IsNullOrWhiteSpace(dto.Password) ? "Pass12345" : dto.Password, 12),
+                CreatedAt = DateTime.Now,
+                IsFreeAgent = false
+            };
+
+            // Assign roles
+            if (dto.Roles != null && dto.Roles.Length > 0)
+            {
+                var roles = await _context.Roles
+                    .Where(r => dto.Roles.Contains(r.RoleName))
+                    .ToListAsync();
+                foreach (var role in roles)
                 {
-                    user.Roles.Add(r);
+                    user.Roles.Add(role);
+                }
+            }
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, new
+            {
+                user.UserId,
+                user.Username,
+                user.FullName,
+                user.Phone,
+                user.IsFreeAgent,
+                user.CreatedAt,
+                roles = user.Roles.Select(r => new { r.RoleId, r.RoleName }),
+                message = "Tạo người dùng thành công!"
+            });
+        }
+
+        /// <summary>
+        /// PUT api/Admin/users/{id}
+        /// Cập nhật thông tin người dùng (không cho đổi username, password)
+        /// </summary>
+        [HttpPut("users/{id}")]
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserDto dto)
+        {
+            var user = await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == id);
+
+            if (user == null)
+                return NotFound(new { message = "Không tìm thấy người dùng." });
+
+            // Validate phone
+            if (!string.IsNullOrWhiteSpace(dto.Phone))
+            {
+                if (!Regex.IsMatch(dto.Phone, @"^\d{10,11}$"))
+                    return BadRequest(new { message = "Số điện thoại phải có 10-11 chữ số." });
+
+                if (await _context.Users.AnyAsync(u => u.Phone == dto.Phone && u.UserId != id))
+                    return BadRequest(new { message = "Số điện thoại đã được sử dụng." });
+            }
+
+            // Update fields
+            user.FullName = dto.FullName;
+            user.Phone = dto.Phone;
+
+            // Update roles if provided
+            if (dto.Roles != null)
+            {
+                user.Roles.Clear();
+                if (dto.Roles.Length > 0)
+                {
+                    var roles = await _context.Roles
+                        .Where(r => dto.Roles.Contains(r.RoleName))
+                        .ToListAsync();
+                    foreach (var role in roles)
+                    {
+                        user.Roles.Add(role);
+                    }
                 }
             }
 
             await _context.SaveChangesAsync();
-            // TempData["SuccessMessage"] = "Cập nhật phân quyền thành công!";
-            return Ok();
-        }
 
-        [HttpGet]
-        public IActionResult CreateUser()
-        {
-            return Ok();
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CreateUser(User user)
-        {
-            if (ModelState.IsValid)
+            return Ok(new
             {
-                user.CreatedAt = DateTime.Now;
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(user.PasswordHash ?? "Pass12345", 12);
-                _context.Users.Add(user);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Thêm người dùng thành công!";
-                return Ok();
-            }
-            return Ok(user);
+                user.UserId,
+                user.Username,
+                user.FullName,
+                user.Phone,
+                user.IsFreeAgent,
+                user.CreatedAt,
+                roles = user.Roles.Select(r => new { r.RoleId, r.RoleName }),
+                message = "Cập nhật người dùng thành công!"
+            });
         }
 
-        [HttpGet]
-        public async Task<IActionResult> EditUser(int id)
-        {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null) return NotFound();
-            return Ok(user);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> EditUser(int id, User user)
-        {
-            if (id != user.UserId) return NotFound();
-
-            if (ModelState.IsValid)
-            {
-                var existingUser = await _context.Users.AsNoTracking().FirstOrDefaultAsync(u => u.UserId == id);
-                if (existingUser != null)
-                {
-                    user.PasswordHash = existingUser.PasswordHash;
-                }
-                
-                _context.Update(user);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Cập nhật thông tin người dùng thành công!";
-                return Ok();
-            }
-            return Ok(user);
-        }
-
-        [HttpGet]
+        /// <summary>
+        /// DELETE api/Admin/users/{id}
+        /// Xóa người dùng
+        /// </summary>
+        [HttpDelete("users/{id}")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            var user = await _context.Users.Include(u => u.Roles).FirstOrDefaultAsync(u => u.UserId == id);
-            if (user != null)
+            var user = await _context.Users
+                .Include(u => u.Roles)
+                .FirstOrDefaultAsync(u => u.UserId == id);
+
+            if (user == null)
+                return NotFound(new { message = "Không tìm thấy người dùng." });
+
+            try
             {
                 user.Roles.Clear();
                 _context.Users.Remove(user);
                 await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Xóa người dùng thành công!";
+                return NoContent();
             }
-            return Ok();
+            catch (DbUpdateException)
+            {
+                return BadRequest(new { message = "Không thể xóa tài khoản này vì còn dữ liệu liên quan (Đội bóng, Sân bãi, Giao dịch,...). Vui lòng gỡ bỏ dữ liệu trước." });
+            }
         }
 
-        // ============================
-        // 2. Team Management CRUD
-        // ============================
-        [HttpGet]
-        public async Task<IActionResult> Teams(string? search, int page = 1)
+        // ============================================================
+        // 2. TEAM MANAGEMENT (List, Detail, Create, Delete)
+        // ============================================================
+
+        /// <summary>
+        /// GET api/Admin/teams?search=&page=1
+        /// Danh sách đội bóng có phân trang, tìm kiếm
+        /// </summary>
+        [HttpGet("teams")]
+        public async Task<IActionResult> GetTeams(string? search, int page = 1)
         {
-            var query = _context.Teams.Include(t => t.Captain).AsQueryable();
-            
+            var query = _context.Teams
+                .Include(t => t.Captain)
+                .Include(t => t.TeamMembers)
+                .AsQueryable();
+
             if (!string.IsNullOrWhiteSpace(search))
             {
-                query = query.Where(t => t.TeamName.Contains(search) || t.QualityLevel.Contains(search));
-                // ViewBag.Search = search;
+                query = query.Where(t => t.TeamName.Contains(search));
             }
 
             var totalItems = await query.CountAsync();
-            var teams = await query.OrderBy(t => t.TeamId).Skip((page - 1) * PageSize).Take(PageSize).ToListAsync();
+            var teams = await query
+                .OrderBy(t => t.TeamId)
+                .Skip((page - 1) * PageSize)
+                .Take(PageSize)
+                .Select(t => new
+                {
+                    t.TeamId,
+                    t.TeamName,
+                    t.CaptainId,
+                    captain = t.Captain == null ? null : new
+                    {
+                        t.Captain.FullName,
+                        t.Captain.Username
+                    },
+                    t.QualityLevel,
+                    t.IsDisbanded,
+                    t.CreatedAt,
+                    memberCount = t.TeamMembers.Count,
+                    t.LookingForOpponent,
+                    t.HomeArea,
+                    t.FoundedDate
+                })
+                .ToListAsync();
 
-            // ViewBag.TotalItems = totalItems;
-            // ViewBag.CurrentPage = page;
-            // ViewBag.TotalPages = (int)Math.Ceiling((double)totalItems / PageSize);
-
-            return Ok(teams);
+            return Ok(CreatePaginatedResponse(teams, totalItems, page));
         }
 
-        [HttpGet]
-        public IActionResult CreateTeam()
+        /// <summary>
+        /// GET api/Admin/teams/{id}
+        /// Chi tiết đội bóng
+        /// </summary>
+        [HttpGet("teams/{id}")]
+        public async Task<IActionResult> GetTeam(int id)
         {
-            return Ok();
-        }
+            var team = await _context.Teams
+                .Include(t => t.Captain)
+                .Include(t => t.TeamMembers).ThenInclude(tm => tm.Player)
+                .FirstOrDefaultAsync(t => t.TeamId == id);
 
-        [HttpPost]
-        public async Task<IActionResult> CreateTeam(Team team)
-        {
-            if (ModelState.IsValid)
+            if (team == null)
+                return NotFound(new { message = "Không tìm thấy đội bóng." });
+
+            // Lấy lịch sử trận đấu
+            var matches = await _context.Matches
+                .Include(m => m.HomeTeam)
+                .Include(m => m.AwayTeam)
+                .Include(m => m.Schedule)
+                .Where(m => m.HomeTeamId == id || m.AwayTeamId == id)
+                .Select(m => new
+                {
+                    m.MatchId,
+                    m.HomeTeamId,
+                    homeTeamName = m.HomeTeam != null ? m.HomeTeam.TeamName : null,
+                    m.AwayTeamId,
+                    awayTeamName = m.AwayTeam != null ? m.AwayTeam.TeamName : null,
+                    m.MatchStatus,
+                    schedule = m.Schedule == null ? null : new
+                    {
+                        m.Schedule.StartTime,
+                        m.Schedule.EndTime
+                    }
+                })
+                .ToListAsync();
+
+            return Ok(new
             {
-                team.CreatedAt = DateTime.Now;
-                _context.Teams.Add(team);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Thêm đội bóng thành công!";
-                return Ok();
-            }
-            return Ok(team);
+                team.TeamId,
+                team.TeamName,
+                team.CaptainId,
+                captain = team.Captain == null ? null : new
+                {
+                    team.Captain.FullName,
+                    team.Captain.Username
+                },
+                team.QualityLevel,
+                team.History,
+                team.IsDisbanded,
+                team.CreatedAt,
+                team.HomeArea,
+                team.FoundedDate,
+                team.LookingForOpponent,
+                members = team.TeamMembers.Select(tm => new
+                {
+                    tm.PlayerId,
+                    playerName = tm.Player.FullName,
+                    playerUsername = tm.Player.Username,
+                    tm.RoleInTeam,
+                    tm.Status,
+                    tm.JoinedDate
+                }),
+                matchHistory = matches
+            });
         }
 
-        [HttpGet]
-        public async Task<IActionResult> EditTeam(int id)
+        /// <summary>
+        /// POST api/Admin/teams
+        /// Tạo đội bóng mới
+        /// </summary>
+        [HttpPost("teams")]
+        public async Task<IActionResult> CreateTeam([FromBody] CreateTeamDto dto)
         {
-            var team = await _context.Teams.FindAsync(id);
-            if (team == null) return NotFound();
-            return Ok(team);
-        }
+            // Validate captain exists
+            if (!await _context.Users.AnyAsync(u => u.UserId == dto.CaptainId))
+                return BadRequest(new { message = "Đội trưởng không tồn tại trong hệ thống." });
 
-        [HttpPost]
-        public async Task<IActionResult> EditTeam(int id, Team team)
-        {
-            if (id != team.TeamId) return NotFound();
-
-            if (ModelState.IsValid)
+            var team = new Team
             {
-                _context.Update(team);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Cập nhật đội bóng thành công!";
-                return Ok();
-            }
-            return Ok(team);
+                TeamName = dto.TeamName,
+                CaptainId = dto.CaptainId,
+                QualityLevel = dto.QualityLevel,
+                HomeArea = dto.HomeArea,
+                History = dto.History,
+                LookingForOpponent = dto.LookingForOpponent,
+                SportId = dto.SportId,
+                CreatedAt = DateTime.Now,
+                IsDisbanded = false
+            };
+
+            _context.Teams.Add(team);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetTeam), new { id = team.TeamId }, new
+            {
+                team.TeamId,
+                team.TeamName,
+                team.CaptainId,
+                team.QualityLevel,
+                team.HomeArea,
+                team.LookingForOpponent,
+                team.CreatedAt,
+                message = "Tạo đội bóng thành công!"
+            });
         }
 
-        [HttpGet]
+        /// <summary>
+        /// DELETE api/Admin/teams/{id}
+        /// Xóa đội bóng
+        /// </summary>
+        [HttpDelete("teams/{id}")]
         public async Task<IActionResult> DeleteTeam(int id)
         {
             var team = await _context.Teams.FindAsync(id);
-            if (team != null)
+            if (team == null)
+                return NotFound(new { message = "Không tìm thấy đội bóng." });
+
+            try
             {
                 _context.Teams.Remove(team);
                 await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Xóa đội bóng thành công!";
+                return NoContent();
             }
-            return Ok();
+            catch (DbUpdateException)
+            {
+                return BadRequest(new { message = "Không thể xóa đội bóng này do còn dữ liệu liên quan (Thành viên, Trận đấu, Bài đăng,...). Vui lòng gỡ bỏ dữ liệu trước." });
+            }
         }
 
-        // ============================
-        // 3. Stadium Management CRUD
-        // ============================
-        [HttpGet]
-        public async Task<IActionResult> Stadiums(string? search, int page = 1)
+        // ============================================================
+        // 3. STADIUM MANAGEMENT (Full CRUD)
+        // ============================================================
+
+        /// <summary>
+        /// GET api/Admin/stadiums?search=&page=1
+        /// Danh sách sân vận động có phân trang, tìm kiếm
+        /// </summary>
+        [HttpGet("stadiums")]
+        public async Task<IActionResult> GetStadiums(string? search, int page = 1)
         {
-            var query = _context.Stadiums.Include(s => s.Owner).AsQueryable();
-            
+            var query = _context.Stadiums
+                .Include(s => s.Owner)
+                .Include(s => s.Pitches)
+                .AsQueryable();
+
             if (!string.IsNullOrWhiteSpace(search))
             {
-                query = query.Where(s => s.StadiumName.Contains(search) || s.Address.Contains(search));
-                // ViewBag.Search = search;
+                query = query.Where(s =>
+                    s.StadiumName.Contains(search) ||
+                    (s.Address != null && s.Address.Contains(search)));
             }
 
             var totalItems = await query.CountAsync();
-            var stadiums = await query.OrderBy(s => s.StadiumId).Skip((page - 1) * PageSize).Take(PageSize).ToListAsync();
+            var stadiums = await query
+                .OrderBy(s => s.StadiumId)
+                .Skip((page - 1) * PageSize)
+                .Take(PageSize)
+                .Select(s => new
+                {
+                    s.StadiumId,
+                    s.StadiumName,
+                    s.Address,
+                    s.Hotline,
+                    s.OwnerId,
+                    owner = s.Owner == null ? null : new { s.Owner.FullName },
+                    s.Description,
+                    pitchCount = s.Pitches.Count,
+                    s.CreatedAt
+                })
+                .ToListAsync();
 
-            // ViewBag.TotalItems = totalItems;
-            // ViewBag.CurrentPage = page;
-            // ViewBag.TotalPages = (int)Math.Ceiling((double)totalItems / PageSize);
-
-            return Ok(stadiums);
+            return Ok(CreatePaginatedResponse(stadiums, totalItems, page));
         }
 
-        [HttpGet]
-        public async Task<IActionResult> StadiumDetails(int id)
+        /// <summary>
+        /// GET api/Admin/stadiums/{id}
+        /// Chi tiết sân vận động
+        /// </summary>
+        [HttpGet("stadiums/{id}")]
+        public async Task<IActionResult> GetStadium(int id)
         {
-            var stadium = await _context.Stadiums.Include(s => s.Owner).Include(s => s.Pitches).FirstOrDefaultAsync(s => s.StadiumId == id);
-            if (stadium == null) return NotFound();
+            var stadium = await _context.Stadiums
+                .Include(s => s.Owner)
+                .Include(s => s.Pitches)
+                .Where(s => s.StadiumId == id)
+                .Select(s => new
+                {
+                    s.StadiumId,
+                    s.StadiumName,
+                    s.Address,
+                    s.Hotline,
+                    s.OwnerId,
+                    owner = s.Owner == null ? null : new
+                    {
+                        s.Owner.UserId,
+                        s.Owner.FullName,
+                        s.Owner.Username
+                    },
+                    s.Description,
+                    s.CreatedAt,
+                    pitches = s.Pitches.Select(p => new
+                    {
+                        p.PitchId,
+                        p.PitchName,
+                        p.PitchSize,
+                        p.PricePerHour,
+                        p.GrassType,
+                        p.IsActive
+                    })
+                })
+                .FirstOrDefaultAsync();
+
+            if (stadium == null)
+                return NotFound(new { message = "Không tìm thấy sân vận động." });
+
             return Ok(stadium);
         }
 
-        [HttpGet]
-        public IActionResult CreateStadium()
+        /// <summary>
+        /// POST api/Admin/stadiums
+        /// Tạo sân vận động mới (kèm sân con)
+        /// </summary>
+        [HttpPost("stadiums")]
+        public async Task<IActionResult> CreateStadium([FromBody] CreateStadiumDto dto)
         {
-            return Ok();
-        }
+            // Validate owner exists if provided
+            if (dto.OwnerId.HasValue && !await _context.Users.AnyAsync(u => u.UserId == dto.OwnerId))
+                return BadRequest(new { message = "Chủ sân không tồn tại trong hệ thống." });
 
-        [HttpPost]
-        public async Task<IActionResult> CreateStadium(Stadium stadium)
-        {
-            if (ModelState.IsValid)
+            var stadium = new Stadium
             {
-                stadium.CreatedAt = DateTime.Now;
-                _context.Stadiums.Add(stadium);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Thêm sân bóng thành công!";
-                return Ok();
-            }
-            return Ok(stadium);
-        }
+                StadiumName = dto.StadiumName,
+                Address = dto.Address,
+                Hotline = dto.Hotline,
+                Description = dto.Description,
+                OwnerId = dto.OwnerId,
+                CreatedAt = DateTime.Now
+            };
 
-        [HttpGet]
-        public async Task<IActionResult> EditStadium(int id)
-        {
-            var stadium = await _context.Stadiums.FindAsync(id);
-            if (stadium == null) return NotFound();
-            return Ok(stadium);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> EditStadium(int id, Stadium stadium)
-        {
-            if (id != stadium.StadiumId) return NotFound();
-
-            if (ModelState.IsValid)
+            // Thêm sân con (pitches)
+            if (dto.Pitches != null && dto.Pitches.Count > 0)
             {
-                _context.Update(stadium);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Cập nhật sân bóng thành công!";
-                return Ok();
+                foreach (var pitchDto in dto.Pitches)
+                {
+                    stadium.Pitches.Add(new Pitch
+                    {
+                        PitchName = pitchDto.PitchName,
+                        PitchSize = pitchDto.PitchSize,
+                        PricePerHour = pitchDto.PricePerHour,
+                        GrassType = pitchDto.GrassType,
+                        SportId = pitchDto.SportId ?? 1,
+                        IsActive = pitchDto.IsActive ?? true
+                    });
+                }
             }
-            return Ok(stadium);
+
+            _context.Stadiums.Add(stadium);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetStadium), new { id = stadium.StadiumId }, new
+            {
+                stadium.StadiumId,
+                stadium.StadiumName,
+                stadium.Address,
+                stadium.Hotline,
+                stadium.Description,
+                stadium.OwnerId,
+                stadium.CreatedAt,
+                pitches = stadium.Pitches.Select(p => new
+                {
+                    p.PitchId,
+                    p.PitchName,
+                    p.PitchSize,
+                    p.PricePerHour,
+                    p.GrassType,
+                    p.IsActive
+                }),
+                message = "Tạo sân vận động thành công!"
+            });
         }
 
-        [HttpGet]
+        /// <summary>
+        /// PUT api/Admin/stadiums/{id}
+        /// Cập nhật thông tin sân vận động (có thể thêm sân con mới)
+        /// </summary>
+        [HttpPut("stadiums/{id}")]
+        public async Task<IActionResult> UpdateStadium(int id, [FromBody] UpdateStadiumDto dto)
+        {
+            var stadium = await _context.Stadiums
+                .Include(s => s.Pitches)
+                .FirstOrDefaultAsync(s => s.StadiumId == id);
+
+            if (stadium == null)
+                return NotFound(new { message = "Không tìm thấy sân vận động." });
+
+            // Update stadium info
+            stadium.StadiumName = dto.StadiumName;
+            stadium.Address = dto.Address;
+            stadium.Hotline = dto.Hotline;
+            stadium.Description = dto.Description;
+
+            // Add new pitches if provided
+            if (dto.AddPitches != null && dto.AddPitches.Count > 0)
+            {
+                foreach (var pitchDto in dto.AddPitches)
+                {
+                    stadium.Pitches.Add(new Pitch
+                    {
+                        PitchName = pitchDto.PitchName,
+                        PitchSize = pitchDto.PitchSize,
+                        PricePerHour = pitchDto.PricePerHour,
+                        GrassType = pitchDto.GrassType,
+                        SportId = pitchDto.SportId ?? 1,
+                        IsActive = pitchDto.IsActive ?? true
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                stadium.StadiumId,
+                stadium.StadiumName,
+                stadium.Address,
+                stadium.Hotline,
+                stadium.Description,
+                stadium.CreatedAt,
+                pitches = stadium.Pitches.Select(p => new
+                {
+                    p.PitchId,
+                    p.PitchName,
+                    p.PitchSize,
+                    p.PricePerHour,
+                    p.GrassType,
+                    p.IsActive
+                }),
+                message = "Cập nhật sân vận động thành công!"
+            });
+        }
+
+        /// <summary>
+        /// DELETE api/Admin/stadiums/{id}
+        /// Xóa sân vận động và tất cả sân con
+        /// </summary>
+        [HttpDelete("stadiums/{id}")]
         public async Task<IActionResult> DeleteStadium(int id)
         {
-            var stadium = await _context.Stadiums.FindAsync(id);
-            if (stadium != null)
-            {
-                _context.Stadiums.Remove(stadium);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Xóa sân bóng thành công!";
-            }
-            return Ok();
+            var stadium = await _context.Stadiums
+                .Include(s => s.Pitches)
+                .FirstOrDefaultAsync(s => s.StadiumId == id);
+
+            if (stadium == null)
+                return NotFound(new { message = "Không tìm thấy sân vận động." });
+
+            // Remove all pitches first
+            _context.Pitches.RemoveRange(stadium.Pitches);
+            _context.Stadiums.Remove(stadium);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
-        // ============================
-        // 4. Match Management CRUD
-        // ============================
-        [HttpGet]
-        public async Task<IActionResult> Matches(string? search, int page = 1)
+        // ============================================================
+        // 4. MATCH MANAGEMENT (View + Delete only)
+        // ============================================================
+
+        /// <summary>
+        /// GET api/Admin/matches?search=&page=1&status=
+        /// Danh sách trận đấu có phân trang, tìm kiếm, lọc theo trạng thái
+        /// </summary>
+        [HttpGet("matches")]
+        public async Task<IActionResult> GetMatches(string? search, int page = 1, string? status = null)
         {
-            var query = _context.Matches.Include(m => m.HomeTeam).Include(m => m.AwayTeam).Include(m => m.Schedule).AsQueryable();
-            
+            var query = _context.Matches
+                .Include(m => m.HomeTeam)
+                .Include(m => m.AwayTeam)
+                .Include(m => m.Schedule)
+                .AsQueryable();
+
             if (!string.IsNullOrWhiteSpace(search))
             {
-                query = query.Where(m => m.MatchStatus.Contains(search) || m.HomeTeam.TeamName.Contains(search) || m.AwayTeam.TeamName.Contains(search));
-                // ViewBag.Search = search;
+                query = query.Where(m =>
+                    (m.MatchStatus != null && m.MatchStatus.Contains(search)) ||
+                    (m.HomeTeam != null && m.HomeTeam.TeamName.Contains(search)) ||
+                    (m.AwayTeam != null && m.AwayTeam.TeamName.Contains(search)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(m => m.MatchStatus == status);
             }
 
             var totalItems = await query.CountAsync();
-            var matches = await query.OrderBy(m => m.MatchId).Skip((page - 1) * PageSize).Take(PageSize).ToListAsync();
+            var matches = await query
+                .OrderByDescending(m => m.MatchId)
+                .Skip((page - 1) * PageSize)
+                .Take(PageSize)
+                .Select(m => new
+                {
+                    m.MatchId,
+                    m.HomeTeamId,
+                    homeTeamName = m.HomeTeam != null ? m.HomeTeam.TeamName : null,
+                    m.AwayTeamId,
+                    awayTeamName = m.AwayTeam != null ? m.AwayTeam.TeamName : null,
+                    m.MatchStatus,
+                    m.CancelRequestedBy,
+                    m.CancelReason,
+                    schedule = m.Schedule == null ? null : new
+                    {
+                        m.Schedule.ScheduleId,
+                        m.Schedule.StartTime,
+                        m.Schedule.EndTime,
+                        m.Schedule.ScheduleStatus
+                    }
+                })
+                .ToListAsync();
 
-            // ViewBag.TotalItems = totalItems;
-            // ViewBag.CurrentPage = page;
-            // ViewBag.TotalPages = (int)Math.Ceiling((double)totalItems / PageSize);
-
-            return Ok(matches);
+            return Ok(CreatePaginatedResponse(matches, totalItems, page));
         }
 
-        [HttpGet]
-        public IActionResult CreateMatch()
+        /// <summary>
+        /// GET api/Admin/matches/{id}
+        /// Chi tiết trận đấu
+        /// </summary>
+        [HttpGet("matches/{id}")]
+        public async Task<IActionResult> GetMatch(int id)
         {
-            return Ok();
-        }
+            var match = await _context.Matches
+                .Include(m => m.HomeTeam)
+                .Include(m => m.AwayTeam)
+                .Include(m => m.Schedule).ThenInclude(s => s.Pitch)
+                .Where(m => m.MatchId == id)
+                .Select(m => new
+                {
+                    m.MatchId,
+                    m.HomeTeamId,
+                    homeTeam = m.HomeTeam == null ? null : new
+                    {
+                        m.HomeTeam.TeamId,
+                        m.HomeTeam.TeamName,
+                        m.HomeTeam.QualityLevel
+                    },
+                    m.AwayTeamId,
+                    awayTeam = m.AwayTeam == null ? null : new
+                    {
+                        m.AwayTeam.TeamId,
+                        m.AwayTeam.TeamName,
+                        m.AwayTeam.QualityLevel
+                    },
+                    m.MatchStatus,
+                    m.CancelRequestedBy,
+                    m.CancelReason,
+                    schedule = m.Schedule == null ? null : new
+                    {
+                        m.Schedule.ScheduleId,
+                        m.Schedule.StartTime,
+                        m.Schedule.EndTime,
+                        m.Schedule.ScheduleStatus,
+                        pitch = m.Schedule.Pitch == null ? null : new
+                        {
+                            m.Schedule.Pitch.PitchId,
+                            m.Schedule.Pitch.PitchName,
+                            m.Schedule.Pitch.PitchSize
+                        }
+                    }
+                })
+                .FirstOrDefaultAsync();
 
-        [HttpPost]
-        public async Task<IActionResult> CreateMatch(Match match)
-        {
-            if (ModelState.IsValid)
-            {
-                _context.Matches.Add(match);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Thêm trận đấu thành công!";
-                return Ok();
-            }
+            if (match == null)
+                return NotFound(new { message = "Không tìm thấy trận đấu." });
+
             return Ok(match);
         }
 
-        [HttpGet]
-        public async Task<IActionResult> EditMatch(int id)
-        {
-            var match = await _context.Matches.FindAsync(id);
-            if (match == null) return NotFound();
-            return Ok(match);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> EditMatch(int id, Match match)
-        {
-            if (id != match.MatchId) return NotFound();
-
-            if (ModelState.IsValid)
-            {
-                _context.Update(match);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Cập nhật trận đấu thành công!";
-                return Ok();
-            }
-            return Ok(match);
-        }
-
-        [HttpGet]
+        /// <summary>
+        /// DELETE api/Admin/matches/{id}
+        /// Xóa trận đấu
+        /// </summary>
+        [HttpDelete("matches/{id}")]
         public async Task<IActionResult> DeleteMatch(int id)
         {
             var match = await _context.Matches.FindAsync(id);
-            if (match != null)
-            {
-                _context.Matches.Remove(match);
-                await _context.SaveChangesAsync();
-                // TempData["SuccessMessage"] = "Xóa trận đấu thành công!";
-            }
-            return Ok();
+            if (match == null)
+                return NotFound(new { message = "Không tìm thấy trận đấu." });
+
+            _context.Matches.Remove(match);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
+
+        // ============================================================
+        // 5. TOURNAMENT MANAGEMENT (Full CRUD)
+        // ============================================================
+
+        /// <summary>
+        /// GET api/Admin/tournaments?search=&page=1
+        /// Danh sách giải đấu có phân trang
+        /// </summary>
+        [HttpGet("tournaments")]
+        public async Task<IActionResult> GetTournaments(string? search, int page = 1)
+        {
+            var query = _context.Tournaments
+                .Include(t => t.Stadium)
+                .Include(t => t.Organizer)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(t => t.TournamentName.Contains(search));
+            }
+
+            var totalItems = await query.CountAsync();
+            var tournaments = await query
+                .OrderByDescending(t => t.CreatedAt)
+                .Skip((page - 1) * PageSize)
+                .Take(PageSize)
+                .Select(t => new
+                {
+                    t.TournamentId,
+                    t.TournamentName,
+                    t.Format,
+                    t.StadiumId,
+                    stadiumName = t.Stadium != null ? t.Stadium.StadiumName : null,
+                    t.OrganizerId,
+                    organizerName = t.Organizer != null ? t.Organizer.FullName : null,
+                    t.StartDate,
+                    t.EndDate,
+                    t.Status,
+                    t.Description,
+                    t.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(CreatePaginatedResponse(tournaments, totalItems, page));
+        }
+
+        /// <summary>
+        /// GET api/Admin/tournaments/{id}
+        /// Chi tiết giải đấu
+        /// </summary>
+        [HttpGet("tournaments/{id}")]
+        public async Task<IActionResult> GetTournament(int id)
+        {
+            var tournament = await _context.Tournaments
+                .Include(t => t.Stadium)
+                .Include(t => t.Organizer)
+                .Where(t => t.TournamentId == id)
+                .Select(t => new
+                {
+                    t.TournamentId,
+                    t.TournamentName,
+                    t.Format,
+                    t.StadiumId,
+                    stadium = t.Stadium == null ? null : new
+                    {
+                        t.Stadium.StadiumId,
+                        t.Stadium.StadiumName,
+                        t.Stadium.Address
+                    },
+                    t.OrganizerId,
+                    organizer = t.Organizer == null ? null : new
+                    {
+                        t.Organizer.UserId,
+                        t.Organizer.FullName,
+                        t.Organizer.Username
+                    },
+                    t.StartDate,
+                    t.EndDate,
+                    t.Status,
+                    t.Description,
+                    t.CreatedAt
+                })
+                .FirstOrDefaultAsync();
+
+            if (tournament == null)
+                return NotFound(new { message = "Không tìm thấy giải đấu." });
+
+            return Ok(tournament);
+        }
+
+        /// <summary>
+        /// POST api/Admin/tournaments
+        /// Tạo giải đấu mới
+        /// </summary>
+        [HttpPost("tournaments")]
+        public async Task<IActionResult> CreateTournament([FromBody] CreateTournamentDto dto)
+        {
+            // Validate stadium exists if provided
+            if (dto.StadiumId.HasValue && !await _context.Stadiums.AnyAsync(s => s.StadiumId == dto.StadiumId))
+                return BadRequest(new { message = "Sân vận động không tồn tại." });
+
+            // Validate organizer exists if provided
+            if (dto.OrganizerId.HasValue && !await _context.Users.AnyAsync(u => u.UserId == dto.OrganizerId))
+                return BadRequest(new { message = "Người tổ chức không tồn tại." });
+
+            var tournament = new Tournament
+            {
+                TournamentName = dto.TournamentName,
+                Format = dto.Format,
+                SportId = dto.SportId,
+                StadiumId = dto.StadiumId,
+                OrganizerId = dto.OrganizerId,
+                StartDate = dto.StartDate,
+                EndDate = dto.EndDate,
+                Status = dto.Status ?? "Upcoming",
+                Description = dto.Description,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Tournaments.Add(tournament);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetTournament), new { id = tournament.TournamentId }, new
+            {
+                tournament.TournamentId,
+                tournament.TournamentName,
+                tournament.Format,
+                tournament.StadiumId,
+                tournament.OrganizerId,
+                tournament.StartDate,
+                tournament.EndDate,
+                tournament.Status,
+                tournament.Description,
+                tournament.CreatedAt,
+                message = "Tạo giải đấu thành công!"
+            });
+        }
+
+        /// <summary>
+        /// PUT api/Admin/tournaments/{id}
+        /// Cập nhật giải đấu
+        /// </summary>
+        [HttpPut("tournaments/{id}")]
+        public async Task<IActionResult> UpdateTournament(int id, [FromBody] UpdateTournamentDto dto)
+        {
+            var tournament = await _context.Tournaments.FindAsync(id);
+            if (tournament == null)
+                return NotFound(new { message = "Không tìm thấy giải đấu." });
+
+            // Validate stadium if changed
+            if (dto.StadiumId.HasValue && !await _context.Stadiums.AnyAsync(s => s.StadiumId == dto.StadiumId))
+                return BadRequest(new { message = "Sân vận động không tồn tại." });
+
+            // Validate organizer if changed
+            if (dto.OrganizerId.HasValue && !await _context.Users.AnyAsync(u => u.UserId == dto.OrganizerId))
+                return BadRequest(new { message = "Người tổ chức không tồn tại." });
+
+            tournament.TournamentName = dto.TournamentName;
+            tournament.Format = dto.Format;
+            tournament.SportId = dto.SportId;
+            tournament.StadiumId = dto.StadiumId;
+            tournament.OrganizerId = dto.OrganizerId;
+            tournament.StartDate = dto.StartDate;
+            tournament.EndDate = dto.EndDate;
+            tournament.Status = dto.Status;
+            tournament.Description = dto.Description;
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                tournament.TournamentId,
+                tournament.TournamentName,
+                tournament.Format,
+                tournament.StadiumId,
+                tournament.OrganizerId,
+                tournament.StartDate,
+                tournament.EndDate,
+                tournament.Status,
+                tournament.Description,
+                tournament.CreatedAt,
+                message = "Cập nhật giải đấu thành công!"
+            });
+        }
+
+        /// <summary>
+        /// DELETE api/Admin/tournaments/{id}
+        /// Xóa giải đấu
+        /// </summary>
+        [HttpDelete("tournaments/{id}")]
+        public async Task<IActionResult> DeleteTournament(int id)
+        {
+            var tournament = await _context.Tournaments.FindAsync(id);
+            if (tournament == null)
+                return NotFound(new { message = "Không tìm thấy giải đấu." });
+
+            _context.Tournaments.Remove(tournament);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // ============================================================
+        // 6. RECRUITMENT MANAGEMENT (View + Soft Delete)
+        // ============================================================
+
+        /// <summary>
+        /// GET api/Admin/recruitment?search=&page=1
+        /// Danh sách tin tuyển quân có phân trang
+        /// </summary>
+        [HttpGet("recruitment")]
+        public async Task<IActionResult> GetRecruitmentAds(string? search, int page = 1)
+        {
+            var query = _context.RecruitmentAds
+                .Include(r => r.Team)
+                .Include(r => r.Match)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(r =>
+                    r.Title.Contains(search) ||
+                    r.Content.Contains(search) ||
+                    (r.Team != null && r.Team.TeamName.Contains(search)));
+            }
+
+            var totalItems = await query.CountAsync();
+            var ads = await query
+                .OrderByDescending(r => r.CreatedAt)
+                .Skip((page - 1) * PageSize)
+                .Take(PageSize)
+                .Select(r => new
+                {
+                    r.AdId,
+                    r.TeamId,
+                    teamName = r.Team != null ? r.Team.TeamName : null,
+                    r.MatchId,
+                    r.Title,
+                    r.Content,
+                    r.PositionNeeded,
+                    r.IsActive,
+                    r.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(CreatePaginatedResponse(ads, totalItems, page));
+        }
+
+        /// <summary>
+        /// DELETE api/Admin/recruitment/{id}
+        /// Soft delete tin tuyển quân (yêu cầu lý do)
+        /// </summary>
+        [HttpDelete("recruitment/{id}")]
+        public async Task<IActionResult> DeleteRecruitmentAd(int id, [FromBody] DeleteRecruitmentDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto?.Reason))
+                return BadRequest(new { message = "Vui lòng cung cấp lý do gỡ tin tuyển quân." });
+
+            var ad = await _context.RecruitmentAds.FindAsync(id);
+            if (ad == null)
+                return NotFound(new { message = "Không tìm thấy tin tuyển quân." });
+
+            // Soft delete: chỉ set IsActive = false
+            ad.IsActive = false;
+            await _context.SaveChangesAsync();
+
+            return NoContent();
+        }
+
+        // ============================================================
+        // DTO CLASSES
+        // ============================================================
+
+        #region DTOs
+
+
+
+
+
+
+
+
+
+
+        // ============================================================
+        // POST MANAGEMENT
+        // ============================================================
+
+        [HttpGet("posts/pending")]
+        public async Task<IActionResult> GetPendingPosts()
+        {
+            var posts = await _context.Posts
+                .Include(p => p.Team)
+                .Include(p => p.Author)
+                .Where(p => p.Status == "Pending")
+                .Select(p => new
+                {
+                    p.PostId,
+                    p.Title,
+                    p.Content,
+                    p.PostType,
+                    p.CreatedAt,
+                    TeamName = p.Team != null ? p.Team.TeamName : null,
+                    AuthorName = p.Author != null ? p.Author.FullName : null
+                })
+                .ToListAsync();
+
+            return Ok(posts);
+        }
+
+        [HttpPost("posts/{id}/approve")]
+        public async Task<IActionResult> ApprovePost(int id)
+        {
+            var post = await _context.Posts.FindAsync(id);
+            if (post == null) return NotFound(new { message = "Post not found." });
+
+            post.Status = "Approved";
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Post approved successfully." });
+        }
+
+        [HttpPost("posts/{id}/reject")]
+        public async Task<IActionResult> RejectPost(int id)
+        {
+            var post = await _context.Posts.FindAsync(id);
+            if (post == null) return NotFound(new { message = "Post not found." });
+
+            post.Status = "Rejected";
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Post rejected." });
+        }
+
+        #endregion
+
+        // ============================================================
+        // WITHDRAWAL REQUESTS
+        // ============================================================
+
+        [HttpGet("WithdrawalRequests")]
+        public async Task<IActionResult> GetWithdrawalRequests([FromQuery] string status = "All")
+        {
+            var query = _context.Set<WithdrawalRequest>()
+                .Include(w => w.StadiumOwner)
+                .AsQueryable();
+
+            if (status != "All")
+            {
+                query = query.Where(w => w.Status == status);
+            }
+
+            var requests = await query
+                .OrderByDescending(w => w.RequestedAt)
+                .Select(w => new
+                {
+                    w.RequestId,
+                    w.StadiumOwnerId,
+                    OwnerName = w.StadiumOwner != null ? w.StadiumOwner.FullName : "Unknown",
+                    OwnerBankName = _context.Stadiums.Where(s => s.OwnerId == w.StadiumOwnerId).Select(s => s.BankName).FirstOrDefault(),
+                    OwnerBankAccount = _context.Stadiums.Where(s => s.OwnerId == w.StadiumOwnerId).Select(s => s.BankAccountNumber).FirstOrDefault(),
+                    OwnerAccountName = _context.Stadiums.Where(s => s.OwnerId == w.StadiumOwnerId).Select(s => s.BankAccountName).FirstOrDefault(),
+                    w.Amount,
+                    w.Status,
+                    w.ReceiptImage,
+                    w.RequestedAt,
+                    w.ProcessedAt
+                })
+                .ToListAsync();
+
+            return Ok(requests);
+        }
+
+        [HttpPut("WithdrawalRequests/{id}/Approve")]
+        public async Task<IActionResult> ApproveWithdrawal(int id, [FromForm] ApproveWithdrawalDto dto)
+        {
+            var request = await _context.Set<WithdrawalRequest>().FindAsync(id);
+            if (request == null) return NotFound("Request not found");
+            if (request.Status != "Pending") return BadRequest("Request is not pending");
+
+            string? receiptUrl = null;
+            if (dto.receiptImage != null && dto.receiptImage.Length > 0)
+            {
+                var uploadParams = new ImageUploadParams()
+                {
+                    File = new FileDescription(dto.receiptImage.FileName, dto.receiptImage.OpenReadStream()),
+                    Folder = "receipts"
+                };
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                if (uploadResult.Error != null)
+                {
+                    return BadRequest(new { message = uploadResult.Error.Message });
+                }
+                receiptUrl = uploadResult.SecureUrl.ToString();
+            }
+
+            request.Status = "Paid";
+            request.ProcessedAt = DateTime.Now;
+            request.ReceiptImage = receiptUrl;
+
+            await _context.SaveChangesAsync();
+            return Ok(request);
+        }
+
+        [HttpPut("WithdrawalRequests/{id}/Reject")]
+        public async Task<IActionResult> RejectWithdrawal(int id)
+        {
+            var request = await _context.Set<WithdrawalRequest>().FindAsync(id);
+            if (request == null) return NotFound("Request not found");
+            if (request.Status != "Pending") return BadRequest("Request is not pending");
+
+            request.Status = "Rejected";
+            request.ProcessedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+            return Ok(request);
+        }
+
     }
 }

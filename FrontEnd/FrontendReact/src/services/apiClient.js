@@ -1,13 +1,10 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5229/api';
+const API_URL = import.meta.env.DEV ? 'https://localhost:7046/api' : '/api';
 
 // Create axios instance with default config
 const apiClient = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 });
 
 // Add token to requests if available
@@ -25,9 +22,14 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      // COMMENTED OUT FOR MOCK UI TESTING SO WE DON'T GET KICKED OUT
+      // localStorage.removeItem('token');
+      // localStorage.removeItem('user');
+      
+      // Do not redirect if we are already on the login page
+      // if (window.location.pathname !== '/login') {
+      //   window.location.href = '/login';
+      // }
     }
     return Promise.reject(error);
   }

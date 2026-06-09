@@ -5,3 +5,6 @@ export { Alert } from './Alert';
 export { Loading, Skeleton } from './Loading';
 export { Table } from './Table';
 export { ProtectedRoute } from './ProtectedRoute';
+export { default as Pagination } from './Pagination';
+export { default as ConfirmDialog } from './ConfirmDialog';
+export { default as SearchFilter } from './SearchFilter';
