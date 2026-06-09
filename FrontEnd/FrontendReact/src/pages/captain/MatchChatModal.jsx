@@ -26,17 +26,23 @@ export default function MatchChatModal({ matchId, onClose }) {
   }, [messages]);
 
   useEffect(() => {
+    let isMounted = true;
     let connection = null;
 
     const setupChat = async () => {
       try {
         setLoading(true);
-        // 1. Derive encryption key
-        const key = await deriveKey(matchId);
-        setCryptoKey(key);
-
-        // 2. Fetch history
+        // 1. Fetch encrypted history
         const historyData = await captainService.getMatchChats(matchId);
+        
+        // 2. Fetch or Generate encryption key
+        let key = localStorage.getItem(`matchKey_${matchId}`);
+        if (!key) {
+          // Fallback simple shared secret based on matchId for demo
+          key = matchId.toString().padStart(16, '0').substring(0, 16); 
+          localStorage.setItem(`matchKey_${matchId}`, key);
+        }
+        setCryptoKey(key);
 
         // Fetch My Team
         const myTeam = await captainService.getMyTeam();
@@ -48,18 +54,20 @@ export default function MatchChatModal({ matchId, onClose }) {
           const decText = await decryptMessage(msg.encryptedMessage, key);
           decryptedHistory.push({ ...msg, text: decText });
         }
-        setMessages(decryptedHistory);
+        if (isMounted) setMessages(decryptedHistory);
 
         // 3. Connect to SignalR
         const token = localStorage.getItem('token');
+        const hubUrl = import.meta.env.DEV ? 'https://localhost:7046/chatHub' : '/chatHub';
         connection = new signalR.HubConnectionBuilder()
-          .withUrl('http://sportifyx.id.vn/chatHub', {
+          .withUrl(hubUrl, {
             accessTokenFactory: () => token
           })
           .withAutomaticReconnect()
           .build();
 
         connection.on('ReceiveMessage', async (msg) => {
+          if (!isMounted) return;
           const decText = await decryptMessage(msg.encryptedMessage, key);
           setMessages(prev => [...prev, { ...msg, text: decText }]);
         });
@@ -67,9 +75,14 @@ export default function MatchChatModal({ matchId, onClose }) {
         await connection.start();
         await connection.invoke('JoinMatchGroup', matchId.toString());
         
-        setHubConnection(connection);
-        setLoading(false);
+        if (isMounted) {
+          setHubConnection(connection);
+          setLoading(false);
+        } else {
+          connection.stop();
+        }
       } catch (err) {
+        if (!isMounted) return;
         console.error('Chat setup failed:', err);
         setError('Không thể kết nối đến máy chủ chat. Vui lòng thử lại sau.');
         setLoading(false);
@@ -79,9 +92,9 @@ export default function MatchChatModal({ matchId, onClose }) {
     setupChat();
 
     return () => {
+      isMounted = false;
       if (connection) {
-        connection.invoke('LeaveMatchGroup', matchId.toString()).catch(console.error);
-        connection.stop();
+        connection.stop().catch(console.error);
       }
     };
   }, [matchId]);

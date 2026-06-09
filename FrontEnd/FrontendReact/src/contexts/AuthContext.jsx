@@ -21,10 +21,14 @@ export const AuthProvider = ({ children }) => {
         // Extract userId from token
         let userId = null;
         try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
+          const base64Url = token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const pad = base64.length % 4;
+          const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
+          const payload = JSON.parse(atob(paddedBase64));
           userId = payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.nameid || payload.sub;
         } catch (e) {
-          console.warn("Could not parse token payload", e);
+          console.warn("Could not parse token payload in init", e);
         }
 
         parsed.id = userId;
@@ -44,10 +48,24 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  const parseJwtPayload = (token) => {
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const pad = base64.length % 4;
+      const paddedBase64 = pad ? base64 + '='.repeat(4 - pad) : base64;
+      return JSON.parse(atob(paddedBase64));
+    } catch (e) {
+      console.warn("Could not parse token payload", e);
+      return null;
+    }
+  };
+
   const extractUserId = (token) => {
     if (!token) return null;
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const payload = parseJwtPayload(token);
+      if (!payload) return null;
       return payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] || payload.nameid || payload.sub;
     } catch (e) {
       return null;

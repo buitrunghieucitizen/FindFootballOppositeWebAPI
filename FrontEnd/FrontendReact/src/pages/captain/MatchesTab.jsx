@@ -53,6 +53,22 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
     setShowChatModal(true);
   };
 
+  // Team info for fallback
+  const [myTeamId, setMyTeamId] = useState(null);
+
+  const getOpponentName = (match) => {
+    if (match.opponentName) return match.opponentName;
+    if (match.OpponentName) return match.OpponentName;
+    if (match.homeTeam && match.awayTeam) {
+      if (myTeamId && match.homeTeamId === myTeamId) return match.awayTeam.teamName || match.awayTeam.TeamName;
+      if (myTeamId && match.awayTeamId === myTeamId) return match.homeTeam.teamName || match.homeTeam.TeamName;
+      return match.awayTeam.teamName || match.awayTeam.TeamName || 'Đối thủ';
+    }
+    if (match.homeTeam && !match.awayTeam && myTeamId && match.homeTeamId !== myTeamId) return match.homeTeam.teamName || match.homeTeam.TeamName;
+    if (match.awayTeam && !match.homeTeam && myTeamId && match.awayTeamId !== myTeamId) return match.awayTeam.teamName || match.awayTeam.TeamName;
+    return null;
+  };
+
   useEffect(() => {
     fetchData();
   }, [activeTab]);
@@ -61,6 +77,12 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
     setLoading(true);
     setError('');
     try {
+      if (!myTeamId) {
+        try {
+          const team = await captainService.getMyTeam();
+          if (team) setMyTeamId(team.teamId || team.id);
+        } catch(e) {}
+      }
       if (activeTab === 'matches') {
         const data = await captainService.getMatches();
         setMatches(data || []);
@@ -215,7 +237,7 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                   <div>
                     <span className={`px-2.5 py-1 text-xs font-semibold rounded-md ${
                       match.matchStatus === 'Completed' ? 'bg-slate-100 text-slate-700 dark:text-slate-200' :
-                      (match.matchStatus === 'Accepted' || match.matchStatus === 'ExternalBooked' || match.opponentName) ? 'bg-emerald-100 text-emerald-700' :
+                      (match.matchStatus === 'Accepted' || match.matchStatus === 'ExternalBooked' || getOpponentName(match)) ? 'bg-emerald-100 text-emerald-700' :
                       match.matchStatus === 'Cancelled' ? 'bg-red-100 text-red-700' : 
                       match.matchStatus === 'LookingForOpponent' ? 'bg-indigo-100 text-indigo-700 animate-pulse' :
                       'bg-emerald-100 text-emerald-700'
@@ -226,13 +248,13 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                        match.matchStatus === 'Accepted' ? 'Đã chốt kèo' : 
                        match.matchStatus === 'LookingForOpponent' ? 'Đang tìm đối' : 
                        match.matchStatus === 'Scheduled' ? 'Đã lên lịch' :
-                       match.opponentName ? 'Đã chốt kèo / Sắp đá' :
+                       getOpponentName(match) ? 'Đã chốt kèo / Sắp đá' :
                        (match.matchStatus || 'Đã lên lịch')}
                     </span>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Đối thủ</p>
-                    <p className="font-bold text-slate-800 dark:text-white">{match.opponentName || 'Chưa có đối thủ'}</p>
+                    <p className="font-bold text-slate-800 dark:text-white">{getOpponentName(match) || 'Chưa có đối thủ'}</p>
                   </div>
                 </div>
                 
@@ -265,7 +287,7 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                     </div>
                   </div>
                 )}
-                {match.matchStatus !== 'Completed' && match.matchStatus !== 'Cancelled' && match.opponentName && (
+                {match.matchStatus !== 'Completed' && match.matchStatus !== 'Cancelled' && getOpponentName(match) && (
                   <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
                     <button onClick={() => openChatModal(match.matchId || match.id)} className="text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 px-3 py-1.5 rounded-lg hover:bg-indigo-100 font-semibold transition-colors flex items-center gap-1">
                       <FiMessageSquare /> Chat 2 Đội
@@ -289,10 +311,17 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
       )}
 
       {!loading && !error && activeTab === 'requests' && (
-        requests.length === 0 ? (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700 shadow-sm">
-            <p className="text-slate-500 dark:text-slate-400">Hiện tại không có kèo giao hữu nào đang chờ.</p>
-          </div>
+        <div className="space-y-4">
+          <button 
+            onClick={() => setShowCreateChallengeModal(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5"
+          >
+            <FiPlus /> Tạo kèo giao hữu mới
+          </button>
+          {requests.length === 0 ? (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700 shadow-sm">
+              <p className="text-slate-500 dark:text-slate-400">Hiện tại không có kèo giao hữu nào đang chờ.</p>
+            </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {requests.map((req) => (
@@ -328,7 +357,8 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
               </div>
             ))}
           </div>
-        )
+        )}
+        </div>
       )}
 
       {!loading && !error && activeTab === 'timetable' && (
@@ -351,7 +381,7 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                     <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 shadow-sm">
                       <div className="flex items-center justify-between space-x-2 mb-1">
                         <div className="font-bold text-slate-800 dark:text-white">
-                          {match.opponentName || 'Chưa có đối thủ'}
+                          {getOpponentName(match) || 'Chưa có đối thủ'}
                         </div>
                         <time className="font-caveat font-medium text-blue-500 text-sm">
                           {match.scheduleStartTime ? new Date(match.scheduleStartTime).toLocaleDateString('vi-VN') : 'Sắp xếp'}
