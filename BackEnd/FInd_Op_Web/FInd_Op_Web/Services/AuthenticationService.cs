@@ -9,7 +9,7 @@ namespace FInd_Op_Web.Services
 {
     public interface IAuthenticationService
     {
-        Task<User> LoginAsync(string username, string password, string roleName);
+        Task<User> LoginAsync(string username, string password);
         Task<User> RegisterAsync(string username, string fullName, string phone, string password, string roleName);
         Task<bool> VerifyPasswordAsync(string password, string hash);
         string HashPassword(string password);
@@ -25,9 +25,9 @@ namespace FInd_Op_Web.Services
             _context = context;
         }
 
-        public async Task<User> LoginAsync(string username, string password, string roleName)
+        public async Task<User> LoginAsync(string username, string password)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(roleName))
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                 return null;
 
             var user = await _context.Users
@@ -38,15 +38,6 @@ namespace FInd_Op_Web.Services
                 return null;
 
             if (!await VerifyPasswordAsync(password, user.PasswordHash))
-                return null;
-
-            var role = await _context.Roles.FirstOrDefaultAsync(r => r.RoleName == roleName);
-            if (role == null)
-                return null;
-
-            var userHasRole = user.Roles.Any(r => r.RoleName == roleName);
-
-            if (!userHasRole)
                 return null;
 
             return user;
