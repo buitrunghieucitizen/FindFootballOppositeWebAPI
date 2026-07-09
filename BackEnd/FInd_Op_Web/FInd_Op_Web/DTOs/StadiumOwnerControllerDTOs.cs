@@ -13,6 +13,11 @@ namespace FInd_Op_Web.DTOs
             public string? Latitude { get; set; }
             public string? Longitude { get; set; }
             public IFormFile? ImageFile { get; set; }
+            
+            // Configuration for generating slots
+            public string? OpenTime { get; set; } // Format: HH:mm
+            public string? CloseTime { get; set; } // Format: HH:mm
+            public int? SlotDurationMinutes { get; set; }
         }
     
         public class OwnerCreatePitchDto

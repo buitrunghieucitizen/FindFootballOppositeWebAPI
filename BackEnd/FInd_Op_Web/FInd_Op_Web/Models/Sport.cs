@@ -17,5 +17,10 @@ namespace FInd_Op_Web.Models
         public string? Icon { get; set; }
 
         public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public bool HasScoring { get; set; } = true;
+
+        [StringLength(20)]
+        public string ScoringFormat { get; set; } = "Goals"; // "Goals" or "Sets"
     }
 }

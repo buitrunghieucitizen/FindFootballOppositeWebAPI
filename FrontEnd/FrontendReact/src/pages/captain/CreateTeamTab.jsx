@@ -1,6 +1,8 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { FiUsers, FiMapPin, FiShield, FiFileText, FiAward, FiAlertCircle, FiCamera, FiLoader } from 'react-icons/fi';
 import { captainService } from '../../services/captainService';
+import { publicService } from '../../services/publicService';
+import { mediaService } from '../../services/mediaService';
 import { useAuth } from '../../contexts/AuthContext';
 import { Alert } from '../../components';
 
@@ -11,15 +13,30 @@ export default function CreateTeamTab({ onTeamCreated }) {
     homeArea: '',
     introduction: '',
     isClubOwner: false,
-    logoUrl: ''
+    logoUrl: '',
+    backgroundUrl: '',
+    sportId: 1
   });
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [error, setError] = useState('');
   const [showSuccessNote, setShowSuccessNote] = useState(false);
+  const [sports, setSports] = useState([]);
   const fileInputRef = useRef(null);
 
   const maxMembers = user?.isPremium ? 30 : 15;
+
+  useEffect(() => {
+    const fetchSports = async () => {
+      try {
+        const data = await publicService.getSports();
+        setSports(data);
+      } catch (err) {
+        console.error("Lỗi khi tải danh sách môn thể thao", err);
+      }
+    };
+    fetchSports();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -29,19 +46,16 @@ export default function CreateTeamTab({ onTeamCreated }) {
     }));
   };
 
-  const handleImageUpload = async (e) => {
+  const handleImageUpload = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
 
     setUploadingImage(true);
     setError('');
     
-    const formData = new FormData();
-    formData.append('file', file);
-    
     try {
-      const res = await captainService.uploadMedia(formData);
-      setFormData(prev => ({ ...prev, logoUrl: res.url }));
+      const res = await mediaService.uploadImage(file);
+      setFormData(prev => ({ ...prev, [type]: res.url || res }));
     } catch (err) {
       setError('Lỗi tải ảnh lên. Vui lòng thử lại.');
     } finally {
@@ -87,30 +101,51 @@ export default function CreateTeamTab({ onTeamCreated }) {
       <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 md:p-8 shadow-sm border border-slate-200 dark:border-slate-700/60">
         <form onSubmit={handleSubmit} className="space-y-6">
           
-          {/* Logo Upload */}
-          <div className="flex flex-col items-center mb-6">
-            <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-              <div className="w-24 h-24 rounded-full bg-slate-100 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden transition-all group-hover:border-emerald-500">
+          {/* Background Upload */}
+          <div className="flex flex-col mb-6 gap-4">
+            <div className="relative w-full h-32 rounded-xl bg-slate-100 dark:bg-slate-900 border-2 border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center overflow-hidden transition-all hover:border-emerald-500 group">
+              {formData.backgroundUrl ? (
+                <img src={formData.backgroundUrl} alt="Background" className="w-full h-full object-cover" />
+              ) : uploadingImage ? (
+                <FiLoader className="text-3xl text-emerald-500 animate-spin" />
+              ) : (
+                <div className="flex flex-col items-center text-slate-400 group-hover:text-emerald-500 transition-colors">
+                  <FiCamera className="text-3xl mb-1" />
+                  <span className="text-xs font-bold uppercase">Ảnh bìa (Tùy chọn)</span>
+                </div>
+              )}
+              <input 
+                type="file" 
+                className="absolute inset-0 opacity-0 cursor-pointer" 
+                accept="image/*" 
+                onChange={(e) => handleImageUpload(e, 'backgroundUrl')} 
+              />
+            </div>
+
+            {/* Logo Upload */}
+            <div className="relative group mx-auto -mt-12 z-10">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border-4 border-white dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-center shadow-md relative">
                 {formData.logoUrl ? (
                   <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-cover" />
                 ) : uploadingImage ? (
-                  <FiLoader className="text-3xl text-emerald-500 animate-spin" />
+                  <FiLoader className="text-2xl text-emerald-500 animate-spin" />
                 ) : (
-                  <FiCamera className="text-3xl text-slate-400 group-hover:text-emerald-500 transition-colors" />
+                  <div className="flex flex-col items-center text-slate-400 group-hover:text-emerald-500 transition-colors">
+                    <FiShield className="text-2xl mb-1" />
+                  </div>
                 )}
-              </div>
-              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-white text-xs font-bold uppercase">Tải Ảnh Lên</span>
+                <div className="absolute inset-0 bg-black/40 rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none text-white">
+                  <FiCamera className="text-xl mb-1" />
+                  <span className="text-[10px] font-bold text-center leading-tight">Đổi<br/>logo</span>
+                </div>
+                <input 
+                  type="file" 
+                  className="absolute inset-0 opacity-0 cursor-pointer" 
+                  accept="image/*" 
+                  onChange={(e) => handleImageUpload(e, 'logoUrl')} 
+                />
               </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-3 font-medium">Logo đội bóng (Tùy chọn)</p>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*" 
-              onChange={handleImageUpload} 
-            />
           </div>
           
           {/* Vai trò */}
@@ -148,6 +183,25 @@ export default function CreateTeamTab({ onTeamCreated }) {
           </div>
 
           <div>
+            <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">Môn thể thao <span className="text-rose-500">*</span></label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                <FiAward className="text-slate-400" />
+              </div>
+              <select
+                name="sportId"
+                value={formData.sportId}
+                onChange={handleChange}
+                className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all appearance-none"
+              >
+                {sports.map(sport => (
+                  <option key={sport.sportId} value={sport.sportId}>{sport.sportName}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">Khu vực hoạt động</label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
@@ -161,30 +215,6 @@ export default function CreateTeamTab({ onTeamCreated }) {
                 placeholder="VD: Quận Cầu Giấy, Hà Nội"
                 className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
               />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">Trình độ đội thể thao</label>
-            <div className="relative">
-              <select
-                name="qualityLevel"
-                value={formData.qualityLevel || ''}
-                onChange={handleChange}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all appearance-none"
-              >
-                <option value="">-- Chọn trình độ --</option>
-                <option value="Mới chơi (Gà)">Mới chơi (Gà)</option>
-                <option value="Trung bình yếu (Trung bình yếu)">Trung bình yếu (Trung bình yếu)</option>
-                <option value="Trung bình (Trung bình)">Trung bình (Trung bình)</option>
-                <option value="Trung bình khá (Trung bình khá)">Trung bình khá (Trung bình khá)</option>
-                <option value="Khá (Khá)">Khá (Khá)</option>
-                <option value="Mạnh (Mạnh)">Mạnh (Mạnh)</option>
-                <option value="Bán chuyên">Bán chuyên</option>
-              </select>
-              <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-              </div>
             </div>
           </div>
 

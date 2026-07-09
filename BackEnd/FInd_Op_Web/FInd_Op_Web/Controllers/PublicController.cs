@@ -19,11 +19,59 @@ namespace FInd_Op_Web.Controllers
         }
 
         [HttpGet("Teams")]
-        public async Task<IActionResult> GetTeams()
+        public async Task<IActionResult> GetTeams(
+            [FromQuery] string? rankingTier, 
+            [FromQuery] string? homeArea, 
+            [FromQuery] int? minFairplay,
+            [FromQuery] string? search,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 12)
         {
-            var teams = await _context.Teams
+            var query = _context.Teams
                 .Include(t => t.Sport)
-                .Where(t => t.IsDisbanded == false || t.IsDisbanded == null)
+                .Where(t => (t.IsDisbanded == false || t.IsDisbanded == null) && !t.IsInternal && t.QualityLevel != "Nội bộ");
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(t => t.TeamName.Contains(search));
+            }
+
+            if (!string.IsNullOrEmpty(homeArea))
+            {
+                query = query.Where(t => t.HomeArea != null && t.HomeArea.Contains(homeArea));
+            }
+
+            if (minFairplay.HasValue)
+            {
+                query = query.Where(t => t.FairplayScore >= minFairplay.Value);
+            }
+
+            if (!string.IsNullOrEmpty(rankingTier))
+            {
+                switch (rankingTier.ToLower())
+                {
+                    case "yếu":
+                        query = query.Where(t => t.RankingScore < 900);
+                        break;
+                    case "trung bình":
+                        query = query.Where(t => t.RankingScore >= 900 && t.RankingScore < 1100);
+                        break;
+                    case "khá":
+                        query = query.Where(t => t.RankingScore >= 1100 && t.RankingScore <= 1300);
+                        break;
+                    case "đá hay":
+                        query = query.Where(t => t.RankingScore > 1300);
+                        break;
+                }
+            }
+
+            var totalCount = await query.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            var teams = await query
+                .OrderByDescending(t => t.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(t => new
                 {
                     t.TeamId,
@@ -34,12 +82,13 @@ namespace FInd_Op_Web.Controllers
                     t.History,
                     t.CreatedAt,
                     t.SportId,
+                    t.FairplayScore,
+                    t.RankingScore,
                     SportName = t.Sport != null ? t.Sport.SportName : null
                 })
-                .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
 
-            return Ok(teams);
+            return Ok(new { teams, totalCount, totalPages, page, pageSize });
         }
 
         [HttpGet("Teams/{id}")]
@@ -54,10 +103,15 @@ namespace FInd_Op_Web.Controllers
                     t.LogoUrl,
                     t.FoundedDate,
                     t.QualityLevel,
+                    t.RankingScore,
+                    t.FairplayScore,
+                    t.History,
                     t.LookingForOpponent,
                     t.HomeArea,
                     CaptainName = t.Captain != null ? t.Captain.FullName : "N/A",
-                    SportName = t.Sport != null ? t.Sport.SportName : "N/A"
+                    SportName = t.Sport != null ? t.Sport.SportName : "N/A",
+                    Tournaments = t.TournamentTeams.Select(tt => new { tt.TournamentId, tt.Tournament.TournamentName }).ToList(),
+                    Members = t.TeamMembers.Select(tm => new { UserId = tm.PlayerId, FullName = tm.Player != null ? tm.Player.FullName : "N/A", Role = tm.RoleInTeam }).ToList()
                 })
                 .FirstOrDefaultAsync(t => t.TeamId == id);
 
@@ -85,11 +139,21 @@ namespace FInd_Op_Web.Controllers
         }
 
         [HttpGet("Stadiums")]
-        public async Task<IActionResult> GetStadiums()
+        public async Task<IActionResult> GetStadiums([FromQuery] int? sportId, [FromQuery] string? search)
         {
-            var stadiums = await _context.Stadiums
-                .Include(s => s.Pitches)
-                    .ThenInclude(p => p.Sport)
+            var query = _context.Stadiums.Include(s => s.Pitches).ThenInclude(p => p.Sport).AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(s => s.StadiumName.Contains(search) || s.Address.Contains(search));
+            }
+
+            if (sportId.HasValue && sportId.Value > 0)
+            {
+                query = query.Where(s => s.Pitches.Any(p => p.SportId == sportId.Value));
+            }
+
+            var stadiums = await query
                 .Include(s => s.Owner)
                 .Select(s => new
                 {
@@ -98,6 +162,9 @@ namespace FInd_Op_Web.Controllers
                     s.Address,
                     s.Hotline,
                     s.Description,
+                    s.Latitude,
+                    s.Longitude,
+                    s.ImageUrl,
                     s.OwnerId,
                     OwnerName = s.Owner != null ? s.Owner.FullName : "Chủ sân",
                     Sports = s.Pitches.Where(p => p.Sport != null).Select(p => p.Sport.SportName).Distinct(),
@@ -106,7 +173,8 @@ namespace FInd_Op_Web.Controllers
                         p.PitchId,
                         p.PitchName,
                         p.PitchSize,
-                        p.PricePerHour,
+                        p.GrassType,
+                        p.PricePerSlot,
                         p.SportId,
                         SportName = p.Sport != null ? p.Sport.SportName : null
                     })
@@ -119,7 +187,7 @@ namespace FInd_Op_Web.Controllers
         [HttpGet("TeamRankings")]
         public async Task<IActionResult> GetTeamRankings([FromQuery] int? sportId)
         {
-            var query = _context.Teams.Where(t => t.IsDisbanded == false || t.IsDisbanded == null);
+            var query = _context.Teams.Where(t => (t.IsDisbanded == false || t.IsDisbanded == null) && !t.IsInternal && t.QualityLevel != "Nội bộ");
             
             if (sportId.HasValue && sportId.Value > 0)
             {
@@ -136,26 +204,60 @@ namespace FInd_Op_Web.Controllers
         }
 
         [HttpGet("Matches")]
-        public async Task<IActionResult> GetMatches()
+        public async Task<IActionResult> GetMatches([FromQuery] int? sportId, [FromQuery] string? search)
         {
-            var matches = await _context.Matches
+            var query = _context.Matches
                 .Include(m => m.HomeTeam)
                     .ThenInclude(t => t.Sport)
                 .Include(m => m.AwayTeam)
                 .Include(m => m.Schedule)
                     .ThenInclude(s => s.Pitch)
                         .ThenInclude(p => p.Stadium)
+                .Include(m => m.MatchPolls)
+                    .ThenInclude(mp => mp.Player)
+                .Include(m => m.Sport)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(m => (m.HomeTeam != null && m.HomeTeam.TeamName.Contains(search)) || 
+                                         (m.AwayTeam != null && m.AwayTeam.TeamName.Contains(search)) ||
+                                         (m.Schedule != null && m.Schedule.Pitch != null && m.Schedule.Pitch.Stadium != null && m.Schedule.Pitch.Stadium.StadiumName.Contains(search)) ||
+                                         (m.MatchType == "PickUp" && m.MatchPolls.Any(mp => mp.IsAttending == true && mp.Player != null && mp.Player.FullName.Contains(search))));
+            }
+
+            if (sportId.HasValue && sportId.Value > 0)
+            {
+                query = query.Where(m => (m.HomeTeam != null && m.HomeTeam.SportId == sportId.Value) || 
+                                         (m.MatchType == "PickUp" && m.SportId == sportId.Value));
+            }
+
+            var matches = await query
                 .Select(m => new
                 {
                     m.MatchId,
                     m.MatchStatus,
-                    HomeTeamName = m.HomeTeam != null ? m.HomeTeam.TeamName : "Đội khách",
+                    m.MatchType,
+                    HomeTeamName = m.MatchType == "PickUp" && m.MatchPolls.FirstOrDefault(mp => mp.IsAttending == true) != null
+                        ? m.MatchPolls.FirstOrDefault(mp => mp.IsAttending == true).Player.FullName
+                        : (m.HomeTeam != null ? m.HomeTeam.TeamName : "Đội khách"),
+                    HomeTeamAvatar = m.MatchType == "PickUp" && m.MatchPolls.FirstOrDefault(mp => mp.IsAttending == true) != null
+                        ? m.MatchPolls.FirstOrDefault(mp => mp.IsAttending == true).Player.AvatarUrl
+                        : (m.HomeTeam != null ? m.HomeTeam.LogoUrl : null),
+                    HomeTeamPhone = m.MatchType == "PickUp" && m.MatchPolls.FirstOrDefault(mp => mp.IsAttending == true) != null
+                        ? m.MatchPolls.FirstOrDefault(mp => mp.IsAttending == true).Player.Phone
+                        : null,
+                    CreatorId = m.MatchType == "PickUp" && m.MatchPolls.FirstOrDefault(mp => mp.IsAttending == true) != null
+                        ? (int?)m.MatchPolls.FirstOrDefault(mp => mp.IsAttending == true).PlayerId
+                        : null,
                     AwayTeamName = m.AwayTeam != null ? m.AwayTeam.TeamName : "Đang tìm đối thủ",
                     HomeTeamQuality = m.HomeTeam != null ? m.HomeTeam.QualityLevel : "",
                     AwayTeamQuality = m.AwayTeam != null ? m.AwayTeam.QualityLevel : "",
-                    SportName = m.HomeTeam != null && m.HomeTeam.Sport != null ? m.HomeTeam.Sport.SportName : null,
+                    SportName = m.HomeTeam != null && m.HomeTeam.Sport != null ? m.HomeTeam.Sport.SportName : (m.Sport != null ? m.Sport.SportName : null),
                     StartTime = m.Schedule != null ? m.Schedule.StartTime : (DateTime?)null,
                     EndTime = m.Schedule != null ? m.Schedule.EndTime : (DateTime?)null,
+                    m.HomeScore,
+                    m.AwayScore,
                     StadiumName = m.Schedule != null && m.Schedule.Pitch != null && m.Schedule.Pitch.Stadium != null ? m.Schedule.Pitch.Stadium.StadiumName : "Chưa xác định",
                     PitchName = m.Schedule != null && m.Schedule.Pitch != null ? m.Schedule.Pitch.PitchName : "Chưa xác định"
                 })
@@ -166,21 +268,42 @@ namespace FInd_Op_Web.Controllers
         }
 
         [HttpGet("Tournaments")]
-        public async Task<IActionResult> GetTournaments()
+        public async Task<IActionResult> GetTournaments([FromQuery] int? sportId, [FromQuery] string? search)
         {
-            var tournaments = await _context.Tournaments
+            var query = _context.Tournaments
                 .Include(t => t.Stadium)
                 .Include(t => t.TournamentTeams)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(t => t.TournamentName.Contains(search) || 
+                                         (t.Stadium != null && t.Stadium.StadiumName.Contains(search)));
+            }
+
+            if (sportId.HasValue && sportId.Value > 0)
+            {
+                query = query.Where(t => t.SportId == sportId.Value);
+            }
+
+            var tournaments = await query
                 .Select(t => new
                 {
                     t.TournamentId,
                     t.TournamentName,
                     t.Format,
                     t.Status,
+                    t.Scope,
                     t.StartDate,
                     t.EndDate,
                     t.Description,
                     t.CreatedAt,
+                    t.EntryFee,
+                    t.BankQrCodeUrl,
+                    t.MaxPlayersPerTeam,
+                    t.MaxTeams,
+                    OwnerName = t.Organizer != null ? t.Organizer.FullName : "Chủ Giải Đấu",
+                    OwnerBank = "Chuyển khoản trực tiếp qua QR code",
                     StadiumName = t.Stadium != null ? t.Stadium.StadiumName : "Chưa xác định",
                     RegisteredTeamIds = t.TournamentTeams.Select(tt => tt.TeamId).ToList()
                 })
@@ -188,6 +311,64 @@ namespace FInd_Op_Web.Controllers
                 .ToListAsync();
 
             return Ok(tournaments);
+        }
+
+        [HttpGet("Tournaments/{id}/Teams")]
+        public async Task<IActionResult> GetTournamentTeams(int id)
+        {
+            var teams = await _context.TournamentTeams
+                .Include(tt => tt.Team)
+                .Where(tt => tt.TournamentId == id && (tt.Status == "Approved" || tt.Status == "PaidPendingName"))
+                .Select(tt => new
+                {
+                    tt.TeamId,
+                    tt.Team.TeamName,
+                    tt.Team.CaptainId,
+                    tt.Status
+                })
+                .ToListAsync();
+
+            return Ok(teams);
+        }
+
+        [HttpGet("Tournaments/{id}/Matches")]
+        public async Task<IActionResult> GetTournamentMatches(int id)
+        {
+            var matches = await _context.Matches
+                .Include(m => m.HomeTeam)
+                .Include(m => m.AwayTeam)
+                .Where(m => m.TournamentId == id)
+                .Select(m => new {
+                    m.MatchId,
+                    m.HomeTeamId,
+                    HomeTeamName = m.HomeTeam != null ? m.HomeTeam.TeamName : "N/A",
+                    m.AwayTeamId,
+                    AwayTeamName = m.AwayTeam != null ? m.AwayTeam.TeamName : "N/A",
+                    m.HomeScore,
+                    m.AwayScore,
+                    m.MatchStatus,
+                    m.MatchDate,
+                    m.StartTime,
+                    m.EndTime,
+                    m.TournamentStage
+                })
+                .OrderBy(m => m.MatchId)
+                .ToListAsync();
+
+            return Ok(matches);
+        }
+
+        [HttpGet("Tournaments/{id}/Bracket")]
+        public async Task<IActionResult> GetTournamentBracket(int id)
+        {
+            var tournament = await _context.Tournaments.FindAsync(id);
+            if (tournament == null) return NotFound();
+
+            if (string.IsNullOrEmpty(tournament.BracketJson))
+            {
+                return Ok(new { format = tournament.Format, rounds = new object[] { } });
+            }
+            return Content(tournament.BracketJson, "application/json");
         }
 
         [HttpGet("Recruitments")]

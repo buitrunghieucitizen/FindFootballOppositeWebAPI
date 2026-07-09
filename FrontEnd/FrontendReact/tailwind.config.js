@@ -63,7 +63,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Outfit', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['"Be Vietnam Pro"', 'Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sport: ['Barlow', '"Be Vietnam Pro"', 'system-ui', 'sans-serif'],
       },
       keyframes: {
         'stadium-pulse': {
@@ -88,6 +89,10 @@ export default {
         'golden-shimmer': 'golden-shimmer 3s ease-in-out infinite',
         'trophy-float': 'trophy-float 3s ease-in-out infinite',
         'glow-ring': 'glow-ring 2s ease-in-out infinite',
+        'bounce-in': 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards',
+        'scale-in': 'scaleIn 0.3s ease-out forwards',
+        'slide-up': 'slideUp 0.35s ease-out forwards',
+        'pulse-gold': 'pulseGold 2s ease-in-out infinite',
       },
     },
   },

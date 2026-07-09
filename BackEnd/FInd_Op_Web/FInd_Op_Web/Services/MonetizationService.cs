@@ -55,8 +55,8 @@ public class MonetizationService
         if (schedule?.Pitch?.Stadium == null)
             throw new InvalidOperationException("Schedule, Pitch or Stadium not found.");
 
-        var hours = (decimal)(schedule.EndTime - schedule.StartTime).TotalHours;
-        var bookingAmount = schedule.Pitch.PricePerHour * hours;
+        var slots = (decimal)Math.Max(1, Math.Ceiling((schedule.EndTime - schedule.StartTime).TotalMinutes / (schedule.Pitch.SlotDurationMinutes ?? 60.0)));
+        var bookingAmount = schedule.Pitch.PricePerSlot * slots;
         var commissionRate = GetBookingCommissionRate();
         var commissionAmount = bookingAmount * commissionRate;
 

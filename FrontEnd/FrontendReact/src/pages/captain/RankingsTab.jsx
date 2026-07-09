@@ -151,7 +151,7 @@ export default function RankingsTab() {
                         {selectedTeam.sportName || 'Bóng đá'}
                       </span>
                       <span className="px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-full border border-amber-200 dark:border-amber-500/20">
-                        Rank: {selectedTeam.rankingScore || 1000}
+                        Rank: {selectedTeam.rankingScore ?? 0}
                       </span>
                     </div>
                   </div>
@@ -173,10 +173,10 @@ export default function RankingsTab() {
                   </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Thành lập</div>
+                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Cấp độ</div>
                   <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
-                    <FiCalendar className="mr-2 text-amber-500" />
-                    {selectedTeam.createdAt ? new Date(selectedTeam.createdAt).toLocaleDateString('vi-VN') : 'Không rõ'}
+                    <FiUsers className="mr-2 text-emerald-500" />
+                    {selectedTeam.captainName || 'Ẩn danh'}
                   </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">

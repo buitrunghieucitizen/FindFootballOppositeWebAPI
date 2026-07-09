@@ -128,7 +128,7 @@ export const DEFAULT_SWISS_8 = {
   ]
 };
 
-export default function SwissBracketMap({ data = DEFAULT_SWISS_16, onMatchUpdate }) {
+export default function SwissBracketMap({ data = DEFAULT_SWISS_16, onMatchUpdate, teams = [], readOnly = false }) {
   const [selectedMatch, setSelectedMatch] = useState(null);
   
   // Tạm sử dụng state nội bộ
@@ -140,15 +140,28 @@ export default function SwissBracketMap({ data = DEFAULT_SWISS_16, onMatchUpdate
   }, [data]);
 
   const handleMatchClick = (match, roundIndex, poolIndex, matchIndex) => {
+    if (readOnly) return;
     setSelectedMatch({ ...match, roundIndex, poolIndex, matchIndex });
   };
 
   const handleSaveScore = (e) => {
     e.preventDefault();
     const newBracket = { ...bracketData };
-    newBracket.rounds[selectedMatch.roundIndex].pools[selectedMatch.poolIndex].matches[selectedMatch.matchIndex] = {
-      ...selectedMatch
+    
+    // Find team names based on selected IDs
+    const hTeam = teams.find(t => t.id === Number(selectedMatch.homeTeamId));
+    const aTeam = teams.find(t => t.id === Number(selectedMatch.awayTeamId));
+    
+    const updatedMatch = {
+      ...selectedMatch,
+      homeTeamId: selectedMatch.homeTeamId ? Number(selectedMatch.homeTeamId) : null,
+      awayTeamId: selectedMatch.awayTeamId ? Number(selectedMatch.awayTeamId) : null,
+      home: hTeam ? hTeam.name : 'Unknown',
+      away: aTeam ? aTeam.name : 'Unknown'
     };
+    
+    newBracket.rounds[selectedMatch.roundIndex].pools[selectedMatch.poolIndex].matches[selectedMatch.matchIndex] = updatedMatch;
+    
     setBracketData(newBracket);
     if(onMatchUpdate) onMatchUpdate(newBracket);
     setSelectedMatch(null);
@@ -205,7 +218,7 @@ export default function SwissBracketMap({ data = DEFAULT_SWISS_16, onMatchUpdate
                         <div 
                           key={match.id} 
                           onClick={() => handleMatchClick(match, rIndex, pIndex, mIndex)}
-                          className={`rounded-lg cursor-pointer transition-all p-1.5 ${isPlayed ? 'bg-teal-50 dark:bg-teal-900/15 border border-teal-200 dark:border-teal-800/40' : 'bg-slate-50 dark:bg-slate-900/50 hover:bg-teal-50/50 dark:hover:bg-teal-900/10 border border-transparent hover:border-teal-200/50'}`}
+                          className={`rounded-lg p-1.5 transition-all ${isPlayed ? 'bg-teal-50 dark:bg-teal-900/15 border border-teal-200 dark:border-teal-800/40' : 'bg-slate-50 dark:bg-slate-900/50 border border-transparent'} ${readOnly ? '' : 'cursor-pointer hover:bg-teal-50/50 dark:hover:bg-teal-900/10 hover:border-teal-200/50'}`}
                         >
                           {/* Home row */}
                           <div className={`flex items-center justify-between gap-1 text-[11px] font-bold leading-tight ${homeWon ? 'text-teal-700 dark:text-teal-400' : isPlayed && awayWon ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-300'}`}>
@@ -261,13 +274,16 @@ export default function SwissBracketMap({ data = DEFAULT_SWISS_16, onMatchUpdate
             <form onSubmit={handleSaveScore}>
               <div className="flex items-center justify-between gap-4 mb-8 bg-slate-50 dark:bg-slate-900/50 p-6 rounded-xl border border-slate-100 dark:border-slate-700/50">
                 <div className="flex-1 text-center">
-                  <input 
-                    type="text"
-                    className="w-full bg-transparent text-center font-bold text-sm text-slate-700 dark:text-slate-300 mb-3 outline-none"
-                    value={selectedMatch.home}
-                    onChange={e => setSelectedMatch({...selectedMatch, home: e.target.value})}
-                    placeholder="Tên đội nhà"
-                  />
+                  <select 
+                    className="w-full bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-2 text-center font-bold text-sm text-slate-700 dark:text-slate-300 mb-3 outline-none"
+                    value={selectedMatch.homeTeamId || ''}
+                    onChange={e => setSelectedMatch({...selectedMatch, homeTeamId: e.target.value})}
+                  >
+                    <option value="">-- Chọn đội nhà --</option>
+                    {teams.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
                   <input 
                     type="number"
                     required
@@ -281,13 +297,16 @@ export default function SwissBracketMap({ data = DEFAULT_SWISS_16, onMatchUpdate
                 <div className="font-bold text-slate-400 bg-white dark:bg-slate-800 p-2.5 rounded-full shadow-sm border border-slate-200 dark:border-slate-700 text-sm">VS</div>
                 
                 <div className="flex-1 text-center">
-                  <input 
-                    type="text"
-                    className="w-full bg-transparent text-center font-bold text-sm text-slate-700 dark:text-slate-300 mb-3 outline-none"
-                    value={selectedMatch.away}
-                    onChange={e => setSelectedMatch({...selectedMatch, away: e.target.value})}
-                    placeholder="Tên đội khách"
-                  />
+                  <select 
+                    className="w-full bg-slate-100 dark:bg-slate-800 rounded-lg px-2 py-2 text-center font-bold text-sm text-slate-700 dark:text-slate-300 mb-3 outline-none"
+                    value={selectedMatch.awayTeamId || ''}
+                    onChange={e => setSelectedMatch({...selectedMatch, awayTeamId: e.target.value})}
+                  >
+                    <option value="">-- Chọn đội khách --</option>
+                    {teams.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
                   <input 
                     type="number"
                     required
@@ -322,3 +341,49 @@ export default function SwissBracketMap({ data = DEFAULT_SWISS_16, onMatchUpdate
     </div>
   );
 }
+
+export const generateSwissBracket = (teams, maxTeams = 16) => {
+  let size = maxTeams || 16;
+  if (size < 8) size = 8;
+  const advanceWins = Math.log2(size) - 1; 
+  const rounds = [];
+  let roundIdx = 1;
+  let currentPools = [{ w: 0, l: 0, teams: size }];
+  let matchId = 100;
+
+  while (currentPools.length > 0) {
+    const pools = [];
+    const nextPoolsMap = {};
+    for (const p of currentPools) {
+      if (p.teams < 2) continue;
+      const numMatches = p.teams / 2;
+      const matches = [];
+      for (let i=0; i<numMatches; i++) {
+        matches.push({ id: ++matchId, home: 'Unknown', away: 'Unknown', homeScore: null, awayScore: null });
+      }
+      pools.push({
+        record: `${p.w}-${p.l}`,
+        label: p.w === advanceWins - 1 || p.l === advanceWins - 1 ? 'BEST OF 3' : 'BEST OF 1',
+        matches
+      });
+      const nextW = p.w + 1;
+      const nextL = p.l;
+      if (nextW < advanceWins) {
+        nextPoolsMap[`${nextW}-${nextL}`] = (nextPoolsMap[`${nextW}-${nextL}`] || 0) + numMatches;
+      }
+      const nextW2 = p.w;
+      const nextL2 = p.l + 1;
+      if (nextL2 < advanceWins) {
+        nextPoolsMap[`${nextW2}-${nextL2}`] = (nextPoolsMap[`${nextW2}-${nextL2}`] || 0) + numMatches;
+      }
+    }
+    if (pools.length > 0) {
+      rounds.push({ round: roundIdx++, pools });
+    }
+    currentPools = Object.keys(nextPoolsMap).map(k => {
+      const [w, l] = k.split('-').map(Number);
+      return { w, l, teams: nextPoolsMap[k] };
+    }).sort((a,b) => b.w - a.w);
+  }
+  return { rounds };
+};

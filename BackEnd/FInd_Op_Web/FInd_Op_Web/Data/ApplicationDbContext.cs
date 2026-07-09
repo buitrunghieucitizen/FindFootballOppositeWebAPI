@@ -185,7 +185,7 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.PitchId).HasColumnName("PitchID");
             entity.Property(e => e.IsActive).HasDefaultValue(true);
             entity.Property(e => e.PitchName).HasMaxLength(50);
-            entity.Property(e => e.PricePerHour).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.PricePerSlot).HasColumnType("decimal(18, 2)");
             entity.Property(e => e.StadiumId).HasColumnName("StadiumID");
             entity.Property(e => e.SportId).HasColumnName("SportId");
             entity.Property(e => e.GrassType).HasMaxLength(50);
@@ -319,7 +319,7 @@ public partial class ApplicationDbContext : DbContext
 
             entity.Property(e => e.IsSubscriptionActive).HasDefaultValue(false);
             entity.Property(e => e.SubscriptionEndDate).HasColumnType("datetime");
-            entity.Property(e => e.RankingScore).HasDefaultValue(1000);
+            entity.Property(e => e.RankingScore).HasDefaultValue(0);
 
             entity.Property(e => e.FundBalance).HasColumnType("decimal(18, 2)").HasDefaultValue(0m);
             entity.Property(e => e.IsFundUnlocked).HasDefaultValue(false);
@@ -417,6 +417,7 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.TournamentName).HasMaxLength(200);
             entity.Property(e => e.Format).HasMaxLength(50);
             entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("Upcoming");
+            entity.Property(e => e.Scope).HasMaxLength(50).HasDefaultValue("Public");
             entity.Property(e => e.EndDate).HasColumnType("datetime");
 
             entity.HasOne(d => d.Stadium).WithMany()

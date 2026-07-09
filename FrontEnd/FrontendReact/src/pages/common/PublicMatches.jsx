@@ -3,11 +3,14 @@ import { publicService } from '../../services/publicService';
 import { captainService } from '../../services/captainService';
 import { useAuth } from '../../contexts/AuthContext';
 import { FiCalendar, FiMapPin, FiClock, FiShield, FiArrowLeft, FiX, FiMessageSquare } from 'react-icons/fi';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import { PublicHeader } from '../../components/portal-ui';
 
 export default function PublicMatches() {
   const [matches, setMatches] = useState([]);
+  const [sports, setSports] = useState([]);
+  const [filters, setFilters] = useState({ search: '', sportId: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { user, isAuthenticated } = useAuth();
@@ -15,19 +18,57 @@ export default function PublicMatches() {
   const [requestMessage, setRequestMessage] = useState('');
   const [isRequesting, setIsRequesting] = useState(false);
 
+  useEffect(() => {
+    fetchSports();
+  }, []);
+
+  useEffect(() => {
+    fetchMatches();
+  }, [filters.sportId]);
+
+  const fetchSports = async () => {
+    try {
+      const data = await publicService.getSports();
+      const sportsData = data?.data || data?.$values || data || [];
+      setSports(Array.isArray(sportsData) ? sportsData : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const handleRequestToJoin = async () => {
     if (!isAuthenticated) {
-      alert('Vui lòng đăng nhập bằng tài khoản Đội trưởng để bắt kèo!');
+      Swal.fire('Yêu cầu đăng nhập', 'Vui lòng đăng nhập bằng tài khoản Đội trưởng để bắt kèo!', 'warning');
       return;
     }
     try {
       setIsRequesting(true);
-      await captainService.acceptChallenge(selectedMatch.matchId);
-      alert('Đã gửi yêu cầu bắt kèo thành công!');
+
+      const checkRes = await captainService.checkMatchRank(selectedMatch.matchId);
+      if (checkRes.showWarning) {
+        const confirmResult = await Swal.fire({
+          title: 'Cảnh báo chênh lệch',
+          text: checkRes.message,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#3085d6',
+          cancelButtonColor: '#d33',
+          confirmButtonText: 'Vẫn bắt kèo',
+          cancelButtonText: 'Hủy'
+        });
+        
+        if (!confirmResult.isConfirmed) {
+          setIsRequesting(false);
+          return;
+        }
+      }
+
+      await captainService.requestToJoinMatch(selectedMatch.matchId, { message: requestMessage });
+      Swal.fire('Thành công', 'Đã gửi yêu cầu bắt kèo thành công!', 'success');
       setSelectedMatch(null);
       setRequestMessage('');
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi bắt kèo.');
+      Swal.fire('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra khi bắt kèo.', 'error');
     } finally {
       setIsRequesting(false);
     }
@@ -40,7 +81,7 @@ export default function PublicMatches() {
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      const data = await publicService.getMatches();
+      const data = await publicService.getMatches(filters);
       setMatches(data || []);
     } catch (err) {
       console.error(err);
@@ -89,6 +130,33 @@ export default function PublicMatches() {
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 mb-8 flex flex-col md:flex-row gap-4">
+          <input
+            type="text"
+            placeholder="Tìm theo tên đội, sân..."
+            value={filters.search}
+            onChange={(e) => setFilters(prev => ({...prev, search: e.target.value}))}
+            className="flex-1 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <select
+            value={filters.sportId}
+            onChange={(e) => setFilters(prev => ({...prev, sportId: e.target.value}))}
+            className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[200px]"
+          >
+            <option value="">Tất cả môn thể thao</option>
+            {sports.map(s => (
+              <option key={s.sportId} value={s.sportId}>{s.sportName}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => fetchMatches()}
+            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors"
+          >
+            Tìm kiếm
+          </button>
+        </div>
+
         {error && (
           <div className="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 text-rose-600 px-6 py-4 rounded-2xl mb-8">
             {error}
@@ -131,15 +199,19 @@ export default function PublicMatches() {
 
                 <div className="flex items-center justify-between mb-6">
                   <div className="text-center flex-1">
-                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mb-2 shadow-inner border border-slate-200 dark:border-slate-700 group-hover:scale-110 transition-transform">
-                      <FiShield className="text-2xl text-slate-400" />
+                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mb-2 shadow-inner border border-slate-200 dark:border-slate-700 group-hover:scale-110 transition-transform overflow-hidden">
+                      {match.matchType === 'PickUp' && match.homeTeamAvatar ? (
+                        <img src={match.homeTeamAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                      ) : (
+                        <FiShield className="text-2xl text-slate-400" />
+                      )}
                     </div>
                     <span className="font-bold text-slate-900 dark:text-white line-clamp-1">{match.homeTeamName || 'Đội nhà'}</span>
                   </div>
                   
                   <div className="px-4 text-center">
                     <span className="text-sm font-bold text-slate-300">VS</span>
-                    {match.matchStatus === 'Completed' && (
+                    {(match.matchStatus === 'Completed' || match.homeScore !== null || match.awayScore !== null) && (
                       <div className="text-xl font-bold text-slate-800 dark:text-slate-200 mt-1">
                         {match.homeScore ?? '-'} : {match.awayScore ?? '-'}
                       </div>
@@ -164,6 +236,31 @@ export default function PublicMatches() {
                     <span className="line-clamp-1">{match.stadiumName || 'Chưa chọn sân'}</span>
                   </div>
                 </div>
+
+                {/* Bắt kèo & Nhắn tin buttons */}
+                {(match.matchStatus === 'LookingForOpponent' || match.matchStatus === 'Scheduled') && (!match.awayTeamName || match.awayTeamName === 'Đang tìm đối thủ' || match.awayTeamName === 'Đội khách') && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex gap-2">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedMatch(match);
+                      }}
+                      className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-sm"
+                    >
+                      Bắt kèo ngay
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        Swal.fire('Thông báo', 'Tính năng nhắn tin trực tiếp cho Đội trưởng đang được cập nhật!', 'info');
+                      }}
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-colors shadow-sm"
+                      title="Nhắn tin cho đội này"
+                    >
+                      <FiMessageSquare />
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -186,9 +283,32 @@ export default function PublicMatches() {
               </div>
 
               <div className="flex items-center justify-between mb-8 bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-100 dark:border-slate-700">
-                <div className="text-center flex-1">
-                  <div className="w-20 h-20 mx-auto bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-3 shadow-sm border border-slate-200 dark:border-slate-700">
-                    <FiShield className="text-4xl text-blue-500" />
+                <div 
+                  className={`text-center flex-1 ${selectedMatch.matchType === 'PickUp' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                  onClick={() => {
+                    if (selectedMatch.matchType === 'PickUp') {
+                      Swal.fire({
+                        title: 'Thông tin người tạo',
+                        html: `
+                          <div class="flex flex-col items-center">
+                            <img src="${selectedMatch.homeTeamAvatar || 'https://via.placeholder.com/100'}" class="w-24 h-24 rounded-full mb-4 object-cover border-4 border-slate-100 shadow-sm" />
+                            <h3 class="font-bold text-xl mb-1">${selectedMatch.homeTeamName || 'Người chơi ẩn'}</h3>
+                            <p class="text-slate-500 font-medium">SĐT: ${selectedMatch.homeTeamPhone || 'Không công khai'}</p>
+                          </div>
+                        `,
+                        confirmButtonText: 'Đóng',
+                        confirmButtonColor: '#4f46e5'
+                      });
+                    }
+                  }}
+                  title={selectedMatch.matchType === 'PickUp' ? "Nhấn để xem thông tin cá nhân" : ""}
+                >
+                  <div className="w-20 h-20 mx-auto bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-3 shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    {selectedMatch.matchType === 'PickUp' && selectedMatch.homeTeamAvatar ? (
+                      <img src={selectedMatch.homeTeamAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <FiShield className="text-4xl text-blue-500" />
+                    )}
                   </div>
                   <span className="font-bold text-lg text-slate-900 dark:text-white">{selectedMatch.homeTeamName || 'Đội nhà'}</span>
                 </div>
@@ -240,7 +360,7 @@ export default function PublicMatches() {
                 </div>
               </div>
 
-              {selectedMatch.matchStatus === 'LookingForOpponent' && (
+              {(selectedMatch.matchStatus === 'LookingForOpponent' || selectedMatch.matchStatus === 'Scheduled') && (!selectedMatch.awayTeamName || selectedMatch.awayTeamName === 'Đang tìm đối thủ' || selectedMatch.awayTeamName === 'Đội khách') && (
                 <div className="mt-6">
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
                     <FiMessageSquare /> Lời nhắn cho đội bạn (Tùy chọn)
@@ -255,14 +375,22 @@ export default function PublicMatches() {
               )}
 
               <div className="mt-8 flex justify-end gap-3">
-                {selectedMatch.matchStatus === 'LookingForOpponent' && (
-                  <button 
-                    onClick={handleRequestToJoin}
-                    disabled={isRequesting}
-                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-md hover:-translate-y-0.5 disabled:opacity-50"
-                  >
-                    {isRequesting ? 'Đang gửi...' : 'Bắt kèo ngay'}
-                  </button>
+                {(selectedMatch.matchStatus === 'LookingForOpponent' || selectedMatch.matchStatus === 'Scheduled') && (!selectedMatch.awayTeamName || selectedMatch.awayTeamName === 'Đang tìm đối thủ' || selectedMatch.awayTeamName === 'Đội khách') && (
+                  <>
+                    <button 
+                      onClick={() => Swal.fire('Thông báo', 'Tính năng nhắn tin trực tiếp cho Đội trưởng đang được cập nhật!', 'info')}
+                      className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold transition-colors shadow-md hover:-translate-y-0.5 flex items-center gap-2"
+                    >
+                      <FiMessageSquare /> Nhắn tin
+                    </button>
+                    <button 
+                      onClick={handleRequestToJoin}
+                      disabled={isRequesting}
+                      className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-colors shadow-md hover:-translate-y-0.5 disabled:opacity-50"
+                    >
+                      {isRequesting ? 'Đang gửi...' : 'Bắt kèo ngay'}
+                    </button>
+                  </>
                 )}
                 <Link 
                   to={`/matches/${selectedMatch.matchId}`}

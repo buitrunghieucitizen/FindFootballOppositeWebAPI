@@ -31,6 +31,8 @@ public partial class Team
     [StringLength(500)]
     public string? LogoUrl { get; set; }
 
+    public string? BackgroundUrl { get; set; }
+
     public bool IsSubscriptionActive { get; set; } = false;
 
     public DateTime? SubscriptionEndDate { get; set; }
@@ -39,7 +41,17 @@ public partial class Team
 
     public bool? IsFundUnlocked { get; set; } = false;
 
-    public int RankingScore { get; set; } = 1000;
+    public int RankingScore { get; set; } = 0;
+
+    public int Points { get; set; } = 0;
+
+    public int FairplayScore { get; set; } = 100;
+
+    public int FairplayWarnings { get; set; } = 0;
+
+    public string? RankingTier { get; set; }
+
+    public bool IsInternal { get; set; } = false;
 
     public virtual User? Captain { get; set; }
 

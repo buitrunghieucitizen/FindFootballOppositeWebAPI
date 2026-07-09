@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace FInd_Op_Web.Models;
 
@@ -29,6 +30,9 @@ public partial class Match
 
     public int? AwayScore { get; set; }
 
+    [MaxLength(100)]
+    public string? SetScores { get; set; }
+
     public string? ResultVisibility { get; set; } = "Public";
 
     public bool? HomeConfirmed { get; set; }
@@ -44,6 +48,10 @@ public partial class Match
     public TimeSpan? EndTime { get; set; }
     public string? Location { get; set; }
     public string? Notes { get; set; }
+    public string? BookingType { get; set; }
+    public int? DurationMinutes { get; set; }
+    public bool? HasExtraTime { get; set; }
+    public int? PitchId { get; set; }
 
     public virtual Team? AwayTeam { get; set; }
 

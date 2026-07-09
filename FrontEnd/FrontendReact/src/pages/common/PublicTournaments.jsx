@@ -7,18 +7,34 @@ import { PublicHeader } from '../../components/portal-ui';
 
 export default function PublicTournaments() {
   const [tournaments, setTournaments] = useState([]);
+  const [sports, setSports] = useState([]);
+  const [filters, setFilters] = useState({ search: '', sportId: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    fetchTournaments();
+    fetchSports();
   }, []);
+
+  useEffect(() => {
+    fetchTournaments();
+  }, [filters.sportId]);
+
+  const fetchSports = async () => {
+    try {
+      const data = await publicService.getSports();
+      const sportsData = data?.data || data?.$values || data || [];
+      setSports(Array.isArray(sportsData) ? sportsData : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchTournaments = async () => {
     try {
       setLoading(true);
-      const data = await publicService.getTournaments();
+      const data = await publicService.getTournaments(filters);
       setTournaments(data || []);
     } catch (err) {
       console.error(err);
@@ -61,6 +77,33 @@ export default function PublicTournaments() {
               Tổ chức Giải đấu
             </button>
           </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 mb-8 flex flex-col md:flex-row gap-4">
+          <input
+            type="text"
+            placeholder="Tìm theo tên giải đấu, sân..."
+            value={filters.search}
+            onChange={(e) => setFilters(prev => ({...prev, search: e.target.value}))}
+            className="flex-1 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          />
+          <select
+            value={filters.sportId}
+            onChange={(e) => setFilters(prev => ({...prev, sportId: e.target.value}))}
+            className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 min-w-[200px]"
+          >
+            <option value="">Tất cả môn thể thao</option>
+            {sports.map(s => (
+              <option key={s.sportId} value={s.sportId}>{s.sportName}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => fetchTournaments()}
+            className="px-6 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold rounded-xl transition-colors hover:from-amber-600 hover:to-orange-600"
+          >
+            Tìm kiếm
+          </button>
         </div>
 
         {error && (

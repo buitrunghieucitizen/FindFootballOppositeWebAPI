@@ -62,7 +62,7 @@ namespace FInd_Op_Web.Controllers
                     foreach (var s in ownerSchedules)
                     {
                         var durationHours = (decimal)(s.EndTime - s.StartTime).TotalHours;
-                        ownerRevenueSum += durationHours * (s.Pitch?.PricePerHour ?? 0);
+                        ownerRevenueSum += durationHours * (s.Pitch?.PricePerSlot ?? 0);
                     }
 
                     // Include BookingCommissions if any
@@ -106,7 +106,7 @@ namespace FInd_Op_Web.Controllers
                     s.Hotline,
                     s.Description,
                     s.CreatedAt,
-                    Pitches = s.Pitches.Select(p => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerHour, p.GrassType })
+                    Pitches = s.Pitches.Select(p => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot, p.GrassType })
                 })
                 .ToListAsync();
 
@@ -207,7 +207,7 @@ namespace FInd_Op_Web.Controllers
                 StadiumId = dto.StadiumId,
                 PitchName = dto.PitchName,
                 GrassType = dto.PitchType,
-                PricePerHour = dto.HourlyRate,
+                PricePerSlot = dto.HourlyRate,
                 SportId = dto.SportId,
                 IsActive = true
             };

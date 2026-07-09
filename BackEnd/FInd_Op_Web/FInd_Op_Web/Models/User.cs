@@ -19,6 +19,8 @@ public partial class User
 
     public string? AvatarUrl { get; set; }
 
+    public string? BackgroundUrl { get; set; }
+
     public bool? IsFreeAgent { get; set; }
 
     public DateTime? CreatedAt { get; set; }
@@ -34,6 +36,10 @@ public partial class User
     public DateTime? PremiumUntil { get; set; }
 
     public int? Tokens { get; set; } = 0;
+
+    public string? IdCardFrontUrl { get; set; }
+    public string? IdCardBackUrl { get; set; }
+    public string? KycStatus { get; set; } = "Pending";
 
     public virtual ICollection<MatchPoll> MatchPolls { get; set; } = new List<MatchPoll>();
 

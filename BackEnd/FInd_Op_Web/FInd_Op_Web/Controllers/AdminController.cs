@@ -12,6 +12,7 @@ using FInd_Op_Web.Models;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.SignalR;
 
 namespace FInd_Op_Web.Controllers
 {
@@ -160,6 +161,39 @@ namespace FInd_Op_Web.Controllers
         // ============================================================
         // 1. USER MANAGEMENT (Full CRUD)
         // ============================================================
+
+        [HttpPost("RemindCommissionDebt")]
+        public async Task<IActionResult> RemindCommissionDebt()
+        {
+            // Calculate debts for all owners
+            var ownersWithDebt = await _context.BookingCommissions
+                .Where(c => !c.IsPaidToPlatform)
+                .GroupBy(c => c.StadiumOwnerId)
+                .Select(g => new {
+                    OwnerId = g.Key,
+                    TotalDebt = g.Sum(c => c.CommissionAmount)
+                })
+                .Where(x => x.TotalDebt > 0)
+                .ToListAsync();
+
+            int count = 0;
+            foreach (var item in ownersWithDebt)
+            {
+                _context.Notifications.Add(new Notification
+                {
+                    UserId = item.OwnerId,
+                    Title = "Nhắc nhở nộp tiền hoa hồng",
+                    Message = $"Hệ thống thông báo: Bạn đang có khoản nợ hoa hồng chưa thanh toán là {item.TotalDebt:N0}đ. Vui lòng thanh toán sớm để không bị gián đoạn dịch vụ.",
+                    RelatedLink = "/stadium-owner",
+                    IsRead = false,
+                    CreatedAt = DateTime.Now
+                });
+                count++;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = $"Đã gửi thông báo nhắc nhở đến {count} chủ sân." });
+        }
 
         /// <summary>
         /// GET api/Admin/users?search=&page=1&role=
@@ -534,6 +568,43 @@ namespace FInd_Op_Web.Controllers
         }
 
         /// <summary>
+        /// PUT api/Admin/teams/{id}
+        /// Cập nhật đội bóng
+        /// </summary>
+        [HttpPut("teams/{id}")]
+        public async Task<IActionResult> UpdateTeam(int id, [FromBody] UpdateTeamDto dto)
+        {
+            var team = await _context.Teams.FindAsync(id);
+            if (team == null)
+                return NotFound(new { message = "Không tìm thấy đội bóng." });
+
+            team.TeamName = dto.TeamName;
+            team.QualityLevel = dto.QualityLevel;
+            team.HomeArea = dto.HomeArea;
+            team.History = dto.History;
+            if (dto.LookingForOpponent.HasValue)
+            {
+                team.LookingForOpponent = dto.LookingForOpponent.Value;
+            }
+            if (dto.SportId.HasValue)
+            {
+                team.SportId = dto.SportId.Value;
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                team.TeamId,
+                team.TeamName,
+                team.QualityLevel,
+                team.HomeArea,
+                team.LookingForOpponent,
+                message = "Cập nhật đội bóng thành công!"
+            });
+        }
+
+        /// <summary>
         /// DELETE api/Admin/teams/{id}
         /// Xóa đội bóng
         /// </summary>
@@ -565,11 +636,12 @@ namespace FInd_Op_Web.Controllers
         /// Danh sách sân vận động có phân trang, tìm kiếm
         /// </summary>
         [HttpGet("stadiums")]
-        public async Task<IActionResult> GetStadiums(string? search, int page = 1)
+        public async Task<IActionResult> GetStadiums(string? search, int? month, int? year, int page = 1)
         {
             var query = _context.Stadiums
                 .Include(s => s.Owner)
                 .Include(s => s.Pitches)
+                    .ThenInclude(p => p.PitchSchedules)
                 .AsQueryable();
 
             if (!string.IsNullOrWhiteSpace(search))
@@ -580,25 +652,36 @@ namespace FInd_Op_Web.Controllers
             }
 
             var totalItems = await query.CountAsync();
-            var stadiums = await query
+
+            int targetMonth = month ?? DateTime.Now.Month;
+            int targetYear = year ?? DateTime.Now.Year;
+
+            var stadiumsList = await query
                 .OrderBy(s => s.StadiumId)
                 .Skip((page - 1) * PageSize)
                 .Take(PageSize)
-                .Select(s => new
-                {
-                    s.StadiumId,
-                    s.StadiumName,
-                    s.Address,
-                    s.Hotline,
-                    s.OwnerId,
-                    owner = s.Owner == null ? null : new { s.Owner.FullName },
-                    s.Description,
-                    pitchCount = s.Pitches.Count,
-                    s.CreatedAt
-                })
                 .ToListAsync();
 
-            return Ok(CreatePaginatedResponse(stadiums, totalItems, page));
+            var result = stadiumsList.Select(s => new
+            {
+                s.StadiumId,
+                s.StadiumName,
+                s.Address,
+                s.Hotline,
+                s.OwnerId,
+                owner = s.Owner == null ? null : new { s.Owner.FullName },
+                s.Description,
+                pitchCount = s.Pitches.Count,
+                monthlyBookingCount = s.Pitches.SelectMany(p => p.PitchSchedules).Count(ps => 
+                    ps.StartTime.Month == targetMonth && 
+                    ps.StartTime.Year == targetYear && 
+                    (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed" || ps.ScheduleStatus == "Completed")),
+                totalBookingCount = s.Pitches.SelectMany(p => p.PitchSchedules).Count(ps => 
+                    ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed" || ps.ScheduleStatus == "Completed"),
+                s.CreatedAt
+            }).ToList();
+
+            return Ok(CreatePaginatedResponse(result, totalItems, page));
         }
 
         /// <summary>
@@ -632,7 +715,7 @@ namespace FInd_Op_Web.Controllers
                         p.PitchId,
                         p.PitchName,
                         p.PitchSize,
-                        p.PricePerHour,
+                        p.PricePerSlot,
                         p.GrassType,
                         p.IsActive
                     })
@@ -675,7 +758,7 @@ namespace FInd_Op_Web.Controllers
                     {
                         PitchName = pitchDto.PitchName,
                         PitchSize = pitchDto.PitchSize,
-                        PricePerHour = pitchDto.PricePerHour,
+                        PricePerSlot = pitchDto.PricePerSlot,
                         GrassType = pitchDto.GrassType,
                         SportId = pitchDto.SportId ?? 1,
                         IsActive = pitchDto.IsActive ?? true
@@ -700,7 +783,7 @@ namespace FInd_Op_Web.Controllers
                     p.PitchId,
                     p.PitchName,
                     p.PitchSize,
-                    p.PricePerHour,
+                    p.PricePerSlot,
                     p.GrassType,
                     p.IsActive
                 }),
@@ -737,7 +820,7 @@ namespace FInd_Op_Web.Controllers
                     {
                         PitchName = pitchDto.PitchName,
                         PitchSize = pitchDto.PitchSize,
-                        PricePerHour = pitchDto.PricePerHour,
+                        PricePerSlot = pitchDto.PricePerSlot,
                         GrassType = pitchDto.GrassType,
                         SportId = pitchDto.SportId ?? 1,
                         IsActive = pitchDto.IsActive ?? true
@@ -760,7 +843,7 @@ namespace FInd_Op_Web.Controllers
                     p.PitchId,
                     p.PitchName,
                     p.PitchSize,
-                    p.PricePerHour,
+                    p.PricePerSlot,
                     p.GrassType,
                     p.IsActive
                 }),
@@ -957,6 +1040,12 @@ namespace FInd_Op_Web.Controllers
                     t.StartDate,
                     t.EndDate,
                     t.Status,
+                    t.ApprovalStatus,
+                    t.OrganizerCccd,
+                    t.OrganizerDriverLicense,
+                    t.IsFeePaid,
+                    t.EntryFee,
+                    t.Scope,
                     t.Description,
                     t.CreatedAt
                 })
@@ -965,10 +1054,6 @@ namespace FInd_Op_Web.Controllers
             return Ok(CreatePaginatedResponse(tournaments, totalItems, page));
         }
 
-        /// <summary>
-        /// GET api/Admin/tournaments/{id}
-        /// Chi tiết giải đấu
-        /// </summary>
         [HttpGet("tournaments/{id}")]
         public async Task<IActionResult> GetTournament(int id)
         {
@@ -998,8 +1083,15 @@ namespace FInd_Op_Web.Controllers
                     t.StartDate,
                     t.EndDate,
                     t.Status,
+                    t.ApprovalStatus,
+                    t.OrganizerCccd,
+                    t.OrganizerDriverLicense,
+                    t.IsFeePaid,
+                    t.EntryFee,
+                    t.Scope,
                     t.Description,
-                    t.CreatedAt
+                    t.CreatedAt,
+                    t.MaxTeams
                 })
                 .FirstOrDefaultAsync();
 
@@ -1007,6 +1099,113 @@ namespace FInd_Op_Web.Controllers
                 return NotFound(new { message = "Không tìm thấy giải đấu." });
 
             return Ok(tournament);
+        }
+
+        [HttpGet("tournaments/refund-requests")]
+        public async Task<IActionResult> GetRefundRequests()
+        {
+            var requests = await _context.Tournaments
+                .Where(t => t.RefundStatus == "Requested")
+                .Select(t => new
+                {
+                    t.TournamentId,
+                    t.TournamentName,
+                    t.OrganizerId,
+                    t.RefundStatus,
+                    PlatformFee = t.MaxTeams <= 8 ? 130000 : (t.MaxTeams <= 16 ? 200000 : 500000),
+                    RefundAmount = (t.MaxTeams <= 8 ? 130000 : (t.MaxTeams <= 16 ? 200000 : 500000)) * 0.8m
+                })
+                .ToListAsync();
+            return Ok(requests);
+        }
+
+        [HttpPost("tournaments/{id}/process-refund")]
+        public async Task<IActionResult> ProcessRefund(int id)
+        {
+            var tournament = await _context.Tournaments.FindAsync(id);
+            if (tournament == null) return NotFound();
+
+            if (tournament.RefundStatus != "Requested")
+                return BadRequest("Not requested for refund");
+
+            tournament.RefundStatus = "AdminRefunded";
+            
+            _context.Notifications.Add(new Notification
+            {
+                UserId = tournament.OrganizerId ?? 0,
+                Title = "Đã hoàn tiền giải đấu",
+                Message = $"Admin đã hoàn tiền 80% cho giải đấu '{tournament.TournamentName}'. Vui lòng xác nhận.",
+                IsRead = false,
+                CreatedAt = DateTime.Now
+            });
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Processed" });
+        }
+
+        /// <summary>
+        /// POST api/Admin/tournaments/{id}/approve
+        /// Duyệt giải đấu (KYC)
+        /// </summary>
+        [HttpPost("tournaments/{id}/approve")]
+        public async Task<IActionResult> ApproveTournament(int id)
+        {
+            var tournament = await _context.Tournaments.FindAsync(id);
+            if (tournament == null) return NotFound(new { message = "Không tìm thấy giải đấu." });
+
+            if (tournament.ApprovalStatus != "Pending")
+                return BadRequest(new { message = "Giải đấu không ở trạng thái chờ duyệt." });
+
+            tournament.ApprovalStatus = "Approved";
+
+            if (tournament.OrganizerId.HasValue)
+            {
+                var notification = new Notification
+                {
+                    UserId = tournament.OrganizerId.Value,
+                    Title = "Giải đấu được duyệt",
+                    Message = $"Giải đấu '{tournament.TournamentName}' của bạn đã được quản trị viên phê duyệt. Hãy vào mục Quản lý giải để thanh toán lệ phí (nếu có) và bắt đầu.",
+                    IsRead = false,
+                    CreatedAt = DateTime.Now
+                };
+                _context.Notifications.Add(notification);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đã duyệt giải đấu.", status = tournament.ApprovalStatus });
+        }
+
+        /// <summary>
+        /// POST api/Admin/tournaments/{id}/reject
+        /// Từ chối giải đấu
+        /// </summary>
+        [HttpPost("tournaments/{id}/reject")]
+        public async Task<IActionResult> RejectTournament(int id)
+        {
+            var tournament = await _context.Tournaments.FindAsync(id);
+            if (tournament == null) return NotFound(new { message = "Không tìm thấy giải đấu." });
+
+            if (tournament.ApprovalStatus != "Pending")
+                return BadRequest(new { message = "Giải đấu không ở trạng thái chờ duyệt." });
+
+            tournament.ApprovalStatus = "Rejected";
+            tournament.Status = "Cancelled";
+
+            if (tournament.OrganizerId.HasValue)
+            {
+                var notification = new Notification
+                {
+                    UserId = tournament.OrganizerId.Value,
+                    Title = "Giải đấu bị từ chối",
+                    Message = $"Giải đấu '{tournament.TournamentName}' của bạn đã bị từ chối do không đạt đủ tiêu chuẩn hoặc thông tin xác thực không hợp lệ.",
+                    IsRead = false,
+                    CreatedAt = DateTime.Now
+                };
+                _context.Notifications.Add(notification);
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đã từ chối giải đấu." });
         }
 
         /// <summary>
@@ -1023,6 +1222,11 @@ namespace FInd_Op_Web.Controllers
             // Validate organizer exists if provided
             if (dto.OrganizerId.HasValue && !await _context.Users.AnyAsync(u => u.UserId == dto.OrganizerId))
                 return BadRequest(new { message = "Người tổ chức không tồn tại." });
+
+            if (dto.StartDate?.Date < DateTime.Now.Date || dto.EndDate?.Date < dto.StartDate?.Date)
+            {
+                return BadRequest(new { message = "Ngày bắt đầu hoặc ngày kết thúc không hợp lệ." });
+            }
 
             var tournament = new Tournament
             {
@@ -1111,9 +1315,23 @@ namespace FInd_Op_Web.Controllers
         [HttpDelete("tournaments/{id}")]
         public async Task<IActionResult> DeleteTournament(int id)
         {
-            var tournament = await _context.Tournaments.FindAsync(id);
+            var tournament = await _context.Tournaments
+                .Include(t => t.TournamentTeams)
+                .FirstOrDefaultAsync(t => t.TournamentId == id);
+
             if (tournament == null)
                 return NotFound(new { message = "Không tìm thấy giải đấu." });
+
+            // Explicitly remove related TournamentTeams
+            _context.TournamentTeams.RemoveRange(tournament.TournamentTeams);
+
+            // Explicitly remove related TournamentTeamPlayers
+            var teamPlayers = await _context.TournamentTeamPlayers.Where(p => p.TournamentId == id).ToListAsync();
+            _context.TournamentTeamPlayers.RemoveRange(teamPlayers);
+
+            // Explicitly remove related TournamentFees
+            var fees = await _context.TournamentFees.Where(f => f.TournamentId == id).ToListAsync();
+            _context.TournamentFees.RemoveRange(fees);
 
             _context.Tournaments.Remove(tournament);
             await _context.SaveChangesAsync();
@@ -1334,6 +1552,98 @@ namespace FInd_Op_Web.Controllers
             await _context.SaveChangesAsync();
             return Ok(request);
         }
+        // ============================================================
+        // 10. FEEDBACK MANAGEMENT
+        // ============================================================
 
+        [HttpGet("feedbacks")]
+        public async Task<IActionResult> GetFeedbacks([FromQuery] string? status, [FromQuery] int page = 1)
+        {
+            var query = _context.Set<Feedback>().Include(f => f.User).AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(f => f.Status == status);
+            }
+
+            var totalItems = await query.CountAsync();
+            var feedbacks = await query
+                .OrderByDescending(f => f.CreatedAt)
+                .Skip((page - 1) * PageSize)
+                .Take(PageSize)
+                .Select(f => new
+                {
+                    f.FeedbackId,
+                    f.Category,
+                    f.Content,
+                    f.Status,
+                    f.CreatedAt,
+                    f.UserId,
+                    User = f.User != null ? new { f.User.FullName, f.User.Username } : null
+                })
+                .ToListAsync();
+
+            return Ok(CreatePaginatedResponse(feedbacks, totalItems, page));
+        }
+
+        public class UpdateFeedbackStatusDto
+        {
+            public string Status { get; set; } = string.Empty;
+        }
+
+        [HttpPut("feedbacks/{id}/status")]
+        public async Task<IActionResult> UpdateFeedbackStatus(int id, [FromBody] UpdateFeedbackStatusDto dto)
+        {
+            var feedback = await _context.Set<Feedback>().FindAsync(id);
+            if (feedback == null) return NotFound(new { message = "Feedback not found." });
+
+            feedback.Status = dto.Status;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Status updated successfully.", feedback });
+        }
+
+        [HttpPost("RemindCommissions")]
+        public async Task<IActionResult> RemindCommissions()
+        {
+            var hubContext = HttpContext.RequestServices.GetService<Microsoft.AspNetCore.SignalR.IHubContext<FInd_Op_Web.Hubs.NotificationHub>>();
+            var unpaidCommissions = await _context.BookingCommissions
+                .Where(c => !c.IsPaidToPlatform)
+                .GroupBy(c => c.StadiumOwnerId)
+                .Select(g => new {
+                    OwnerId = g.Key,
+                    TotalAmount = g.Sum(c => c.CommissionAmount)
+                })
+                .ToListAsync();
+
+            int count = 0;
+            foreach(var item in unpaidCommissions)
+            {
+                if (item.TotalAmount > 0)
+                {
+                    var notif = new Notification
+                    {
+                        UserId = item.OwnerId,
+                        Title = "Nhắc nhở nộp hoa hồng",
+                        Message = $"Hôm nay là mùng 1. Vui lòng thanh toán số tiền hoa hồng còn nợ hệ thống là: {item.TotalAmount:N0} VNĐ. Cảm ơn bạn!",
+                        CreatedAt = DateTime.Now,
+                        IsRead = false
+                    };
+                    _context.Notifications.Add(notif);
+                    count++;
+                    
+                    if (hubContext != null)
+                    {
+                        var connId = FInd_Op_Web.Hubs.NotificationHub.GetConnectionIdForUser(item.OwnerId.ToString());
+                        if (!string.IsNullOrEmpty(connId))
+                        {
+                            await hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+                        }
+                    }
+                }
+            }
+            await _context.SaveChangesAsync();
+            return Ok(new { message = $"Đã gửi nhắc nhở cho {count} chủ sân." });
+        }
     }
 }

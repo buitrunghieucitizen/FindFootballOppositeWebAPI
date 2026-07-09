@@ -6,11 +6,11 @@ import { captainService } from '../../services/captainService';
 import { publicService } from '../../services/publicService';
 import { DashboardLayout, DashboardSidebar } from '../../components/portal-ui';
 import NotificationBell from '../../components/NotificationBell';
-import SwissBracketMap, { DEFAULT_SWISS_8, DEFAULT_SWISS_16 } from '../../components/SwissBracketMap';
-import DoubleEliminationBracket, { DEFAULT_DOUBLE_ELIM_8 } from '../../components/DoubleEliminationBracket';
-import KnockoutBracket, { DEFAULT_KNOCKOUT_8, DEFAULT_KNOCKOUT_16 } from '../../components/KnockoutBracket';
-import GroupStageMap, { DEFAULT_GROUP_STAGE } from '../../components/GroupStageMap';
-import LeagueMap, { DEFAULT_LEAGUE } from '../../components/LeagueMap';
+import SwissBracketMap, { DEFAULT_SWISS_8, DEFAULT_SWISS_16, generateSwissBracket } from '../../components/SwissBracketMap';
+import DoubleEliminationBracket, { DEFAULT_DOUBLE_ELIM_8, generateDoubleElimination } from '../../components/DoubleEliminationBracket';
+import KnockoutBracket, { DEFAULT_KNOCKOUT_8, DEFAULT_KNOCKOUT_16, generateKnockout } from '../../components/KnockoutBracket';
+import GroupStageMap, { DEFAULT_GROUP_STAGE, generateGroupStage } from '../../components/GroupStageMap';
+import LeagueMap, { DEFAULT_LEAGUE, generateRoundRobin } from '../../components/LeagueMap';
 import TournamentMatchesList from '../../components/TournamentMatchesList';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -50,9 +50,36 @@ export default function ManageTournament_Captain() {
   const [bracket, setBracket] = useState({ rounds: [] });
 
   useEffect(() => {
-    loadTournamentSettings();
-    loadTeams();
-    loadBracket();
+    const init = async () => {
+      try {
+        const allTournaments = await captainService.getTournaments();
+        const current = allTournaments.find(t => (t.id || t.tournamentId) == id);
+        if (current) {
+          if (current.approvalStatus !== 'Approved') {
+            alert('Giải đấu này chưa được duyệt. Bạn chưa thể quản lý!');
+            navigate('/captain');
+            return;
+          }
+          if (current.entryFee > 0 && !current.isFeePaid) {
+            alert('Giải đấu này chưa thanh toán lệ phí. Bạn chưa thể quản lý!');
+            navigate('/captain');
+            return;
+          }
+          setTournament(current);
+        } else {
+           alert('Không tìm thấy giải đấu');
+           navigate('/captain');
+           return;
+        }
+      } catch (e) {
+        console.warn("Lỗi load trạng thái giải đấu", e);
+      }
+
+      loadTournamentSettings();
+      loadTeams();
+      loadBracket();
+    };
+    init();
   }, [id]);
 
   const loadTournamentSettings = async () => {
@@ -82,6 +109,30 @@ export default function ManageTournament_Captain() {
     await captainService.updateTournamentSettings(id, settings);
     alert('Đã cập nhật cài đặt giải đấu');
     setLoading(false);
+  };
+
+  const handleRequestRefund = async () => {
+    if (confirm('Lưu ý: Hủy giải sẽ được hoàn lại 80% số tiền. Bạn có chắc chắn muốn hủy giải đấu này và yêu cầu hoàn tiền?')) {
+      try {
+        await captainService.requestRefund(id);
+        alert('Đã gửi yêu cầu hoàn tiền thành công.');
+        loadTournament();
+      } catch (err) {
+        alert(err.response?.data?.message || 'Lỗi khi yêu cầu hoàn tiền');
+      }
+    }
+  };
+
+  const handleConfirmRefund = async () => {
+    if (confirm('Bạn xác nhận đã nhận được tiền hoàn từ Admin?')) {
+      try {
+        await captainService.confirmRefund(id);
+        alert('Đã xác nhận hoàn tiền xong.');
+        loadTournament();
+      } catch (err) {
+        alert(err.response?.data?.message || 'Lỗi xác nhận');
+      }
+    }
   };
 
   const handleGenerateInternalTeams = async () => {
@@ -204,7 +255,7 @@ export default function ManageTournament_Captain() {
         </button>
         {showUserMenu && (
           <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 py-2 z-50 animate-fade-in">
-            <Link to="/captain-home?tab=profile" className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors">
+            <Link to="/profile" onClick={() => setShowUserMenu(false)} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors">
               <FiUser className="text-slate-400" /> Thông tin cá nhân
             </Link>
             <Link to="/" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors">
@@ -375,10 +426,33 @@ export default function ManageTournament_Captain() {
                     />
                   </div>
                 </div>
-                <div className="pt-4">
+                <div className="pt-4 flex flex-col md:flex-row gap-4 items-center justify-between border-t border-slate-200 dark:border-slate-700 mt-6">
                   <button type="submit" disabled={loading} className="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl flex items-center gap-2 transition-colors">
                     <FiSave /> Lưu Cài Đặt
                   </button>
+                  
+                  <div className="flex flex-col items-end gap-2">
+                    <p className="text-sm text-slate-500 italic">Hủy giải sẽ được hoàn lại 80% số tiền tạo giải.</p>
+                    {tournament?.status === 'Cancelled' ? (
+                      tournament?.refundStatus === 'Requested' ? (
+                        <button type="button" disabled className="px-6 py-3 bg-slate-300 text-slate-600 font-bold rounded-xl cursor-not-allowed">
+                          Đang chờ Admin hoàn tiền...
+                        </button>
+                      ) : tournament?.refundStatus === 'AdminRefunded' ? (
+                        <button type="button" onClick={handleConfirmRefund} className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl">
+                          Đã nhận tiền
+                        </button>
+                      ) : tournament?.refundStatus === 'Completed' ? (
+                        <button type="button" disabled className="px-6 py-3 bg-slate-300 text-slate-600 font-bold rounded-xl cursor-not-allowed">
+                          Đã nhận tiền hoàn
+                        </button>
+                      ) : null
+                    ) : (
+                      <button type="button" onClick={handleRequestRefund} className="px-6 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl transition-colors">
+                        Yêu cầu hoàn tiền (Hủy giải)
+                      </button>
+                    )}
+                  </div>
                 </div>
               </form>
             )}
@@ -481,7 +555,7 @@ export default function ManageTournament_Captain() {
                     <h3 className="text-xl font-bold text-slate-900 dark:text-white">Sơ Đồ Xếp Lịch</h3>
                     <p className="text-sm text-slate-500 mt-1">Cập nhật kết quả các vòng đấu theo thể thức bạn đã chọn.</p>
                   </div>
-                  {settings.format === 'Swiss' && (
+                  {settings.format?.toLowerCase() === 'swiss' && (
                     <button 
                       onClick={() => setShowSwissSettings(true)}
                       className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 font-bold px-4 py-2 rounded-xl text-sm hover:bg-emerald-200 dark:hover:bg-emerald-500/30 transition-colors"
@@ -491,45 +565,49 @@ export default function ManageTournament_Captain() {
                   )}
                 </div>
 
-                {settings.format === 'Swiss' && (
+                {settings.format?.toLowerCase() === 'swiss' && (
                   <SwissBracketMap 
-                    data={bracket.rounds?.length > 0 ? bracket : (settings.maxTeams === 8 ? DEFAULT_SWISS_8 : DEFAULT_SWISS_16)}
+                    data={bracket.rounds?.length > 0 ? bracket : generateSwissBracket([], settings.maxTeams || 16)}
+                    teams={teams.map(t => ({ id: t.id, name: t.abbr || t.name }))}
                     onMatchUpdate={(newBracket) => {
                       setBracket(newBracket);
                     }}
                   />
                 )}
 
-                {settings.format === 'Knockout' && (
+                {settings.format?.toLowerCase() === 'knockout' && (
                   <KnockoutBracket 
-                    data={bracket.rounds?.length > 0 ? bracket : (settings.maxTeams === 16 ? DEFAULT_KNOCKOUT_16 : DEFAULT_KNOCKOUT_8)}
+                    data={bracket.rounds?.length > 0 ? bracket : generateKnockout([], settings.maxTeams || 8)}
+                    teams={teams.map(t => ({ id: t.id, name: t.abbr || t.name }))}
                     onMatchUpdate={(newBracket) => {
                       setBracket(newBracket);
                     }}
                   />
                 )}
 
-                {settings.format === 'DoubleElimination' && (
+                {settings.format?.toLowerCase() === 'doubleelimination' && (
                   <DoubleEliminationBracket 
-                    data={bracket.winners?.length > 0 ? bracket : DEFAULT_DOUBLE_ELIM_8}
+                    data={bracket.winners?.length > 0 ? bracket : generateDoubleElimination([], settings.maxTeams || 8)}
+                    teams={teams.map(t => ({ id: t.id, name: t.abbr || t.name }))}
                     onMatchUpdate={(newBracket) => {
                       setBracket(newBracket);
                     }}
                   />
                 )}
 
-                {settings.format === 'GroupStage' && (
+                {settings.format?.toLowerCase() === 'groupstage' && (
                   <GroupStageMap 
-                    data={bracket.groups?.length > 0 ? bracket : DEFAULT_GROUP_STAGE}
+                    data={bracket.groups?.length > 0 ? bracket : generateGroupStage([], settings.maxTeams || 8)}
+                    teams={teams.map(t => ({ id: t.id, name: t.abbr || t.name }))}
                     onMatchUpdate={(newBracket) => {
                       setBracket(newBracket);
                     }}
                   />
                 )}
 
-                {settings.format === 'League' && (
+                {settings.format?.toLowerCase() === 'league' && (
                   <LeagueMap 
-                    data={bracket.teams?.length > 0 ? bracket : DEFAULT_LEAGUE}
+                    data={bracket.teams?.length > 0 ? bracket : generateRoundRobin([], settings.maxTeams || 6)}
                     onMatchUpdate={(newBracket) => {
                       setBracket(newBracket);
                     }}

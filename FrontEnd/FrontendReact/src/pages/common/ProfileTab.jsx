@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { userProfileService } from '../../services/userProfileService';
+import { mediaService } from '../../services/mediaService';
 import {
   FiUser, FiLock, FiEdit2, FiSave, FiX, FiHome, FiLogOut,
   FiChevronRight, FiEye, FiEyeOff, FiCheck, FiAlertCircle, FiArrowLeft, FiSun, FiMoon, FiCamera
@@ -87,6 +88,15 @@ const getInitials = (name = '') =>
 export default function ProfileTab() {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [hideOnboarding, setHideOnboarding] = useState(localStorage.getItem('hideOnboarding') === 'true');
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setHideOnboarding(localStorage.getItem('hideOnboarding') === 'true');
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   const [activeTab, setActiveTab] = useState('profile');
   const [loading, setLoading] = useState(true);
@@ -161,7 +171,7 @@ export default function ProfileTab() {
   };
 
   const handleCancelEdit = () => {
-    setEditForm({ fullName: profile?.fullName || '', phone: profile?.phone || '', avatarUrl: profile?.avatarUrl || '' });
+    setEditForm({ fullName: profile?.fullName || '', phone: profile?.phone || '', avatarUrl: profile?.avatarUrl || '', backgroundUrl: profile?.backgroundUrl || '' });
     setIsEditing(false);
     setProfileMsg({ type: '', text: '' });
   };
@@ -177,7 +187,7 @@ export default function ProfileTab() {
       
       let newAvatarUrl;
       try {
-        const uploadRes = await userProfileService.uploadAvatar(formData);
+        const uploadRes = await mediaService.uploadImage(file);
         newAvatarUrl = uploadRes.url || uploadRes;
       } catch (uploadErr) {
         console.error('Lỗi khi upload ảnh:', uploadErr);
@@ -206,6 +216,45 @@ export default function ProfileTab() {
       setSaving(false);
     }
   };
+
+  const handleBackgroundChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setSaving(true);
+    try {
+      let newBgUrl;
+      try {
+        const uploadRes = await mediaService.uploadImage(file);
+        newBgUrl = uploadRes.url || uploadRes;
+      } catch (uploadErr) {
+        console.error('Lỗi khi upload ảnh bìa:', uploadErr);
+        setProfileMsg({ type: 'error', text: 'Tải ảnh bìa lên thất bại.' });
+        setSaving(false);
+        return;
+      }
+
+      const updateData = { ...editForm, backgroundUrl: newBgUrl };
+      setEditForm(updateData);
+      
+      try {
+        await userProfileService.updateProfile(updateData);
+        setProfileMsg({ type: 'success', text: 'Cập nhật ảnh bìa thành công!' });
+        const freshProfile = await userProfileService.getProfile();
+        setProfile(freshProfile);
+      } catch (updateErr) {
+        console.error(updateErr);
+        const errMsg = updateErr.response?.data?.message || 'Cập nhật hồ sơ thất bại.';
+        setProfileMsg({ type: 'error', text: errMsg });
+      }
+    } catch (err) {
+      console.error(err);
+      setProfileMsg({ type: 'error', text: 'Tải ảnh bìa lên thất bại.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
 
   // Password validation
   const validatePassword = (form) => {
@@ -322,10 +371,24 @@ export default function ProfileTab() {
                   )}
 
                   <div className="max-w-2xl mx-auto">
+                    {/* Background Cover */}
+                    <div className="relative w-full h-48 rounded-t-2xl bg-slate-200 dark:bg-slate-800 mb-16 overflow-hidden group">
+                      {profile?.backgroundUrl ? (
+                        <img src={profile.backgroundUrl} alt="Background" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-slate-300 to-slate-200 dark:from-slate-700 dark:to-slate-800"></div>
+                      )}
+                      <label className="absolute inset-0 bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer backdrop-blur-sm">
+                        <FiCamera className="text-2xl mb-1" />
+                        <span className="text-sm font-bold">Đổi ảnh bìa</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleBackgroundChange} disabled={saving} />
+                      </label>
+                    </div>
+
                     {/* Avatar & Basic Info Card */}
-                    <div className="text-center mb-8">
+                    <div className="text-center mb-8 -mt-24 relative z-10">
                       <div className="relative inline-block group cursor-pointer mx-auto mb-4">
-                        <div className={`w-24 h-24 rounded-2xl bg-gradient-to-br ${theme.gradient} text-white flex items-center justify-center font-bold text-3xl shadow-xl ${theme.btnShadow} overflow-hidden`}>
+                        <div className={`w-28 h-28 rounded-2xl bg-gradient-to-br ${theme.gradient} text-white flex items-center justify-center font-bold text-4xl shadow-xl ${theme.btnShadow} overflow-hidden ring-4 ring-white dark:ring-slate-900`}>
                           {profile?.avatarUrl ? (
                             <img src={profile.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
@@ -432,6 +495,29 @@ export default function ProfileTab() {
                           <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Vai trò</label>
                           <div className="px-4 py-3 bg-slate-100 border border-slate-200 dark:border-slate-700 rounded-xl text-sm text-slate-600 dark:text-slate-300 font-medium">
                             {theme.panelLabel}
+                          </div>
+                        </div>
+                      </div>
+                      {/* App Settings */}
+                      <div className="p-6 border-t border-slate-100 dark:border-slate-700/50 space-y-5">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Cài đặt ứng dụng</label>
+                          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div>
+                              <div className="font-bold text-slate-800 dark:text-slate-200">Hiển thị hướng dẫn (Onboarding)</div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Bật lại các bong bóng hướng dẫn tính năng mới</div>
+                            </div>
+                            <button
+                              onClick={() => {
+                                const state = localStorage.getItem('hideOnboarding') === 'true';
+                                localStorage.setItem('hideOnboarding', state ? 'false' : 'true');
+                                // trigger re-render
+                                window.dispatchEvent(new Event('storage'));
+                              }}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${localStorage.getItem('hideOnboarding') === 'true' ? 'bg-slate-300 dark:bg-slate-700' : 'bg-emerald-500'}`}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${localStorage.getItem('hideOnboarding') === 'true' ? 'translate-x-1' : 'translate-x-6'}`} />
+                            </button>
                           </div>
                         </div>
                       </div>

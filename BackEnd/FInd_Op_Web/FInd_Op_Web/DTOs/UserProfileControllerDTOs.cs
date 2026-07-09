@@ -9,6 +9,7 @@ namespace FInd_Op_Web.DTOs
                 public string? FullName { get; set; }
                 public string? Phone { get; set; }
                 public string? AvatarUrl { get; set; }
+                public string? BackgroundUrl { get; set; }
             }
     
             public class ChangePasswordRequest

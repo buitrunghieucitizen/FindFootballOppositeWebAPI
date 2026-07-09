@@ -1,6 +1,7 @@
 using FInd_Op_Web.Data;
 using FInd_Op_Web.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 
 namespace FInd_Op_Web.Services
 {
@@ -68,8 +69,8 @@ namespace FInd_Op_Web.Services
                 decimal totalRevenue = 0;
                 foreach (var s in ownerSchedules)
                 {
-                    var durationHours = (decimal)(s.EndTime - s.StartTime).TotalHours;
-                    totalRevenue += durationHours * (s.Pitch?.PricePerHour ?? 0);
+                    var slots = (decimal)Math.Max(1, Math.Ceiling((s.EndTime - s.StartTime).TotalMinutes / (s.Pitch?.SlotDurationMinutes ?? 60.0)));
+                    totalRevenue += slots * (s.Pitch?.PricePerSlot ?? 0);
                 }
 
                 // Include BookingCommissions if any
@@ -97,15 +98,30 @@ namespace FInd_Op_Web.Services
                     };
                     context.SystemInvoices.Add(invoice);
 
+                    // Build match details table
+                    var matchDetailsHtml = "<table border='1' cellpadding='5' style='border-collapse:collapse; width:100%'>";
+                    matchDetailsHtml += "<tr><th>Sân</th><th>Thời gian</th><th>Doanh thu (VNĐ)</th></tr>";
+                    
+                    foreach (var s in ownerSchedules)
+                    {
+                        var slots = (decimal)Math.Max(1, Math.Ceiling((s.EndTime - s.StartTime).TotalMinutes / (s.Pitch?.SlotDurationMinutes ?? 60.0)));
+                        var rev = slots * (s.Pitch?.PricePerSlot ?? 0);
+                        matchDetailsHtml += $"<tr><td>{s.Pitch?.PitchName}</td><td>{s.StartTime:dd/MM HH:mm} - {s.EndTime:HH:mm}</td><td style='text-align:right'>{rev:N0}</td></tr>";
+                    }
+                    matchDetailsHtml += "</table>";
+
                     // Send email to owner
                     if (!string.IsNullOrEmpty(owner.Email))
                     {
                         var emailBody = $@"
                         <h3>Tổng kết doanh thu tháng {lastMonth.Month}/{lastMonth.Year}</h3>
                         <p>Chào {owner.FullName},</p>
-                        <p>Doanh thu sân của bạn trong tháng qua là: <strong>{totalRevenue:N0} VNĐ</strong>.</p>
-                        <p>Phí sử dụng hệ thống (5%): <strong>{totalCommission:N0} VNĐ</strong>.</p>
-                        <p>Vui lòng thanh toán khoản phí này trước ngày 10 tháng sau. Mã hóa đơn: {lastMonth.Month}{lastMonth.Year}_{owner.UserId}</p>
+                        <p>Chi tiết các trận đấu đặt sân thành công trong tháng:</p>
+                        {matchDetailsHtml}
+                        <p>Tổng Doanh thu sân của bạn: <strong style='color:green;font-size:16px;'>{totalRevenue:N0} VNĐ</strong>.</p>
+                        <p>Phí hoa hồng hệ thống (5%): <strong style='color:red;font-size:16px;'>{totalCommission:N0} VNĐ</strong>.</p>
+                        <p>Vui lòng thanh toán khoản phí này trước ngày 10 tháng sau. Tại <a href='http://localhost:3000/stadium-owner'>Hệ thống quản lý chủ sân</a></p>
+                        <p>Mã hóa đơn: {lastMonth.Month}{lastMonth.Year}_{owner.UserId}</p>
                         <p>Trân trọng,<br>FindFootballOpposite Team</p>";
 
                         try
@@ -115,6 +131,28 @@ namespace FInd_Op_Web.Services
                         catch (Exception ex)
                         {
                             _logger.LogError($"Failed to send email to {owner.Email}: {ex.Message}");
+                        }
+                        
+                        // Send In-App Notification via SignalR
+                        var notif = new Notification
+                        {
+                            UserId = owner.UserId,
+                            Title = "Thanh toán phí hoa hồng",
+                            Message = $"Bạn có hóa đơn phí hoa hồng {totalCommission:N0} VNĐ cho tháng {lastMonth.Month}. Vui lòng thanh toán trước ngày 10.",
+                            CreatedAt = DateTime.Now,
+                            IsRead = false
+                        };
+                        context.Notifications.Add(notif);
+                        await context.SaveChangesAsync();
+
+                        var hubContext = scope.ServiceProvider.GetService<Microsoft.AspNetCore.SignalR.IHubContext<FInd_Op_Web.Hubs.NotificationHub>>();
+                        if (hubContext != null)
+                        {
+                            var connId = FInd_Op_Web.Hubs.NotificationHub.GetConnectionIdForUser(owner.UserId.ToString());
+                            if (!string.IsNullOrEmpty(connId))
+                            {
+                                await hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+                            }
                         }
                     }
                 }

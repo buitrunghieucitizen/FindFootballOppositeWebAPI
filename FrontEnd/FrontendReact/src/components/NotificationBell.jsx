@@ -17,18 +17,29 @@ export default function NotificationBell() {
     fetchNotifications();
   }, []);
 
+  const tryDecode = (str) => {
+    try {
+      return decodeURIComponent(escape(str));
+    } catch {
+      return str;
+    }
+  };
+
   const fetchNotifications = async () => {
     try {
       const data = await notificationService.getNotifications();
-      const mapped = data.map(n => ({
-        id: n.notificationId,
-        title: 'Thông báo',
-        message: n.message,
-        details: n.message,
-        date: new Date(n.createdAt),
-        isRead: n.isRead,
-        type: 'info'
-      }));
+      const mapped = data.map(n => {
+        const decoded = tryDecode(n.message);
+        return {
+          id: n.notificationId,
+          title: 'Thông báo',
+          message: decoded,
+          details: decoded,
+          date: new Date(n.createdAt),
+          isRead: n.isRead,
+          type: 'info'
+        };
+      });
       setNotifications(mapped);
       setUnreadCount(mapped.filter(n => !n.isRead).length);
     } catch (err) {
@@ -39,11 +50,12 @@ export default function NotificationBell() {
   useEffect(() => {
     if (connection) {
       connection.on('ReceiveNotification', (message) => {
+        const decodedMessage = tryDecode(message);
         const newNotif = {
           id: Date.now(),
           title: 'Thông báo mới',
-          message,
-          details: message,
+          message: decodedMessage,
+          details: decodedMessage,
           date: new Date(),
           isRead: false,
           type: 'info'
@@ -67,9 +79,18 @@ export default function NotificationBell() {
 
   const handleOpenDropdown = () => {
     setShowDropdown(!showDropdown);
-    if (!showDropdown) {
-      setUnreadCount(0);
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+  };
+
+  const handleMarkAllAsRead = async (e) => {
+    e.stopPropagation();
+    if (unreadCount > 0) {
+      try {
+        await notificationService.markAllAsRead();
+        setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      } catch (err) {
+        console.error('Lỗi khi đánh dấu đọc tất cả:', err);
+      }
     }
   };
 
@@ -105,10 +126,20 @@ export default function NotificationBell() {
         {showDropdown && (
           <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 py-2 z-50 animate-fade-in max-h-96 flex flex-col">
             <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-              <h3 className="font-bold text-slate-900 dark:text-white">Thông báo</h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded-full font-medium">
-                {notifications.length} mới
-              </span>
+              <div>
+                <h3 className="font-bold text-slate-900 dark:text-white">Thông báo</h3>
+                {unreadCount > 0 && (
+                  <span className="text-[10px] text-emerald-500 font-medium">{unreadCount} chưa đọc</span>
+                )}
+              </div>
+              {unreadCount > 0 && (
+                <button 
+                  onClick={handleMarkAllAsRead}
+                  className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 font-medium px-2 py-1 bg-blue-50 dark:bg-blue-900/20 rounded hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                >
+                  Đánh dấu đã đọc hết
+                </button>
+              )}
             </div>
             <div className="overflow-y-auto flex-1 p-2 space-y-1">
               {notifications.length === 0 ? (

@@ -14,15 +14,34 @@ export default function PublicTeams() {
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
 
-  useEffect(() => {
-    fetchTeams();
-  }, []);
+  // Filters & Pagination
+  const [filters, setFilters] = useState({
+    search: '',
+    rankingTier: '',
+    homeArea: '',
+    minFairplay: ''
+  });
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 12,
+    totalPages: 1,
+    totalCount: 0
+  });
 
-  const fetchTeams = async () => {
+  useEffect(() => {
+    fetchTeams(1);
+  }, [filters]);
+
+  const fetchTeams = async (page = pagination.page) => {
     try {
       setLoading(true);
-      const data = await publicService.getTeams();
-      setTeams(data || []);
+      const data = await publicService.getTeams({ ...filters, page, pageSize: pagination.pageSize });
+      if (data.teams) {
+        setTeams(data.teams);
+        setPagination(prev => ({ ...prev, page, totalPages: data.totalPages, totalCount: data.totalCount }));
+      } else {
+        setTeams(data || []);
+      }
     } catch (err) {
       console.error(err);
       setError('Không thể tải danh sách đội thể thao. Vui lòng thử lại sau.');
@@ -65,10 +84,61 @@ export default function PublicTeams() {
           <div className="flex gap-4">
             <Link 
               to={isAuthenticated ? (user.role === 'Captain' ? '/captain-home' : '/player-home?tab=members') : '/login'} 
-              className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-800 hover:border-emerald-300 transition-all shadow-sm"
+              className="px-6 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-emerald-300 transition-all shadow-sm"
             >
               Tạo đội của bạn
             </Link>
+          </div>
+        </div>
+
+        {/* Filters Section */}
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Tìm kiếm đội</label>
+            <input 
+              type="text" 
+              placeholder="Nhập tên đội..." 
+              value={filters.search}
+              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Trình độ</label>
+            <select 
+              value={filters.rankingTier}
+              onChange={(e) => setFilters(prev => ({ ...prev, rankingTier: e.target.value }))}
+              className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+            >
+              <option value="">Tất cả</option>
+              <option value="yếu">Yếu (Dưới 900 điểm)</option>
+              <option value="trung bình">Trung bình (900 - 1100)</option>
+              <option value="khá">Khá (1100 - 1300)</option>
+              <option value="đá hay">Đá hay (Trên 1300)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Khu vực</label>
+            <input 
+              type="text" 
+              placeholder="VD: Cầu Giấy, Hà Nội" 
+              value={filters.homeArea}
+              onChange={(e) => setFilters(prev => ({ ...prev, homeArea: e.target.value }))}
+              className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Điểm Fairplay</label>
+            <select 
+              value={filters.minFairplay}
+              onChange={(e) => setFilters(prev => ({ ...prev, minFairplay: e.target.value }))}
+              className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+            >
+              <option value="">Tất cả</option>
+              <option value="80">Trên 80</option>
+              <option value="90">Trên 90</option>
+              <option value="100">100 tuyệt đối</option>
+            </select>
           </div>
         </div>
 
@@ -156,6 +226,27 @@ export default function PublicTeams() {
             ))}
           </div>
         )}
+
+        {/* Pagination */}
+        {pagination.totalPages > 1 && !loading && (
+          <div className="flex justify-center mt-12 gap-2">
+            <button 
+              onClick={() => fetchTeams(pagination.page - 1)}
+              disabled={pagination.page === 1}
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-50"
+            >
+              Trước
+            </button>
+            <span className="px-4 py-2 text-slate-700 dark:text-slate-300">Trang {pagination.page} / {pagination.totalPages}</span>
+            <button 
+              onClick={() => fetchTeams(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages}
+              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-50"
+            >
+              Sau
+            </button>
+          </div>
+        )}
       </main>
 
       {/* Team Detail Modal */}
@@ -175,7 +266,7 @@ export default function PublicTeams() {
                         {selectedTeam.sportName || 'Chưa cập nhật'}
                       </span>
                       <span className="px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-full border border-amber-200 dark:border-amber-500/20">
-                        Rank: {selectedTeam.rankingScore || 1000}
+                        Rank: {selectedTeam.rankingScore ?? 0}
                       </span>
                     </div>
                   </div>
@@ -232,6 +323,14 @@ export default function PublicTeams() {
                   className="px-6 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold transition-colors"
                 >
                   Đóng
+                </button>
+                <button 
+                  onClick={() => {
+                    alert('Tính năng nhắn tin cho Đội trưởng này đang được cập nhật!');
+                  }}
+                  className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2"
+                >
+                  Nhắn tin
                 </button>
                 <button 
                   onClick={() => {

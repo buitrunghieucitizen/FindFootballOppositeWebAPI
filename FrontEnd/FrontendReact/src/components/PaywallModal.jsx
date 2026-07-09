@@ -38,7 +38,7 @@ export default function PaywallModal({ isOpen, onClose, paywallData, onSuccess }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-fade-in border border-slate-200 dark:border-slate-700">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden animate-scale-in border border-slate-200 dark:border-slate-700">
         <div className="relative h-32 bg-gradient-to-br from-amber-400 to-orange-500 p-6 flex flex-col justify-end">
           <button 
             onClick={onClose} 

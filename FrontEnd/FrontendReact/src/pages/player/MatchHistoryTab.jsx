@@ -64,6 +64,24 @@ export default function MatchHistoryTab() {
                 <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                   {m.matchDate ? new Date(m.matchDate).toLocaleDateString('vi-VN') : 'Chưa xếp lịch'}
                 </div>
+                {m.location && (
+                  <div className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                    <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    {m.location.includes('(GPS:') ? (
+                      <a 
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(m.location.split('GPS:')[1].replace(')', '').trim())}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="hover:underline hover:text-emerald-500 truncate max-w-xs md:max-w-md"
+                        title={m.location}
+                      >
+                        {m.location}
+                      </a>
+                    ) : (
+                      <span className="truncate max-w-xs md:max-w-md" title={m.location}>{m.location}</span>
+                    )}
+                  </div>
+                )}
               </div>
               
               <div className="flex flex-col items-end gap-2">

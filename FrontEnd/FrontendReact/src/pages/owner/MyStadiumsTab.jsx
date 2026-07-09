@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import stadiumOwnerService from '../../services/stadiumOwnerService';
 import { paymentService } from '../../services/paymentService';
+import { publicService } from '../../services/publicService';
 import { FiPlus, FiMapPin } from 'react-icons/fi';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -60,8 +61,12 @@ export default function MyStadiumsTab() {
   const [showStadiumForm, setShowStadiumForm] = useState(false);
   const [showPitchForm, setShowPitchForm] = useState(null); // stadium ID
   const [showRecurringForm, setShowRecurringForm] = useState(null); // pitch ID
+  const [sports, setSports] = useState([]);
 
-  const [newStadium, setNewStadium] = useState({ name: '', address: '', hotline: '', description: '', latitude: '', longitude: '', imageFile: null });
+  const [newStadium, setNewStadium] = useState({ 
+    name: '', address: '', hotline: '', description: '', latitude: '', longitude: '', imageFile: null,
+    openTime: '05:00', closeTime: '23:30', slotDurationMinutes: 90
+  });
   const [newPitch, setNewPitch] = useState({ name: '', type: '5', pricePerHour: '', quantity: 1, sportId: 1 });
   const [recurringBooking, setRecurringBooking] = useState({ 
     dayOfWeek: 1, startTime: '18:00', endTime: '19:30', fromDate: '', numberOfWeeks: 4 
@@ -81,8 +86,18 @@ export default function MyStadiumsTab() {
     }
   };
 
+  const fetchSports = async () => {
+    try {
+      const data = await publicService.getSports();
+      setSports(data);
+    } catch (err) {
+      console.error('Lỗi khi tải danh sách môn thể thao', err);
+    }
+  };
+
   useEffect(() => {
     fetchStadiums();
+    fetchSports();
   }, []);
 
   const handleCreateStadium = async (e) => {
@@ -93,12 +108,15 @@ export default function MyStadiumsTab() {
       formData.append('Address', newStadium.address);
       formData.append('Hotline', newStadium.hotline);
       formData.append('Description', newStadium.description);
+      if (newStadium.openTime) formData.append('OpenTime', newStadium.openTime);
+      if (newStadium.closeTime) formData.append('CloseTime', newStadium.closeTime);
+      if (newStadium.slotDurationMinutes) formData.append('SlotDurationMinutes', newStadium.slotDurationMinutes);
       if (newStadium.latitude) formData.append('Latitude', newStadium.latitude.toString().replace(',', '.'));
       if (newStadium.longitude) formData.append('Longitude', newStadium.longitude.toString().replace(',', '.'));
       if (newStadium.imageFile) formData.append('ImageFile', newStadium.imageFile);
 
       await stadiumOwnerService.createStadium(formData);
-      setNewStadium({ name: '', address: '', hotline: '', description: '', latitude: '', longitude: '', imageFile: null });
+      setNewStadium({ name: '', address: '', hotline: '', description: '', latitude: '', longitude: '', imageFile: null, openTime: '05:00', closeTime: '23:30', slotDurationMinutes: 90 });
       setShowStadiumForm(false);
       fetchStadiums();
     } catch (err) {
@@ -229,6 +247,42 @@ export default function MyStadiumsTab() {
                 placeholder="Nhập số điện thoại liên hệ"
               />
             </div>
+            
+            <div className="col-span-1 md:col-span-2 grid grid-cols-3 gap-4 border-t border-slate-200 dark:border-slate-700 pt-4 mt-2">
+              <h4 className="col-span-3 text-sm font-bold text-slate-800 dark:text-slate-200">Cấu hình thời gian hoạt động</h4>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Giờ mở cửa</label>
+                <input
+                  type="time"
+                  required
+                  value={newStadium.openTime}
+                  onChange={(e) => setNewStadium({ ...newStadium, openTime: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Giờ đóng cửa</label>
+                <input
+                  type="time"
+                  required
+                  value={newStadium.closeTime}
+                  onChange={(e) => setNewStadium({ ...newStadium, closeTime: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Thời lượng mỗi ca (phút)</label>
+                <input
+                  type="number"
+                  min="30"
+                  step="30"
+                  required
+                  value={newStadium.slotDurationMinutes}
+                  onChange={(e) => setNewStadium({ ...newStadium, slotDurationMinutes: e.target.value })}
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
+                />
+              </div>
+            </div>
             <div className="col-span-1 md:col-span-2">
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Tọa độ (Latitude, Longitude)</label>
               <div className="flex gap-2">
@@ -305,16 +359,25 @@ export default function MyStadiumsTab() {
           {stadiums.map((stadium) => (
             <div key={stadium.stadiumId} className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-md border border-slate-200 dark:border-slate-700">
               <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-800 dark:text-white">{stadium.stadiumName}</h3>
-                  <p className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mt-1">
-                    <FiMapPin className="text-blue-500" /> {stadium.address}
-                  </p>
-                  {stadium.hotline && (
-                    <p className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mt-1">
-                      <span className="font-semibold text-slate-600 dark:text-slate-300">Hotline:</span> {stadium.hotline}
-                    </p>
+                <div className="flex gap-4">
+                  {stadium.imageUrl ? (
+                    <img src={stadium.imageUrl} alt={stadium.stadiumName} className="w-20 h-20 rounded-lg object-cover border border-slate-200 dark:border-slate-700" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center border border-slate-200 dark:border-slate-600">
+                      <FiMapPin className="text-3xl text-slate-400" />
+                    </div>
                   )}
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-800 dark:text-white">{stadium.stadiumName}</h3>
+                    <p className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mt-1">
+                      <FiMapPin className="text-blue-500" /> {stadium.address}
+                    </p>
+                    {stadium.hotline && (
+                      <p className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mt-1">
+                        <span className="font-semibold text-slate-600 dark:text-slate-300">Hotline:</span> {stadium.hotline}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={() => setShowPitchForm(showPitchForm === stadium.stadiumId ? null : stadium.stadiumId)}
@@ -358,10 +421,9 @@ export default function MyStadiumsTab() {
                         onChange={(e) => setNewPitch({ ...newPitch, sportId: parseInt(e.target.value) })}
                         className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
                       >
-                        <option value={1}>Bóng đá</option>
-                        <option value={2}>Cầu lông</option>
-                        <option value={3}>Pickleball</option>
-                        <option value={4}>Khác</option>
+                        {sports.map(s => (
+                          <option key={s.sportId} value={s.sportId}>{s.sportName}</option>
+                        ))}
                       </select>
                     </div>
                     <div>
@@ -411,7 +473,7 @@ export default function MyStadiumsTab() {
                         <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full font-medium">Sân {pitch.grassType || pitch.pitchSize || pitch.type}</span>
                       </div>
                       <div className="text-sm text-slate-600 dark:text-slate-300 mb-3">
-                        <span className="text-blue-600 font-bold">{pitch.pricePerHour?.toLocaleString()} VND</span> / giờ
+                        <span className="text-blue-600 font-bold">{(pitch.pricePerHour || pitch.pricePerSlot || 0).toLocaleString()} VND</span> / ca
                       </div>
                       <button
                         onClick={() => setShowRecurringForm(showRecurringForm === pitch.pitchId ? null : pitch.pitchId)}

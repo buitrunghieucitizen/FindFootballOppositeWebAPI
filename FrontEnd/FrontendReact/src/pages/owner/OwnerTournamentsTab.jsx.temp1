@@ -1,0 +1,440 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import ReactDOM from 'react-dom';
+import stadiumOwnerService from '../../services/stadiumOwnerService';
+import { FiPlus, FiCalendar, FiUsers, FiSettings, FiX, FiUploadCloud, FiCheckCircle } from 'react-icons/fi';
+import Swal from 'sweetalert2';
+import { FaTrophy } from 'react-icons/fa';
+
+export default function OwnerTournamentsTab() {
+  const [tournaments, setTournaments] = useState([]);
+  const [myStadiums, setMyStadiums] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [step, setStep] = useState(1);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    sportId: 1,
+    stadium: '',
+    format: 'League',
+    scope: 'Internal', // Internal (N?i b?), Public (M? r?ng)
+    entryFee: 0,
+    maxTeams: 8,
+    assignmentType: 'Manual', // Manual, Random
+    maxPlayersPerTeam: 5,
+    startDate: '',
+    endDate: '',
+    phone: '',
+    idCardFrontUrl: '',
+    idCardBackUrl: '',
+    bankQrCodeUrl: '',
+    agreeTerms: false,
+  });
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [tournRes, stadiumRes] = await Promise.all([
+        stadiumOwnerService.getTournaments().catch(() => ({ data: [] })),
+        stadiumOwnerService.getMyStadiums().catch(() => ({ data: [] }))
+      ]);
+      setTournaments(tournRes.data || []);
+      setMyStadiums(stadiumRes.data || []);
+      if (stadiumRes.data && stadiumRes.data.length > 0) {
+          setFormData(prev => ({ ...prev, stadium: stadiumRes.data[0].stadiumName }));
+      }
+    } catch (err) {
+      setError('Lỗi khi tải danh sách giải đấu');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e, field) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      setIsUploading(true);
+      const form = new FormData();
+      form.append('file', file);
+      const res = await stadiumOwnerService.uploadMedia(form);
+      const url = res.url || res;
+      setFormData(prev => ({ ...prev, [field]: url }));
+    } catch (err) {
+      Swal.fire('L?i', 'Kh�ng th? upload ?nh, vui l�ng th? l?i.', 'error');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const selectPackage = (teams, fee) => {
+    setFormData(prev => ({ ...prev, maxTeams: teams, entryFee: fee }));
+    setStep(2);
+  };
+
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (step === 2) {
+      if (formData.scope === 'Internal') {
+        // Skip KYC for Internal tournaments
+        await submitTournament();
+        return;
+      }
+      setStep(3);
+      return;
+    }
+
+    if (step === 3) {
+      if (!formData.agreeTerms) {
+        Swal.fire('Ch� �', 'Vui l�ng d?ng � v?i c�c di?u kho?n.', 'warning');
+        return;
+      }
+      if (!formData.phone || !formData.idCardFrontUrl || !formData.idCardBackUrl) {
+        Swal.fire('Ch� �', 'Vui l�ng cung c?p d?y d? th�ng tin KYC (S�T, m?t tru?c, m?t sau CCCD).', 'warning');
+        return;
+      }
+      await submitTournament();
+    }
+  };
+
+  const submitTournament = async () => {
+    setIsSubmitting(true);
+    try {
+      const res = await stadiumOwnerService.createTournament(formData);
+      if (res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+      } else {
+        const msg = formData.scope === 'Internal' ? 'T?o gi?i d?u n?i b? th�nh c�ng!' : 'T?o gi?i d?u th�nh c�ng! Ch? Admin duy?t.';
+        Swal.fire('Th�nh c�ng', msg, 'success');
+        setShowCreateModal(false);
+        setStep(1);
+        fetchData();
+      }
+    } catch (err) {
+      Swal.fire('L?i', err.response?.data?.message || err.message || 'Kh�ng th? t?o gi?i d?u', 'error');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+          <FaTrophy className="text-emerald-500" /> Quản lý Giải Đấu
+        </h2>
+        <button 
+          onClick={() => { setShowCreateModal(true); setStep(1); }}
+          className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition-colors shadow-lg shadow-emerald-500/30 font-bold"
+        >
+          <FiPlus /> Tạo Giải Mới
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="p-8 text-center text-slate-500 animate-pulse">Đang tải...</div>
+      ) : error ? (
+        <div className="p-8 text-center text-red-500 bg-red-50 rounded-xl">{error}</div>
+      ) : tournaments.length === 0 ? (
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700 shadow-sm">
+          <FaTrophy className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Bạn chưa tổ chức giải đấu nào.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {tournaments.map(t => (
+            <div key={t.id || t.tournamentId} className="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-shadow group">
+              <div className="flex justify-between items-start mb-4">
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  t.status === 'Upcoming' ? 'bg-blue-100 text-blue-700' :
+                  t.status === 'Ongoing' || t.status === 'InProgress' ? 'bg-emerald-100 text-emerald-700' :
+                  t.status === 'PendingApproval' ? 'bg-amber-100 text-amber-700' :
+                  'bg-slate-100 text-slate-600'
+                }`}>
+                  {t.status === 'Upcoming' ? 'Sắp diễn ra' : 
+                   t.status === 'Ongoing' || t.status === 'InProgress' ? 'Đang đá' : 
+                   t.status === 'PendingApproval' ? 'Chờ duyệt' : 'Đã kết thúc'}
+                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span className="text-sm font-bold text-slate-500 bg-slate-100 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded-md">
+                    {t.format === 'League' ? 'Đá vòng tròn' :
+                     t.format === 'Knockout' ? 'Loại trực tiếp' :
+                     t.format === 'DoubleElimination' ? 'Nhánh Thắng/Thua' :
+                     t.format === 'GroupStage' ? 'Vòng bảng' :
+                     t.format === 'Swiss' ? 'Hệ Thụy Sĩ' : t.format}
+                  </span>
+                  {t.maxPlayersPerTeam && (
+                    <span className="text-sm font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-1 rounded-md">
+                      Sân {t.maxPlayersPerTeam}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 line-clamp-2">{t.name || t.tournamentName}</h3>
+              
+              <div className="space-y-2 mb-6">
+                <div className="flex items-center text-sm text-slate-600 dark:text-slate-400">
+                  <FiCalendar className="mr-2 text-slate-400" />
+                  Thời gian: {t.startDate ? new Date(t.startDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} {t.endDate ? ` - ${new Date(t.endDate).toLocaleDateString('vi-VN')}` : ''}
+                </div>
+                <div className="flex items-center text-sm text-slate-600 dark:text-slate-400">
+                  <FiUsers className="mr-2 text-slate-400" />
+                  Số đội: {Array.isArray(t.teams) ? t.teams.length : (t.teams || 0)}
+                </div>
+                <div className="flex items-center text-sm text-slate-600 dark:text-slate-400">
+                  <FiCalendar className="mr-2 text-slate-400" />
+                  Lệ phí: {(t.entryFee || t.fee || 0).toLocaleString()} VNĐ
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => navigate(`/owner/tournaments/${t.id || t.tournamentId}/manage`)}
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold rounded-xl transition-colors"
+              >
+                Quản lý giải
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* MODAL TẠO GIẢI ĐẤU */}
+      {showCreateModal && ReactDOM.createPortal(
+        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm overflow-y-auto" onClick={() => setShowCreateModal(false)}>
+          <div className="min-h-full flex items-start justify-center p-4 py-8 sm:py-12">
+            <div 
+              className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-2xl shadow-2xl animate-fade-in relative"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white dark:bg-slate-900 rounded-t-3xl">
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <FaTrophy className="text-emerald-500" /> Khởi tạo Giải Đấu
+                </h3>
+                <button onClick={() => setShowCreateModal(false)} className="text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-full p-2 transition-colors">
+                  <FiX size={20} />
+                </button>
+              </div>
+              
+              <form onSubmit={handleCreateSubmit} className="p-6 space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Tên Giải Đấu</label>
+                    <input 
+                      type="text" 
+                      required
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-medium transition-all"
+                      placeholder="VD: Siêu Cúp Mùa Hè 2026"
+                      value={formData.name}
+                      onChange={e => setFormData({...formData, name: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Môn thể thao</label>
+                      <select 
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                        value={formData.sportId}
+                        onChange={e => setFormData({...formData, sportId: Number(e.target.value)})}
+                      >
+                        <option value={1}>Bóng đá</option>
+                        <option value={2}>Bóng rổ</option>
+                        <option value={3}>Cầu lông</option>
+                        <option value={4}>Tennis</option>
+                        <option value={5}>Bóng chuyền</option>
+                        <option value={6}>E-Sports</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Sân thi đấu</label>
+                      <select
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                        value={formData.stadium}
+                        onChange={e => setFormData({...formData, stadium: e.target.value})}
+                      >
+                        <option value="">-- Chọn sân của bạn --</option>
+                        {myStadiums.map(s => (
+                          <option key={s.stadiumId} value={s.stadiumName}>{s.stadiumName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Ngày bắt đầu</label>
+                      <input 
+                        type="date"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-medium transition-all"
+                        value={formData.startDate}
+                        onChange={e => setFormData({...formData, startDate: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Ngày kết thúc dự kiến</label>
+                      <input 
+                        type="date"
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-medium transition-all"
+                        value={formData.endDate}
+                        onChange={e => setFormData({...formData, endDate: e.target.value})}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Thể thức thi đấu</label>
+                      <select 
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                        value={formData.format}
+                        onChange={e => setFormData({...formData, format: e.target.value})}
+                      >
+                        <option value="League">Đá vòng tròn (League)</option>
+                        <option value="Knockout">Loại trực tiếp (Single Elimination)</option>
+                        <option value="DoubleElimination">Nhánh Thắng/Thua (Double Elimination)</option>
+                        <option value="GroupStage">Vòng bảng (Group Stage)</option>
+                        <option value="Swiss" disabled={formData.maxTeams < 8}>Hệ Thụy Sĩ (Swiss) - Yêu cầu ≥ 8 đội</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Số đội tối đa</label>
+                      <select 
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                        value={formData.maxTeams}
+                        onChange={e => {
+                          const newMax = Number(e.target.value);
+                          const newFormat = (newMax < 8 && formData.format === 'Swiss') ? 'League' : formData.format;
+                          setFormData({...formData, maxTeams: newMax, format: newFormat});
+                        }}
+                      >
+                        <option value={4}>4 đội</option>
+                        <option value={8}>8 đội</option>
+                        <option value={16}>16 đội</option>
+                        <option value={32}>32 đội</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Quy mô giải đấu</label>
+                      <select 
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                        value={formData.scope}
+                        onChange={e => setFormData({...formData, scope: e.target.value})}
+                      >
+                        <option value="Internal">Giải Nội Bộ (Chỉ mời)</option>
+                        <option value="Public">Giải Mở Rộng (Cho toàn hệ thống)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Lệ phí tham gia (VNĐ)</label>
+                      <input 
+                        type="number"
+                        min={0}
+                        required
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none font-medium transition-all"
+                        value={formData.entryFee}
+                        onChange={e => setFormData({...formData, entryFee: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Cơ chế xếp lịch</label>
+                      <select 
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                        value={formData.assignmentType}
+                        onChange={e => setFormData({...formData, assignmentType: e.target.value})}
+                      >
+                        <option value="Manual">Tự xếp đội / Bốc thăm tay</option>
+                        <option value="Random">Hệ thống random bốc thăm</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Loại sân thi đấu</label>
+                      <select 
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all"
+                        value={formData.maxPlayersPerTeam}
+                        onChange={e => setFormData({...formData, maxPlayersPerTeam: Number(e.target.value)})}
+                      >
+                        <option value={5}>Sân 5 người</option>
+                        <option value={7}>Sân 7 người</option>
+                        <option value={9}>Sân 9 người</option>
+                        <option value={11}>Sân 11 người</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Phí tạo giải (VNĐ)</label>
+                      <input 
+                        type="number" 
+                        disabled
+                        className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-medium outline-none cursor-not-allowed transition-all"
+                        value={0}
+                      />
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-semibold">Hệ thống đang miễn phí tạo giải đấu trong thời gian này!</p>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="mt-1 w-5 h-5 rounded border-slate-300 text-emerald-500 focus:ring-emerald-500"
+                      checked={formData.agreeTerms}
+                      onChange={e => setFormData({...formData, agreeTerms: e.target.checked})}
+                    />
+                    <div className="text-sm text-slate-700 dark:text-slate-300">
+                      <p className="font-bold text-rose-600 dark:text-rose-400 mb-1">NÓI KHÔNG VỚI CÁ ĐỘ BÓNG ĐÁ, VÌ 1 NỀN TẢNG TRONG SẠCH, HÃY LÀ NGƯỜI CHƠI THỂ THAO CHÂN CHÍNH</p>
+                      <p>Nền tảng sẽ không chịu trách nhiệm cho tất cả hoạt động liên quan đến cá độ trong giải đấu, nếu nền tảng phát hiện ra giải đấu có dấu hiệu cá độ, dàn xếp tỉ số, những người liên quan sẽ phải chịu trách nhiệm trước pháp luật.</p>
+                    </div>
+                  </label>
+                </div>
+
+                <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowCreateModal(false)}
+                    className="px-6 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl transition-colors"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button 
+                    type="submit"
+                    className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:-translate-y-0.5 transition-all"
+                  >
+                    Tạo Giải Đấu
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+}
+

@@ -1,29 +1,63 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
-export default function LeagueMap({ data, onMatchUpdate }) {
+export default function LeagueMap({ data, onMatchUpdate, tournamentId, service, readOnly = false }) {
   // data = { teams: [...], rounds: [{ round: 1, matches: [...] }, ...] }
   
   const [activeTab, setActiveTab] = useState('standings'); // 'standings' | 'matches'
   const [editingMatch, setEditingMatch] = useState(null);
   const [homeScore, setHomeScore] = useState('');
   const [awayScore, setAwayScore] = useState('');
+  const [dbMatches, setDbMatches] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const openEdit = (match, roundIndex, matchIndex) => {
-    setEditingMatch({ match, roundIndex, matchIndex });
-    setHomeScore(match.homeScore !== null ? String(match.homeScore) : '');
-    setAwayScore(match.awayScore !== null ? String(match.awayScore) : '');
+  useEffect(() => {
+    if (tournamentId && service) {
+      loadMatches();
+    }
+  }, [tournamentId, service]);
+
+  const loadMatches = async () => {
+    try {
+      const ms = await service.getTournamentMatches(tournamentId);
+      setDbMatches(ms || []);
+    } catch (err) {
+      console.warn("Lỗi tải trận đấu League", err);
+    }
   };
 
-  const handleSave = () => {
-    if (!editingMatch) return;
-    const { roundIndex, matchIndex } = editingMatch;
-    
-    const newData = JSON.parse(JSON.stringify(data));
-    newData.rounds[roundIndex].matches[matchIndex].homeScore = homeScore === '' ? null : Number(homeScore);
-    newData.rounds[roundIndex].matches[matchIndex].awayScore = awayScore === '' ? null : Number(awayScore);
+  const getDbMatch = (m) => {
+    if (!m.homeTeamId || !m.awayTeamId) return null;
+    return dbMatches.find(dm => dm.homeTeamId === m.homeTeamId && dm.awayTeamId === m.awayTeamId);
+  };
 
-    onMatchUpdate(newData);
-    setEditingMatch(null);
+  const openEdit = (match, roundIndex, matchIndex) => {
+    if (readOnly) return;
+    const dbM = getDbMatch(match);
+    if (!dbM) {
+      alert("Trận đấu chưa được tạo trong hệ thống. Vui lòng nhấn 'Lưu Sơ Đồ' trước!");
+      return;
+    }
+    setEditingMatch({ match, roundIndex, matchIndex, dbMatchId: dbM.matchId });
+    setHomeScore(dbM.homeScore !== null ? String(dbM.homeScore) : '');
+    setAwayScore(dbM.awayScore !== null ? String(dbM.awayScore) : '');
+  };
+
+  const handleSave = async () => {
+    if (!editingMatch || !service) return;
+    setIsSaving(true);
+    try {
+      const hScore = homeScore === '' ? null : Number(homeScore);
+      const aScore = awayScore === '' ? null : Number(awayScore);
+      
+      await service.submitTournamentMatchResult(editingMatch.dbMatchId, hScore, aScore);
+      alert('Đã cập nhật kết quả!');
+      await loadMatches();
+      setEditingMatch(null);
+    } catch (err) {
+      alert('Lỗi lưu kết quả: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Auto-calculate standings from match results
@@ -31,21 +65,29 @@ export default function LeagueMap({ data, onMatchUpdate }) {
     if (!data?.teams) return [];
     const stats = {};
     data.teams.forEach(t => {
-      stats[t] = { name: t, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, points: 0 };
+      const teamId = t.id || t;
+      const teamName = t.name || t;
+      stats[teamId] = { id: teamId, name: teamName, played: 0, won: 0, drawn: 0, lost: 0, gf: 0, ga: 0, gd: 0, points: 0 };
     });
     data.rounds?.forEach(round => {
       round.matches.forEach(m => {
-        if (m.homeScore !== null && m.awayScore !== null) {
-          const h = stats[m.home];
-          const a = stats[m.away];
+        const dbM = getDbMatch(m);
+        const hScore = dbM ? dbM.homeScore : null;
+        const aScore = dbM ? dbM.awayScore : null;
+
+        if (hScore !== null && aScore !== null) {
+          const homeId = m.homeTeamId || m.home;
+          const awayId = m.awayTeamId || m.away;
+          const h = stats[homeId];
+          const a = stats[awayId];
           if (!h || !a) return;
           h.played++; a.played++;
-          h.gf += m.homeScore; h.ga += m.awayScore;
-          a.gf += m.awayScore; a.ga += m.homeScore;
+          h.gf += hScore; h.ga += aScore;
+          a.gf += aScore; a.ga += hScore;
           h.gd = h.gf - h.ga; a.gd = a.gf - a.ga;
-          if (m.homeScore > m.awayScore) {
+          if (hScore > aScore) {
             h.won++; h.points += 3; a.lost++;
-          } else if (m.homeScore < m.awayScore) {
+          } else if (hScore < aScore) {
             a.won++; a.points += 3; h.lost++;
           } else {
             h.drawn++; h.points += 1; a.drawn++; a.points += 1;
@@ -59,7 +101,12 @@ export default function LeagueMap({ data, onMatchUpdate }) {
   if (!data || !data.teams) return null;
 
   const totalMatches = data.rounds?.reduce((sum, r) => sum + r.matches.length, 0) || 0;
-  const playedMatches = data.rounds?.reduce((sum, r) => sum + r.matches.filter(m => m.homeScore !== null && m.awayScore !== null).length, 0) || 0;
+  const playedMatches = data.rounds?.reduce((sum, r) => {
+    return sum + r.matches.filter(m => {
+      const dbM = getDbMatch(m);
+      return dbM && dbM.homeScore !== null && dbM.awayScore !== null;
+    }).length;
+  }, 0) || 0;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -137,7 +184,10 @@ export default function LeagueMap({ data, onMatchUpdate }) {
         ) : (
           <div className="p-6 space-y-8 bg-slate-50 dark:bg-slate-900/50 min-h-[400px]">
             {data.rounds?.map((round, rIndex) => {
-              const roundPlayedCount = round.matches.filter(m => m.homeScore !== null && m.awayScore !== null).length;
+              const roundPlayedCount = round.matches.filter(m => {
+                const dbM = getDbMatch(m);
+                return dbM && dbM.homeScore !== null && dbM.awayScore !== null;
+              }).length;
               return (
                 <div key={rIndex}>
                   {/* Round Header */}
@@ -152,15 +202,19 @@ export default function LeagueMap({ data, onMatchUpdate }) {
                   {/* Match Cards */}
                   <div className="space-y-3">
                     {round.matches.map((match, mIndex) => {
-                      const isPlayed = match.homeScore !== null && match.awayScore !== null;
-                      const homeWon = isPlayed && match.homeScore > match.awayScore;
-                      const awayWon = isPlayed && match.awayScore > match.homeScore;
-                      const isDraw = isPlayed && match.homeScore === match.awayScore;
+                      const dbM = getDbMatch(match);
+                      const hScore = dbM ? dbM.homeScore : null;
+                      const aScore = dbM ? dbM.awayScore : null;
+                      
+                      const isPlayed = hScore !== null && aScore !== null;
+                      const homeWon = isPlayed && hScore > aScore;
+                      const awayWon = isPlayed && aScore > hScore;
+                      const isDraw = isPlayed && hScore === aScore;
                       return (
                         <div 
                           key={mIndex}
                           onClick={() => openEdit(match, rIndex, mIndex)}
-                          className={`bg-white dark:bg-slate-800 border p-4 rounded-xl flex items-center cursor-pointer hover:border-teal-400 hover:shadow-md transition-all group/match relative overflow-hidden ${isPlayed ? 'border-teal-200 dark:border-teal-800/50' : 'border-slate-200 dark:border-slate-700'}`}
+                          className={`bg-white dark:bg-slate-800 border p-4 rounded-xl flex items-center relative overflow-hidden ${isPlayed ? 'border-teal-200 dark:border-teal-800/50' : 'border-slate-200 dark:border-slate-700'} ${readOnly ? '' : 'cursor-pointer hover:border-teal-400 hover:shadow-md transition-all group/match'}`}
                         >
                           {isPlayed && (
                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${isDraw ? 'bg-amber-400' : 'bg-teal-500'}`}></div>
@@ -174,9 +228,9 @@ export default function LeagueMap({ data, onMatchUpdate }) {
 
                           {/* Score Box */}
                           <div className={`flex items-center gap-3 px-5 py-2 rounded-xl border ${isPlayed ? 'bg-teal-50 dark:bg-teal-900/20 border-teal-200 dark:border-teal-800/50' : 'bg-slate-50 dark:bg-slate-900/50 border-slate-100 dark:border-slate-700/50'}`}>
-                            <span className={`font-mono text-2xl font-black ${homeWon ? 'text-teal-600 dark:text-teal-400' : 'text-slate-900 dark:text-white'}`}>{match.homeScore ?? '-'}</span>
+                            <span className={`font-mono text-2xl font-black ${homeWon ? 'text-teal-600 dark:text-teal-400' : 'text-slate-900 dark:text-white'}`}>{hScore ?? '-'}</span>
                             <span className="text-slate-400 font-bold text-xs">VS</span>
-                            <span className={`font-mono text-2xl font-black ${awayWon ? 'text-teal-600 dark:text-teal-400' : 'text-slate-900 dark:text-white'}`}>{match.awayScore ?? '-'}</span>
+                            <span className={`font-mono text-2xl font-black ${awayWon ? 'text-teal-600 dark:text-teal-400' : 'text-slate-900 dark:text-white'}`}>{aScore ?? '-'}</span>
                           </div>
 
                           {/* Away Team */}
@@ -242,14 +296,16 @@ export default function LeagueMap({ data, onMatchUpdate }) {
               <button 
                 onClick={() => setEditingMatch(null)}
                 className="px-6 py-2.5 font-bold text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl transition-colors"
+                disabled={isSaving}
               >
                 Hủy
               </button>
               <button 
                 onClick={handleSave}
-                className="px-6 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-teal-500/30"
+                disabled={isSaving}
+                className="px-6 py-2.5 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-teal-500/30 flex items-center gap-2"
               >
-                Lưu Kết Quả
+                {isSaving ? 'Đang lưu...' : 'Lưu Kết Quả'}
               </button>
             </div>
           </div>
@@ -260,10 +316,17 @@ export default function LeagueMap({ data, onMatchUpdate }) {
 }
 
 // Helper: generate full round-robin schedule (Circle Method) for N teams
-function generateRoundRobin(teams) {
-  const n = teams.length;
+export function generateRoundRobin(teams, maxTeams = null) {
+  const paddedTeams = [...(teams || [])];
+  if (maxTeams && paddedTeams.length < maxTeams) {
+    while (paddedTeams.length < maxTeams) {
+      paddedTeams.push({ id: `unknown_${paddedTeams.length}`, name: `Chờ đội ${paddedTeams.length + 1}` });
+    }
+  }
+
+  const n = paddedTeams.length;
   const rounds = [];
-  const list = [...teams];
+  const list = [...paddedTeams];
   // If odd number of teams, add a BYE
   if (n % 2 !== 0) list.push(null);
   const numRounds = list.length - 1;
@@ -275,17 +338,26 @@ function generateRoundRobin(teams) {
       const home = list[i];
       const away = list[list.length - 1 - i];
       if (home && away) {
-        matches.push({ home, away, homeScore: null, awayScore: null });
+        const homeName = typeof home === 'object' ? (home.name || home.teamName) : home;
+        const homeId = typeof home === 'object' ? (home.id || home.teamId) : null;
+        const awayName = typeof away === 'object' ? (away.name || away.teamName) : away;
+        const awayId = typeof away === 'object' ? (away.id || away.teamId) : null;
+
+        matches.push({ 
+          home: homeName, 
+          homeTeamId: homeId,
+          away: awayName, 
+          awayTeamId: awayId,
+          homeScore: null, 
+          awayScore: null 
+        });
       }
     }
     rounds.push({ round: r + 1, matches });
     // Rotate: keep first element fixed, rotate the rest
     list.splice(1, 0, list.pop());
   }
-  return rounds;
+  return { teams: paddedTeams, rounds };
 }
 
-export const DEFAULT_LEAGUE = {
-  teams: ['FC Siêu Sao', 'Hổ Trắng FC', 'Rồng Xanh FC', 'Phượng Hoàng', 'Sư Tử FC', 'Báo Đen FC'],
-  rounds: generateRoundRobin(['FC Siêu Sao', 'Hổ Trắng FC', 'Rồng Xanh FC', 'Phượng Hoàng', 'Sư Tử FC', 'Báo Đen FC']),
-};
+export const DEFAULT_LEAGUE = generateRoundRobin(['FC Siêu Sao', 'Hổ Trắng FC', 'Rồng Xanh FC', 'Phượng Hoàng', 'Sư Tử FC', 'Báo Đen FC'], 6);

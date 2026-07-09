@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FiTrash2, FiAlertTriangle, FiInfo, FiX } from 'react-icons/fi';
 
 const variantConfig = {
@@ -39,14 +39,18 @@ export default function ConfirmDialog({
 }) {
   const [reason, setReason] = useState('');
   const [animateIn, setAnimateIn] = useState(false);
+  const confirmButtonRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
-      // Trigger animation on next frame
       requestAnimationFrame(() => setAnimateIn(true));
+      requestAnimationFrame(() => confirmButtonRef.current?.focus());
     } else {
-      setAnimateIn(false);
-      setReason('');
+      const timer = setTimeout(() => {
+        setAnimateIn(false);
+        setReason('');
+      }, 300);
+      return () => clearTimeout(timer);
     }
   }, [isOpen]);
 
@@ -62,6 +66,7 @@ export default function ConfirmDialog({
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') onCancel();
+    if (e.key === 'Enter' && !reasonRequired) onConfirm(undefined);
   };
 
   return (
@@ -93,6 +98,7 @@ export default function ConfirmDialog({
           <button
             onClick={onCancel}
             className="p-1.5 rounded-lg text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors shrink-0"
+            aria-label="Đóng hộp thoại"
           >
             <FiX className="text-lg" />
           </button>
@@ -119,15 +125,18 @@ export default function ConfirmDialog({
           <button
             onClick={onCancel}
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 border border-slate-200 dark:border-slate-600 transition-all duration-200 active:scale-[0.98]"
+            aria-label={cancelText}
           >
             {cancelText}
           </button>
           <button
+            ref={confirmButtonRef}
             onClick={handleConfirm}
             disabled={reasonRequired && !reason.trim()}
             className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-bold shadow-lg transition-all duration-200 active:scale-[0.98]
  ${config.confirmBg} ${config.confirmText}
  ${reasonRequired && !reason.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}
+            aria-label={confirmText}
           >
             {confirmText}
           </button>

@@ -31,6 +31,14 @@ public partial class Stadium
 
     public string? BankAccountName { get; set; }
 
+    public string? QrCodeUrl { get; set; }
+
+    public TimeSpan? OpenTime { get; set; }
+
+    public TimeSpan? CloseTime { get; set; }
+
+    public int? SlotDurationMinutes { get; set; }
+
     public virtual User? Owner { get; set; }
 
     public virtual ICollection<Pitch> Pitches { get; set; } = new List<Pitch>();

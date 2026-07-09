@@ -13,7 +13,7 @@ export default function BookingManagementTab() {
     try {
       setLoading(true);
       const res = await stadiumOwnerService.getBookings();
-      setBookings(res.data || []);
+      setBookings(Array.isArray(res.data) ? res.data : (res.data?.$values || []));
       setError(null);
     } catch (err) {
       console.error('Lỗi khi tải danh sách đặt sân:', err);
@@ -86,16 +86,16 @@ export default function BookingManagementTab() {
     <div className="animate-fade-in">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
         <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Quản lý Đặt Sân</h2>
-        <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-lg">
+        <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
           <button 
             onClick={() => setViewMode('list')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-800 dark:hover:text-white dark:text-white'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-600 hover:text-slate-800 dark:hover:text-white dark:text-slate-400'}`}
           >
             <FiList /> Danh sách
           </button>
           <button 
             onClick={() => setViewMode('schedule')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'schedule' ? 'bg-white dark:bg-slate-800 text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-800 dark:hover:text-white dark:text-white'}`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all ${viewMode === 'schedule' ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-600 hover:text-slate-800 dark:hover:text-white dark:text-slate-400'}`}
           >
             <FiGrid /> Lịch trình
           </button>
@@ -109,7 +109,7 @@ export default function BookingManagementTab() {
             type="date" 
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            className="px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+            className="px-4 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
       )}
@@ -135,19 +135,19 @@ export default function BookingManagementTab() {
                       <div className="flex flex-wrap gap-3">
                         {scheduleData[stadium][pitch].map(booking => (
                           <div key={booking.id} className={`p-3 rounded-lg border flex flex-col gap-1 min-w-[150px] ${
- booking.status === 'Pending' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200' :
+ (booking.status === 'Pending' || booking.status === 'Booked') ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800' :
  booking.status === 'Confirmed' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' :
- 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700'
+ 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600'
  }`}>
                             <span className="text-xs font-bold text-slate-500 dark:text-slate-400 flex items-center gap-1"><FiClock /> {booking.startTime} - {booking.endTime}</span>
                             <span className="font-semibold text-slate-800 dark:text-white">{booking.userName || 'Ẩn danh'}</span>
                             <span className={`text-[10px] uppercase font-bold tracking-wider ${
- booking.status === 'Pending' ? 'text-yellow-600' :
- booking.status === 'Confirmed' ? 'text-green-600' : 'text-slate-500 dark:text-slate-400'
- }`}>{booking.status === 'Pending' ? 'Chờ duyệt' : booking.status === 'Confirmed' ? 'Đã duyệt' : booking.status}</span>
+ (booking.status === 'Pending' || booking.status === 'Booked') ? 'text-yellow-600 dark:text-yellow-500' :
+ booking.status === 'Confirmed' ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'
+ }`}>{(booking.status === 'Pending' || booking.status === 'Booked') ? 'Chờ duyệt' : booking.status === 'Confirmed' ? 'Đã duyệt' : booking.status}</span>
                             
-                            {booking.status === 'Pending' && (
-                              <div className="flex gap-1 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/50">
+                            {(booking.status === 'Pending' || booking.status === 'Booked') && (
+                              <div className="flex gap-1 mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
                                 <button onClick={() => handleConfirm(booking.id)} className="flex-1 bg-green-500 text-white text-xs py-1 rounded hover:bg-green-600 flex justify-center"><FiCheck /></button>
                                 <button onClick={() => handleReject(booking.id)} className="flex-1 bg-red-500 text-white text-xs py-1 rounded hover:bg-red-600 flex justify-center"><FiX /></button>
                               </div>
@@ -175,26 +175,26 @@ export default function BookingManagementTab() {
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{booking.pitchName || 'Tên sân'}</h3>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
- booking.status === 'Pending' ? 'bg-yellow-100 text-yellow-700' :
- booking.status === 'Confirmed' ? 'bg-green-100 text-green-700' :
- booking.status === 'Rejected' ? 'bg-red-100 text-red-700' :
- 'bg-slate-100 text-slate-700 dark:text-slate-200'
+ (booking.status === 'Pending' || booking.status === 'Booked') ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+ booking.status === 'Confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+ booking.status === 'Rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+ 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
  }`}>
-                      {booking.status === 'Pending' ? 'Chờ duyệt' :
+                      {(booking.status === 'Pending' || booking.status === 'Booked') ? 'Chờ duyệt' :
                        booking.status === 'Confirmed' ? 'Đã duyệt' :
                        booking.status === 'Rejected' ? 'Từ chối' : booking.status}
                     </span>
                   </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-600 dark:text-slate-300">
-                    <p className="flex items-center gap-2"><FiMapPin className="text-slate-400" /> Sân lớn: {booking.stadiumName}</p>
-                    <p className="flex items-center gap-2"><FiCalendar className="text-slate-400" /> Ngày: {new Date(booking.date).toLocaleDateString('vi-VN')}</p>
-                    <p className="flex items-center gap-2"><FiClock className="text-slate-400" /> Giờ: {booking.startTime} - {booking.endTime}</p>
-                    <p className="flex items-center gap-2">Người đặt: <span className="font-medium text-slate-800 dark:text-white">{booking.userName || 'Ẩn danh'}</span></p>
+                    <p className="flex items-center gap-2"><FiMapPin className="text-slate-400" /> Sân lớn: <span className="font-medium text-blue-600 dark:text-blue-400">{booking.stadiumName}</span></p>
+                    <p className="flex items-center gap-2"><FiCalendar className="text-slate-400" /> Ngày: <span className="font-medium text-blue-600 dark:text-blue-400">{new Date(booking.date).toLocaleDateString('vi-VN')}</span></p>
+                    <p className="flex items-center gap-2"><FiClock className="text-slate-400" /> Giờ: <span className="font-medium text-blue-600 dark:text-blue-400">{booking.startTime} - {booking.endTime}</span></p>
+                    <p className="flex items-center gap-2">Người đặt: <span className="font-medium text-blue-600 dark:text-blue-400">{booking.userName || 'Ẩn danh'}</span></p>
                   </div>
                 </div>
 
-                {booking.status === 'Pending' && (
+                {(booking.status === 'Pending' || booking.status === 'Booked') && (
                   <div className="flex gap-2 shrink-0 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-700/50 pt-4 md:pt-0 md:pl-4 mt-2 md:mt-0">
                     <button
                       onClick={() => handleConfirm(booking.id)}

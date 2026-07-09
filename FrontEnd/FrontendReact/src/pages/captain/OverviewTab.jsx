@@ -1,26 +1,41 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FiTarget, FiCalendar, FiAward, FiStar, FiEdit2, FiCamera } from 'react-icons/fi';
 import { captainService } from '../../services/captainService';
 import { paymentService } from '../../services/paymentService';
+import { publicService } from '../../services/publicService';
+import { mediaService } from '../../services/mediaService';
+import Swal from 'sweetalert2';
 
 export default function OverviewTab() {
   const [team, setTeam] = useState(null);
+  const [teamRank, setTeamRank] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState({});
-  const [isSaving, setIsSaving] = useState(false);
+  const navigate = useNavigate();
+  // Edit state was extracted to EditTeam_Captain.jsx
 
   useEffect(() => {
     const fetchTeam = async () => {
       try {
-        const data = await captainService.getMyTeam();
-        setTeam(data);
+        const [teamData, rankingsData] = await Promise.all([
+          captainService.getMyTeam(),
+          publicService.getTeamRankings()
+        ]);
+        
+        setTeam(teamData);
+        
+        if (teamData && rankingsData) {
+          const rank = rankingsData.findIndex(r => r.id === (teamData.teamId || teamData.id));
+          if (rank !== -1) {
+            setTeamRank(rank + 1);
+          }
+        }
       } catch (error) {
         console.error('Failed to fetch team data:', error);
         setTeam({
           teamId: 'mock-1',
           teamName: 'FC Thống Nhất',
-          qualityLevel: 'Khá',
+          rankingScore: 1000,
           homeArea: 'Quận 1, TP.HCM',
           description: 'Đội bóng phong trào tham gia các giải sân 7.',
           logoUrl: 'https://placehold.co/100x100/059669/FFFFFF?text=FCTN'
@@ -47,58 +62,7 @@ export default function OverviewTab() {
   };
 
   const handleEditClick = () => {
-    setEditForm({ ...team });
-    setIsEditing(true);
-  };
-
-  const handleAvatarChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    // Create local object URL for preview immediately
-    const previewUrl = URL.createObjectURL(file);
-    setEditForm({ ...editForm, logoUrl: previewUrl, newLogoFile: file });
-  };
-
-  const handleSaveEdit = async () => {
-    setIsSaving(true);
-    try {
-      let finalLogoUrl = editForm.logoUrl;
-      
-      // Upload new avatar if selected
-      if (editForm.newLogoFile) {
-        const formData = new FormData();
-        formData.append('file', editForm.newLogoFile);
-        try {
-          const uploadRes = await captainService.uploadMedia(formData);
-          finalLogoUrl = uploadRes.url || uploadRes;
-        } catch (uploadErr) {
-          console.warn('Backend chưa hỗ trợ uploadMedia, giữ nguyên ảnh preview local', uploadErr);
-        }
-      }
-
-      const updateData = {
-        teamName: editForm.teamName,
-        qualityLevel: editForm.qualityLevel,
-        homeArea: editForm.homeArea,
-        introduction: editForm.description,
-        logoUrl: finalLogoUrl
-      };
-
-      try {
-        await captainService.updateTeam(updateData);
-      } catch (err) {
-        console.warn('Backend chưa hỗ trợ updateTeam, cập nhật giao diện local', err);
-      }
-
-      setTeam({ ...team, ...updateData });
-      setIsEditing(false);
-    } catch (error) {
-      console.error('Save failed:', error);
-      alert('Lưu thông tin thất bại');
-    } finally {
-      setIsSaving(false);
-    }
+    navigate('/captain/team/edit');
   };
 
   if (loading) {
@@ -141,7 +105,10 @@ export default function OverviewTab() {
               )}
               <div className="space-y-2 text-sm flex-1 text-slate-900 dark:text-slate-100">
                 <p><strong className="text-black dark:text-white">Tên đội:</strong> {team.teamName}</p>
-                <p><strong className="text-black dark:text-white">Cấp độ:</strong> {team.qualityLevel || 'Chưa cập nhật'}</p>
+                <p>
+                  <strong className="text-black dark:text-white">Điểm Ranking:</strong> {team.rankingScore ?? 0} điểm
+                  {teamRank && <span className="ml-2 font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full text-xs">Thứ hạng: #{teamRank}</span>}
+                </p>
                 <p><strong className="text-black dark:text-white">Khu vực:</strong> {team.homeArea || 'Chưa cập nhật'}</p>
                 <p><strong className="text-black dark:text-white">Mô tả:</strong> {team.description || team.history || 'Chưa có mô tả'}</p>
                 <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-emerald-100/50">
@@ -166,64 +133,7 @@ export default function OverviewTab() {
           </div>
         </div>
       </div>
-      {/* Modal chỉnh sửa */}
-      {isEditing && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl relative">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-6">Chỉnh sửa thông tin Đội bóng</h3>
-            
-            <div className="space-y-4">
-              <div className="flex flex-col items-center mb-6">
-                <div className="relative group cursor-pointer">
-                  <div className="w-24 h-24 rounded-2xl overflow-hidden border-2 border-emerald-100 bg-slate-50 dark:bg-slate-900 flex items-center justify-center">
-                    {editForm.logoUrl ? (
-                      <img src={editForm.logoUrl} alt="Logo" className="w-full h-full object-cover" />
-                    ) : (
-                      <FiTarget className="text-3xl text-emerald-300" />
-                    )}
-                  </div>
-                  <label className="absolute inset-0 bg-black/40 text-white flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl cursor-pointer">
-                    <FiCamera className="text-xl mb-1" />
-                    <span className="text-xs font-bold">Đổi ảnh</span>
-                    <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Tên đội</label>
-                <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" value={editForm.teamName || ''} onChange={e => setEditForm({...editForm, teamName: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Trình độ</label>
-                <select className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" value={editForm.qualityLevel || ''} onChange={e => setEditForm({...editForm, qualityLevel: e.target.value})}>
-                  <option value="Mới chơi">Mới chơi</option>
-                  <option value="Trung bình yếu">Trung bình yếu</option>
-                  <option value="Trung bình">Trung bình</option>
-                  <option value="Trung bình khá">Trung bình khá</option>
-                  <option value="Khá">Khá</option>
-                  <option value="Bán chuyên">Bán chuyên</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Khu vực</label>
-                <input type="text" className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" value={editForm.homeArea || ''} onChange={e => setEditForm({...editForm, homeArea: e.target.value})} />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-1">Mô tả</label>
-                <textarea className="w-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-xl p-2.5 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" rows={3} value={editForm.description || editForm.history || ''} onChange={e => setEditForm({...editForm, description: e.target.value})}></textarea>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-8">
-              <button disabled={isSaving} onClick={() => setIsEditing(false)} className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900 transition-colors disabled:opacity-50">Hủy</button>
-              <button disabled={isSaving} onClick={handleSaveEdit} className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50">
-                {isSaving ? 'Đang lưu...' : 'Lưu lại'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal chỉnh sửa EXTRACTED */}
     </div>
   );
 }

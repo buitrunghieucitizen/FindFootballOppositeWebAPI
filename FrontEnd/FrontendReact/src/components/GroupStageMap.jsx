@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { generateRoundRobin } from './LeagueMap';
 
-export default function GroupStageMap({ data, onMatchUpdate }) {
+export default function GroupStageMap({ data, onMatchUpdate, readOnly = false }) {
   // data.groups = [{ name: 'A', standings: [], matches: [] }, ...]
   
   const [activeTab, setActiveTab] = useState('standings'); // 'standings' | 'matches'
@@ -9,6 +10,7 @@ export default function GroupStageMap({ data, onMatchUpdate }) {
   const [awayScore, setAwayScore] = useState('');
 
   const openEdit = (match, groupIndex, matchIndex) => {
+    if (readOnly) return;
     setEditingMatch({ match, groupIndex, matchIndex });
     setHomeScore(match.homeScore !== null ? match.homeScore : '');
     setAwayScore(match.awayScore !== null ? match.awayScore : '');
@@ -21,6 +23,45 @@ export default function GroupStageMap({ data, onMatchUpdate }) {
     const newData = { ...data };
     newData.groups[groupIndex].matches[matchIndex].homeScore = homeScore === '' ? null : Number(homeScore);
     newData.groups[groupIndex].matches[matchIndex].awayScore = awayScore === '' ? null : Number(awayScore);
+
+    // Recalculate standings for this group
+    const group = newData.groups[groupIndex];
+    // Reset standings
+    group.standings.forEach(s => {
+      s.played = 0; s.won = 0; s.drawn = 0; s.lost = 0; s.gd = 0; s.points = 0;
+    });
+
+    group.matches.forEach(m => {
+      if (m.homeScore !== null && m.awayScore !== null) {
+        const homeStand = group.standings.find(s => s.teamId === m.homeTeamId);
+        const awayStand = group.standings.find(s => s.teamId === m.awayTeamId);
+        
+        if (homeStand && awayStand) {
+          homeStand.played++;
+          awayStand.played++;
+          homeStand.gd += (m.homeScore - m.awayScore);
+          awayStand.gd += (m.awayScore - m.homeScore);
+
+          if (m.homeScore > m.awayScore) {
+            homeStand.won++;
+            homeStand.points += 3;
+            awayStand.lost++;
+          } else if (m.homeScore < m.awayScore) {
+            awayStand.won++;
+            awayStand.points += 3;
+            homeStand.lost++;
+          } else {
+            homeStand.drawn++;
+            awayStand.drawn++;
+            homeStand.points += 1;
+            awayStand.points += 1;
+          }
+        }
+      }
+    });
+
+    // Sort standings
+    group.standings.sort((a, b) => b.points - a.points || b.gd - a.gd || b.won - a.won);
 
     onMatchUpdate(newData);
     setEditingMatch(null);
@@ -91,9 +132,9 @@ export default function GroupStageMap({ data, onMatchUpdate }) {
                   const isPlayed = match.homeScore !== null && match.awayScore !== null;
                   return (
                     <div 
-                      key={mIndex}
+                      key={mIndex} 
                       onClick={() => openEdit(match, gIndex, mIndex)}
-                      className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl flex items-center justify-between cursor-pointer hover:border-teal-500 transition-colors group/match shadow-sm"
+                      className={`flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 ${readOnly ? '' : 'cursor-pointer hover:border-teal-500 hover:shadow-sm transition-all'}`}
                     >
                       <div className={`flex-1 text-right font-bold truncate ${isPlayed && match.homeScore > match.awayScore ? 'text-teal-600 dark:text-teal-400' : 'text-slate-700 dark:text-slate-300'}`}>
                         {match.home}
@@ -164,6 +205,46 @@ export default function GroupStageMap({ data, onMatchUpdate }) {
     </div>
   );
 }
+
+export const generateGroupStage = (teams, maxTeams = 8) => {
+  const actualMaxTeams = maxTeams || 8;
+  const groupCount = Math.max(1, Math.ceil(actualMaxTeams / 4));
+  const groupNames = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  
+  // Pad teams up to actualMaxTeams
+  const paddedTeams = [...(teams || [])];
+  while (paddedTeams.length < actualMaxTeams) {
+    paddedTeams.push({ id: `unknown_${paddedTeams.length}`, name: `Chờ đội ${paddedTeams.length + 1}` });
+  }
+
+  const groups = [];
+  
+  for (let i = 0; i < groupCount; i++) {
+    const groupTeams = paddedTeams.slice(i * Math.ceil(actualMaxTeams / groupCount), (i + 1) * Math.ceil(actualMaxTeams / groupCount));
+    
+    // Gen round robin for groupTeams
+    const { rounds } = generateRoundRobin(groupTeams);
+    const matches = rounds ? rounds.reduce((acc, r) => acc.concat(r.matches || []), []) : [];
+    
+    groups.push({
+      name: groupNames[i] || `Group ${i+1}`,
+      standings: groupTeams.map(t => ({
+        teamId: t.id || t.teamId,
+        name: t.name || t.teamName,
+        played: 0, won: 0, drawn: 0, lost: 0, gd: 0, points: 0
+      })),
+      matches: matches.map(m => ({
+        home: m.home,
+        away: m.away,
+        homeTeamId: m.homeTeamId,
+        awayTeamId: m.awayTeamId,
+        homeScore: null,
+        awayScore: null
+      }))
+    });
+  }
+  return { groups };
+};
 
 // Mẫu Vòng Bảng 16 Đội chia 4 Bảng
 export const DEFAULT_GROUP_STAGE = {

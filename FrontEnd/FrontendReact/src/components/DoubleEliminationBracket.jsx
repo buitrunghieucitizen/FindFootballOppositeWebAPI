@@ -1,22 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function DoubleEliminationBracket({ data, onMatchUpdate, numTeams = 8 }) {
+export default function DoubleEliminationBracket({ data, onMatchUpdate, numTeams = 8, teams = [], readOnly = false, tournamentId, service }) {
   // data.winners, data.losers, data.grandFinal
   const [editingMatch, setEditingMatch] = useState(null);
   const [homeScore, setHomeScore] = useState('');
   const [awayScore, setAwayScore] = useState('');
-  const [homeName, setHomeName] = useState('');
-  const [awayName, setAwayName] = useState('');
+  const [homeTeamId, setHomeTeamId] = useState('');
+  const [awayTeamId, setAwayTeamId] = useState('');
+  const [dbMatches, setDbMatches] = useState([]);
+
+  useEffect(() => {
+    if (tournamentId && service) {
+      service.getTournamentMatches(tournamentId)
+        .then(res => setDbMatches(res || []))
+        .catch(err => console.warn("Lỗi tải trận đấu", err));
+    }
+  }, [tournamentId, service, data]);
 
   const openEdit = (match, bracketType, roundIndex, matchIndex) => {
+    if (readOnly) return;
     setEditingMatch({ match, bracketType, roundIndex, matchIndex });
     setHomeScore(match.homeScore !== null ? match.homeScore : '');
     setAwayScore(match.awayScore !== null ? match.awayScore : '');
-    setHomeName(match.home);
-    setAwayName(match.away);
+    setHomeTeamId(match.homeTeamId || '');
+    setAwayTeamId(match.awayTeamId || '');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingMatch) return;
     const { bracketType, roundIndex, matchIndex } = editingMatch;
     
@@ -24,16 +34,93 @@ export default function DoubleEliminationBracket({ data, onMatchUpdate, numTeams
     const hScore = homeScore === '' ? null : Number(homeScore);
     const aScore = awayScore === '' ? null : Number(awayScore);
 
+    const hTeamId = homeTeamId ? Number(homeTeamId) : null;
+    const aTeamId = awayTeamId ? Number(awayTeamId) : null;
+    const hTeam = teams.find(t => t.id === hTeamId);
+    const aTeam = teams.find(t => t.id === aTeamId);
+    const hName = hTeam ? hTeam.name : 'Unknown';
+    const aName = aTeam ? aTeam.name : 'Unknown';
+
     if (bracketType === 'grandFinal') {
       newBracket.grandFinal.matches[matchIndex].homeScore = hScore;
       newBracket.grandFinal.matches[matchIndex].awayScore = aScore;
-      newBracket.grandFinal.matches[matchIndex].home = homeName;
-      newBracket.grandFinal.matches[matchIndex].away = awayName;
+      newBracket.grandFinal.matches[matchIndex].homeTeamId = hTeamId;
+      newBracket.grandFinal.matches[matchIndex].awayTeamId = aTeamId;
+      newBracket.grandFinal.matches[matchIndex].home = hName;
+      newBracket.grandFinal.matches[matchIndex].away = aName;
     } else {
       newBracket[bracketType][roundIndex].matches[matchIndex].homeScore = hScore;
       newBracket[bracketType][roundIndex].matches[matchIndex].awayScore = aScore;
-      newBracket[bracketType][roundIndex].matches[matchIndex].home = homeName;
-      newBracket[bracketType][roundIndex].matches[matchIndex].away = awayName;
+      newBracket[bracketType][roundIndex].matches[matchIndex].homeTeamId = hTeamId;
+      newBracket[bracketType][roundIndex].matches[matchIndex].awayTeamId = aTeamId;
+      newBracket[bracketType][roundIndex].matches[matchIndex].home = hName;
+      newBracket[bracketType][roundIndex].matches[matchIndex].away = aName;
+    }
+
+    // Auto advance logic
+    if (hScore !== null && aScore !== null) {
+      let winningTeamId = hScore > aScore ? hTeamId : (aScore > hScore ? aTeamId : null);
+      let winningTeamName = hScore > aScore ? hName : (aScore > hScore ? aName : 'Unknown');
+
+      if (winningTeamId) {
+        if (bracketType === 'winners') {
+          if (roundIndex + 1 < newBracket.winners.length) {
+            const nextRoundIndex = roundIndex + 1;
+            const nextMatchIndex = Math.floor(matchIndex / 2);
+            const isHomeSlot = matchIndex % 2 === 0;
+            
+            if (isHomeSlot) {
+              newBracket.winners[nextRoundIndex].matches[nextMatchIndex].homeTeamId = winningTeamId;
+              newBracket.winners[nextRoundIndex].matches[nextMatchIndex].home = winningTeamName;
+            } else {
+              newBracket.winners[nextRoundIndex].matches[nextMatchIndex].awayTeamId = winningTeamId;
+              newBracket.winners[nextRoundIndex].matches[nextMatchIndex].away = winningTeamName;
+            }
+          } else if (newBracket.grandFinal) {
+            newBracket.grandFinal.matches[0].homeTeamId = winningTeamId;
+            newBracket.grandFinal.matches[0].home = winningTeamName;
+          }
+        } else if (bracketType === 'losers') {
+          if (roundIndex + 1 < newBracket.losers.length) {
+            const nextRoundIndex = roundIndex + 1;
+            const isHalvingRound = newBracket.losers[roundIndex].matches.length > newBracket.losers[nextRoundIndex].matches.length;
+            const nextMatchIndex = isHalvingRound ? Math.floor(matchIndex / 2) : matchIndex;
+            
+            const targetMatch = newBracket.losers[nextRoundIndex].matches[nextMatchIndex];
+            if (targetMatch) {
+              if (isHalvingRound) {
+                if (matchIndex % 2 === 0) {
+                  targetMatch.homeTeamId = winningTeamId;
+                  targetMatch.home = winningTeamName;
+                } else {
+                  targetMatch.awayTeamId = winningTeamId;
+                  targetMatch.away = winningTeamName;
+                }
+              } else {
+                targetMatch.homeTeamId = winningTeamId;
+                targetMatch.home = winningTeamName;
+              }
+            }
+          } else if (newBracket.grandFinal) {
+            newBracket.grandFinal.matches[0].awayTeamId = winningTeamId;
+            newBracket.grandFinal.matches[0].away = winningTeamName;
+          }
+        }
+      }
+      
+      if (tournamentId && service) {
+        const hTeamIdNum = Number(hTeamId);
+        const aTeamIdNum = Number(aTeamId);
+        const dbMatch = dbMatches.find(m => m.homeTeamId === hTeamIdNum && m.awayTeamId === aTeamIdNum);
+        if (dbMatch) {
+          try {
+            await service.submitTournamentMatchResult(dbMatch.matchId, hScore, aScore);
+            alert('Đã cập nhật kết quả và cộng điểm thành công!');
+          } catch (e) {
+            console.warn("Lỗi cập nhật trận đấu", e);
+          }
+        }
+      }
     }
 
     onMatchUpdate(newBracket);
@@ -48,7 +135,7 @@ export default function DoubleEliminationBracket({ data, onMatchUpdate, numTeams
     return (
       <div 
         onClick={() => openEdit(match, bracketType, roundIndex, matchIndex)}
-        className="w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm overflow-hidden text-sm cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all relative z-10"
+        className={`w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm overflow-hidden text-sm relative z-10 ${readOnly ? '' : 'cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all'}`}
       >
         <div className="flex flex-col">
           <div className={`flex justify-between items-center p-2 border-b border-slate-100 dark:border-slate-700 ${homeWon ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}>
@@ -81,7 +168,7 @@ export default function DoubleEliminationBracket({ data, onMatchUpdate, numTeams
           {bracketData.map((round, rIndex) => (
             <div key={rIndex} className="flex flex-col justify-around relative min-w-[192px]">
               <div className="absolute -top-8 left-0 right-0 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
-                Round {rIndex + 1}
+                Vòng {rIndex + 1}
               </div>
               {round.matches.map((match, mIndex) => (
                 <div key={match.id} className="relative my-4 flex items-center justify-center">
@@ -124,12 +211,16 @@ export default function DoubleEliminationBracket({ data, onMatchUpdate, numTeams
             
             <div className="space-y-4 mb-8">
               <div className="flex items-center gap-4">
-                <input 
-                  type="text"
-                  value={homeName}
-                  onChange={(e) => setHomeName(e.target.value)}
+                <select 
+                  value={homeTeamId}
+                  onChange={(e) => setHomeTeamId(e.target.value)}
                   className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
-                />
+                >
+                  <option value="">-- Chọn đội --</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
                 <input 
                   type="number" 
                   value={homeScore}
@@ -140,12 +231,16 @@ export default function DoubleEliminationBracket({ data, onMatchUpdate, numTeams
               </div>
               <div className="text-center font-bold text-slate-400">VS</div>
               <div className="flex items-center gap-4">
-                <input 
-                  type="text"
-                  value={awayName}
-                  onChange={(e) => setAwayName(e.target.value)}
+                <select 
+                  value={awayTeamId}
+                  onChange={(e) => setAwayTeamId(e.target.value)}
                   className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
-                />
+                >
+                  <option value="">-- Chọn đội --</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
                 <input 
                   type="number" 
                   value={awayScore}
@@ -193,4 +288,81 @@ export const DEFAULT_DOUBLE_ELIM_8 = {
   grandFinal: {
     matches: [{ id: 'gf1', home: 'Unknown', away: 'Unknown', homeScore: null, awayScore: null }]
   }
+};
+
+export const generateDoubleElimination = (teams, maxTeams = 8) => {
+  if (!teams) return DEFAULT_DOUBLE_ELIM_8;
+  
+  let size = maxTeams || 8;
+  if (teams.length > size) {
+    while (size < teams.length) size *= 2;
+  }
+  if (size < 4 && teams.length > 2) size = 4;
+  
+  const winners = [];
+  let wMatches = size / 2;
+  let wRound = 1;
+  let firstRoundMatches = [];
+  for (let i = 0; i < wMatches; i++) {
+    const t1 = teams[i * 2];
+    const t2 = teams[i * 2 + 1];
+    firstRoundMatches.push({
+      id: `w1_${i + 1}`,
+      home: t1 ? (t1.name || t1.teamName) : 'Unknown',
+      away: t2 ? (t2.name || t2.teamName) : 'Unknown',
+      homeTeamId: t1 ? (t1.id || t1.teamId) : null,
+      awayTeamId: t2 ? (t2.id || t2.teamId) : null,
+      homeScore: null,
+      awayScore: null
+    });
+  }
+  winners.push({ matches: firstRoundMatches });
+  wMatches /= 2;
+  wRound++;
+  
+  while (wMatches >= 1) {
+    let roundMatches = [];
+    for (let i = 0; i < wMatches; i++) {
+      roundMatches.push({
+        id: `w${wRound}_${i + 1}`,
+        home: 'Unknown', away: 'Unknown',
+        homeTeamId: null, awayTeamId: null,
+        homeScore: null, awayScore: null
+      });
+    }
+    winners.push({ matches: roundMatches });
+    wMatches /= 2;
+    wRound++;
+  }
+  
+  const losers = [];
+  let lMatches = size / 4; 
+  let lRound = 1;
+  
+  while (lMatches >= 1) {
+    let r1 = [];
+    for (let i = 0; i < lMatches; i++) {
+      r1.push({ id: `l${lRound}_${i+1}`, home: 'Unknown', away: 'Unknown', homeTeamId: null, awayTeamId: null, homeScore: null, awayScore: null });
+    }
+    losers.push({ matches: r1 });
+    lRound++;
+    
+    let r2 = [];
+    for (let i = 0; i < lMatches; i++) {
+      r2.push({ id: `l${lRound}_${i+1}`, home: 'Unknown', away: 'Unknown', homeTeamId: null, awayTeamId: null, homeScore: null, awayScore: null });
+    }
+    losers.push({ matches: r2 });
+    lRound++;
+    
+    lMatches /= 2;
+  }
+  
+  // If size is 2, losers bracket doesn't really exist in this standard format, handle gracefully if size < 4.
+  // But our while loop condition lMatches >= 1 will just not execute if size = 2 (size/4 = 0.5)
+  
+  return { 
+    winners, 
+    losers,
+    grandFinal: { matches: [{ id: 'gf1', home: 'Unknown', away: 'Unknown', homeTeamId: null, awayTeamId: null, homeScore: null, awayScore: null }] }
+  };
 };

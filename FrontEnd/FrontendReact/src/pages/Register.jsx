@@ -42,8 +42,9 @@ export default function RegisterPage() {
       setError('Mật khẩu phải có ít nhất 6 ký tự');
       return false;
     }
-    if (!/^\d{10}$/.test(formData.phone)) {
-      setError('Số điện thoại phải có 10 chữ số');
+    const phoneDigits = formData.phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      setError('Số điện thoại phải có ít nhất 10 chữ số');
       return false;
     }
     return true;

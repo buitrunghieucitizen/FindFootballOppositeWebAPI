@@ -13,11 +13,23 @@ export default function PitchCalendar({ pitchId, onSelectTimeSlot }) {
     }
   }, [pitchId, date]);
 
+  const [stadiumConfig, setStadiumConfig] = useState({ openTime: '05:00', closeTime: '23:30', slotDurationMinutes: 30 });
+
   const loadCalendar = async () => {
     try {
       setLoading(true);
       const res = await captainService.getPitchCalendar(pitchId, date);
-      setSchedules(res || []);
+      // Backend returns { openTime, closeTime, slotDurationMinutes, schedules }
+      if (res && res.schedules) {
+        setSchedules(res.schedules);
+        setStadiumConfig({
+          openTime: res.openTime,
+          closeTime: res.closeTime,
+          slotDurationMinutes: res.slotDurationMinutes || 30
+        });
+      } else {
+        setSchedules(res || []);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -25,21 +37,39 @@ export default function PitchCalendar({ pitchId, onSelectTimeSlot }) {
     }
   };
 
-  // Generate time slots from 05:00 to 23:30 (every 30 mins)
+  // Generate dynamic time slots based on config
   const timeSlots = [];
-  for (let h = 5; h <= 23; h++) {
-    timeSlots.push(`${h.toString().padStart(2, '0')}:00`);
-    timeSlots.push(`${h.toString().padStart(2, '0')}:30`);
+  try {
+    const [openH, openM] = stadiumConfig.openTime.split(':').map(Number);
+    const [closeH, closeM] = stadiumConfig.closeTime.split(':').map(Number);
+    let currentMins = openH * 60 + openM;
+    const endMins = closeH * 60 + closeM;
+    const step = stadiumConfig.slotDurationMinutes;
+    
+    while (currentMins < endMins) {
+      const h = Math.floor(currentMins / 60);
+      const m = currentMins % 60;
+      timeSlots.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`);
+      currentMins += step;
+    }
+  } catch (e) {
+    // Fallback if parsing fails
+    for (let h = 5; h <= 23; h++) {
+      timeSlots.push(`${h.toString().padStart(2, '0')}:00`);
+      timeSlots.push(`${h.toString().padStart(2, '0')}:30`);
+    }
   }
 
   const getSlotStatus = (timeStr) => {
     const slotTime = new Date(`${date}T${timeStr}:00`);
+    const slotEndTime = new Date(slotTime.getTime() + stadiumConfig.slotDurationMinutes * 60000);
     
-    // Check if any schedule overlaps with this 30m slot
+    // Check if any schedule overlaps with this slot
     const overlapping = schedules.find(s => {
       const start = new Date(s.startTime);
       const end = new Date(s.endTime);
-      return slotTime >= start && slotTime < end;
+      // Overlaps if slot starts before schedule ends AND slot ends after schedule starts
+      return slotTime < end && slotEndTime > start;
     });
 
     if (overlapping) {
@@ -86,6 +116,7 @@ export default function PitchCalendar({ pitchId, onSelectTimeSlot }) {
           <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
             {timeSlots.map((time, idx) => {
               const status = getSlotStatus(time);
+              if (status === 'Booked' || status === 'Confirmed') return null;
               return (
                 <div 
                   key={idx}

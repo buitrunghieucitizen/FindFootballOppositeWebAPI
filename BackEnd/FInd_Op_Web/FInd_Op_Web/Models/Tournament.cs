@@ -13,6 +13,7 @@ namespace FInd_Op_Web.Models
         public DateTime? StartDate { get; set; }
         public DateTime? EndDate { get; set; }
         public string? Status { get; set; } = "Upcoming"; // Upcoming, InProgress, Completed
+        public string? Scope { get; set; } = "Public"; // Public, Internal
         public string? Description { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
@@ -20,7 +21,16 @@ namespace FInd_Op_Web.Models
 
         public bool IsFeePaid { get; set; } = false;
 
+        public int MaxTeams { get; set; } = 4;
+        public string? BankQrCodeUrl { get; set; }
         public decimal? EntryFee { get; set; }
+        public string? BracketJson { get; set; }
+
+        // New Verification & Approval Fields
+        public string? OrganizerCccd { get; set; }
+        public string? OrganizerDriverLicense { get; set; }
+        public string ApprovalStatus { get; set; } = "Pending"; // Pending, Approved, Rejected
+        public string? RefundStatus { get; set; } // Requested, AdminRefunded, Completed
 
         public virtual Stadium? Stadium { get; set; }
         public virtual User? Organizer { get; set; }

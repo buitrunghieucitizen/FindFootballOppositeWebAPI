@@ -7,7 +7,7 @@ export const Button = ({
   className = '',
   ...props 
 }) => {
-  const baseStyles = 'font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2';
+  const baseStyles = 'font-semibold rounded-lg transition-all duration-300 flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 hover:shadow-md';
   
   const variants = {
     primary: 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-slate-600',

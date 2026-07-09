@@ -8,6 +8,9 @@ export default function AdminWithdrawalsTab() {
   const [filterStatus, setFilterStatus] = useState('All');
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [receiptImage, setReceiptImage] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
 
   const fetchRequests = async () => {
     try {
@@ -23,6 +26,7 @@ export default function AdminWithdrawalsTab() {
   };
 
   useEffect(() => {
+    setPage(1);
     fetchRequests();
   }, [filterStatus]);
 
@@ -63,6 +67,10 @@ export default function AdminWithdrawalsTab() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
+  const filteredRequests = requests.filter(req => req.ownerName?.toLowerCase().includes(searchTerm.toLowerCase()) || req.ownerBankName?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const totalPages = Math.ceil(filteredRequests.length / pageSize) || 1;
+  const paginatedRequests = filteredRequests.slice((page - 1) * pageSize, page * pageSize);
+
   return (
     <div className="animate-fade-in">
       <div className="flex flex-wrap justify-between items-center mb-6">
@@ -70,16 +78,19 @@ export default function AdminWithdrawalsTab() {
           <h2 className="text-xl font-bold text-slate-800 dark:text-white">Yêu cầu Rút tiền</h2>
           <p className="text-sm text-slate-500 dark:text-slate-400">Duyệt lệnh rút tiền của Chủ sân</p>
         </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
-        >
-          <option value="All">Tất cả</option>
-          <option value="Pending">Chờ duyệt</option>
-          <option value="Paid">Đã thanh toán</option>
-          <option value="Rejected">Đã từ chối</option>
-        </select>
+        <div className="flex gap-3">
+          <input type="text" placeholder="Tìm chủ sân, ngân hàng..." className="px-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-48 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => {setSearchTerm(e.target.value); setPage(1);}} />
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-emerald-500"
+          >
+            <option value="All">Tất cả</option>
+            <option value="Pending">Chờ duyệt</option>
+            <option value="Paid">Đã thanh toán</option>
+            <option value="Rejected">Đã từ chối</option>
+          </select>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
@@ -100,12 +111,12 @@ export default function AdminWithdrawalsTab() {
                 <tr>
                   <td colSpan="6" className="p-4 text-center text-slate-500">Đang tải...</td>
                 </tr>
-              ) : requests.length === 0 ? (
+              ) : filteredRequests.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="p-4 text-center text-slate-500">Không có yêu cầu nào.</td>
                 </tr>
               ) : (
-                requests.map(req => (
+                paginatedRequests.map(req => (
                   <tr key={req.requestId} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                     <td className="p-4">
                       <p className="font-semibold text-slate-800 dark:text-white">{req.ownerName}</p>
@@ -173,6 +184,14 @@ export default function AdminWithdrawalsTab() {
             </tbody>
           </table>
         </div>
+        
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 p-4 border-t border-slate-200 dark:border-slate-700">
+            <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50">Trước</button>
+            <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Trang {page} / {totalPages}</span>
+            <button disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50">Sau</button>
+          </div>
+        )}
       </div>
 
       {/* Approve Modal */}

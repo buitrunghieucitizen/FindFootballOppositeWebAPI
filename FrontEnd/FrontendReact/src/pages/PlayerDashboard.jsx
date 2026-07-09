@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import playerService from '../services/playerService';
 import {
-  FiUsers, FiCalendar, FiAward, FiShield, FiArrowRight, FiSearch, FiChevronDown, FiUser, FiDollarSign, FiHome, FiLogOut, FiSun, FiMoon, FiMapPin, FiActivity, FiMessageSquare
+  FiUsers, FiCalendar, FiAward, FiShield, FiArrowRight, FiSearch, FiChevronDown, FiUser, FiDollarSign, FiHome, FiLogOut, FiSun, FiMoon, FiMapPin, FiActivity, FiMessageSquare, FiSettings
 } from 'react-icons/fi';
 import { DashboardLayout, DashboardSidebar } from '../components/portal-ui';
 import NotificationBell from '../components/NotificationBell';
@@ -16,8 +16,11 @@ import TeamActionsTab from './player/TeamActionsTab';
 import PlayerPickUpTab from './player/PlayerPickUpTab';
 import PlayerTeamsTab from './player/PlayerTeamsTab';
 import PlayerTournamentsTab from './player/PlayerTournamentsTab';
+import MyTeamsListTab from './player/MyTeamsListTab';
 import DirectMessagesTab from './common/DirectMessagesTab';
 import ProfileTab from './common/ProfileTab';
+import StadiumsTab from './captain/StadiumsTab';
+import PlayerOverviewTab from './player/PlayerOverviewTab';
 
 const initials = (name = '') => name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('');
 
@@ -28,11 +31,18 @@ export default function PlayerDashboard() {
   const location = useLocation();
 
   const searchParams = new URLSearchParams(location.search);
-  const initialTab = searchParams.get('tab') || 'team';
+  const initialTab = searchParams.get('tab') || 'overview';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [myTeam, setMyTeam] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [hideOnboarding, setHideOnboarding] = useState(localStorage.getItem('hideOnboarding') === 'true');
+
+  const toggleOnboarding = () => {
+    const newVal = !hideOnboarding;
+    setHideOnboarding(newVal);
+    localStorage.setItem('hideOnboarding', newVal.toString());
+  };
 
   useEffect(() => {
     const tab = new URLSearchParams(location.search).get('tab');
@@ -63,19 +73,27 @@ export default function PlayerDashboard() {
   // Removed undefined tabFromUrl usage
 
   const navItems = [
-    { id: 'stadiums', label: 'Tìm Sân', icon: FiSearch },
+    { id: 'overview', label: 'Tổng Quan', icon: FiUser },
     { id: 'tournaments', label: 'Giải Đấu', icon: FiAward },
     { id: 'team', label: 'Đội Của Tôi', icon: FiShield },
-    { id: 'matches', label: 'Lịch Sử Thi Đấu', icon: FiCalendar },
+    { id: 'matches', label: 'Lịch Thi Đấu', icon: FiCalendar },
+    { id: 'pickup', label: 'Gạ Kèo / Bắt Đối', icon: FiActivity },
+    { id: 'stadiums', label: 'Tìm Sân', icon: FiMapPin },
     { id: 'community', label: 'Cộng Đồng', icon: FiUsers },
     { id: 'rankings', label: 'Bảng Xếp Hạng', icon: FiAward },
     { id: 'messages', label: 'Tin Nhắn', icon: FiMessageSquare },
-  ].filter(item => {
-    if (item.id === 'find-teams' && myTeam) return false;
-    return true;
-  });
+  ];
 
   const handleTabChange = (id) => {
+    if (id === 'community') {
+      navigate('/feed');
+      return;
+    }
+    if (id === 'rankings') {
+      navigate('/rankings');
+      return;
+    }
+    
     setActiveTab(id);
     navigate(`/player-home?tab=${id}`, { replace: true });
   };
@@ -98,44 +116,15 @@ export default function PlayerDashboard() {
   );
 
   const topBar = (
-    <div className="flex justify-between items-start mb-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Xin chào, {user?.username || 'Cầu thủ'}! ⚽</h1>
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 md:gap-0 mb-4 md:mb-8 w-full">
+      <div className="w-full md:w-auto">
+        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Xin chào, {user?.username || 'Cầu thủ'}! ⚽</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Trang chủ cầu thủ</p>
 
-        {/* Player Stats Section */}
-        <div className="flex flex-wrap gap-4 mt-6">
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 rounded-xl shadow-sm min-w-[120px] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <FiCalendar className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Tổng Số Trận</p>
-              <p className="text-lg font-black text-slate-900 dark:text-white">{user?.stats?.matches || 0}</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 rounded-xl shadow-sm min-w-[120px] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
-              <FiAward className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Tỷ Lệ Thắng</p>
-              <p className="text-lg font-black text-slate-900 dark:text-white">{user?.stats?.winRate || 0}%</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-3 rounded-xl shadow-sm min-w-[120px] flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <FiShield className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-bold uppercase">Xếp Hạng</p>
-              <p className="text-lg font-black text-slate-900 dark:text-white">{user?.stats?.rankingScore || 0}</p>
-            </div>
-          </div>
-        </div>
+
       </div>
       
-      <div className="relative flex items-center gap-4">
+      <div className="relative flex items-center justify-between md:justify-end gap-2 sm:gap-4 w-full md:w-auto mt-2 md:mt-0">
         {/* Quick Info Dropdown (Funds, Next Match) */}
         <div className="hidden md:flex gap-3 mr-4">
 
@@ -148,18 +137,12 @@ export default function PlayerDashboard() {
           </div>
         </div>
 
-        <button
-          onClick={toggleTheme}
-          className="p-2.5 rounded-xl bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm border border-slate-200 dark:border-slate-700 hidden sm:block"
-          title={isDark ? 'Chuyển sang sáng' : 'Chuyển sang tối'}
-        >
-          {isDark ? <FiSun className="w-5 h-5" /> : <FiMoon className="w-5 h-5" />}
-        </button>
+
         <MessageBell />
         <NotificationBell />
         <button
           onClick={() => setShowUserMenu(!showUserMenu)}
-          className="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-full pl-2 pr-4 py-1.5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-200 cursor-pointer"
+          className="user-menu-btn flex items-center gap-3 bg-white dark:bg-slate-800 rounded-full pl-2 pr-4 py-1.5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-md transition-all duration-200 cursor-pointer"
         >
           <div className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
             {initials(user?.username || 'PL')}
@@ -178,6 +161,18 @@ export default function PlayerDashboard() {
             <Link to="/" className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors">
               <FiHome className="text-slate-400" /> Trang chủ
             </Link>
+            <button onClick={toggleTheme} className="w-full flex items-center justify-between px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors">
+              <div className="flex items-center gap-2">
+                {isDark ? <FiSun className="text-slate-400" /> : <FiMoon className="text-slate-400" />} Giao diện
+              </div>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-slate-500">{isDark ? 'Tối' : 'Sáng'}</span>
+            </button>
+            <button onClick={toggleOnboarding} className="w-full flex items-center justify-between px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white transition-colors">
+              <div className="flex items-center gap-2">
+                <FiSettings className="text-slate-400" /> Hướng dẫn
+              </div>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-slate-500">{hideOnboarding ? 'Tắt' : 'Bật'}</span>
+            </button>
             <div className="border-t border-slate-100 dark:border-slate-700 my-1"></div>
             {/* Mobile Only Quick Info */}
             <div className="md:hidden px-4 py-2 space-y-2 mb-2 border-b border-slate-100 dark:border-slate-700">
@@ -206,7 +201,7 @@ export default function PlayerDashboard() {
     );
   }
 
-  if (!myTeam && activeTab !== 'create-team' && activeTab !== 'pickup' && activeTab !== 'find-teams' && activeTab !== 'profile' && activeTab !== 'tournaments' && activeTab !== 'messages') {
+  if (!myTeam && activeTab !== 'create-team' && activeTab !== 'pickup' && activeTab !== 'find-teams' && activeTab !== 'profile' && activeTab !== 'tournaments' && activeTab !== 'messages' && activeTab !== 'stadiums' && activeTab !== 'overview') {
     return (
       <DashboardLayout sidebar={sidebar} topBar={topBar}>
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center shadow-sm border border-slate-200 dark:border-slate-700 max-w-3xl mx-auto">
@@ -317,10 +312,18 @@ export default function PlayerDashboard() {
 
               {/* Member List */}
               <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex-1">
-                <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-                  <FiUsers className="text-wc-gold-500" />
-                  Thành Viên Đội ({myTeam.members?.length || 0})
-                </h3>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-lg text-slate-800 dark:text-white flex items-center gap-2">
+                    <FiUsers className="text-wc-gold-500" />
+                    Thành Viên Đội ({myTeam.members?.length || 0})
+                  </h3>
+                  <button 
+                    onClick={() => setActiveTab('my-teams')}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-xl text-sm font-bold transition-colors"
+                  >
+                    Xem tất cả đội của tôi
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {myTeam.members && myTeam.members.length > 0 ? (
                     myTeam.members.map((member) => (
@@ -349,14 +352,17 @@ export default function PlayerDashboard() {
             </div>
           </div>
         )}
+        {activeTab === 'overview' && <PlayerOverviewTab setActiveTab={setActiveTab} />}
         {activeTab === 'profile' && <ProfileTab />}
         {activeTab === 'create-team' && <TeamActionsTab />}
         {activeTab === 'find-teams' && <PlayerTeamsTab />}
-        {activeTab === 'tournaments' && <PlayerTournamentsTab />}
+        {activeTab === 'tournaments' && <PlayerTournamentsTab myTeam={myTeam} />}
+        {activeTab === 'stadiums' && <StadiumsTab />}
+        {activeTab === 'my-teams' && <MyTeamsListTab setActiveTab={setActiveTab} />}
         {activeTab === 'matches' && <MatchHistoryTab />}
         {activeTab === 'rating' && <PlayerRatingTab />}
         {activeTab === 'pickup' && <PlayerPickUpTab />}
-        {activeTab === 'messages' && <DirectMessagesTab />}
+        {activeTab === 'messages' && <DirectMessagesTab currentUserId={user?.id} currentUserName={user?.username} />}
       </div>
     </DashboardLayout>
   );

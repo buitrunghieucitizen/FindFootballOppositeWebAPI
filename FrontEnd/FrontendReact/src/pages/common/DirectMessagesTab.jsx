@@ -122,7 +122,7 @@ export default function DirectMessagesTab() {
   return (
     <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200 dark:border-slate-800 h-[80vh] flex overflow-hidden">
       {/* Conversations List */}
-      <div className="w-1/3 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-y-auto">
+      <div className={`${selectedUser ? 'hidden md:block' : 'block'} w-full md:w-1/3 border-r border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 overflow-y-auto`}>
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10">
           <h2 className="text-lg font-bold text-slate-800 dark:text-white">Tin nhắn</h2>
         </div>
@@ -135,11 +135,12 @@ export default function DirectMessagesTab() {
               <button
                 key={conv.userId}
                 onClick={() => setSelectedUser(conv)}
-                className={`w-full text-left px-3 py-3 mx-2 my-1 rounded-xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all flex items-center gap-3 ${
-                  selectedUser?.userId === conv.userId ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                className={`w-full text-left px-3 py-3 mx-2 my-1 rounded-xl hover:bg-slate-100/80 dark:hover:bg-slate-800/80 transition-all duration-300 hover:scale-[1.02] flex items-center gap-3 animate-fade-in-up ${
+                  selectedUser?.userId === conv.userId ? 'bg-blue-50 dark:bg-blue-900/20 shadow-sm' : ''
                 }`}
+                style={{ width: 'calc(100% - 16px)', animationFillMode: 'both' }}
               >
-                <div className="relative">
+                <div className="relative shrink-0">
                   <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center text-slate-400">
                     <FiUser className="w-6 h-6" />
                   </div>
@@ -152,7 +153,7 @@ export default function DirectMessagesTab() {
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-1">
                     <h4 className="font-bold text-slate-800 dark:text-white truncate">{conv.fullName || 'Người dùng'}</h4>
-                    <span className="text-xs text-slate-400">{new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="text-xs text-slate-400 shrink-0 ml-2">{new Date(conv.lastMessageTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <p className={`text-sm truncate ${conv.unreadCount > 0 ? 'font-bold text-slate-800 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
                     {conv.lastMessage}
@@ -165,16 +166,22 @@ export default function DirectMessagesTab() {
       </div>
 
       {/* Chat Area */}
-      <div className="w-2/3 flex flex-col bg-white dark:bg-slate-900">
+      <div className={`${!selectedUser ? 'hidden md:flex' : 'flex'} w-full md:w-2/3 flex-col bg-white dark:bg-slate-900`}>
         {selectedUser ? (
           <>
             <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 rounded-full flex items-center justify-center font-bold shadow-sm">
+              <button 
+                onClick={() => setSelectedUser(null)}
+                className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors shrink-0"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+              </button>
+              <div className="w-10 h-10 shrink-0 bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 rounded-full flex items-center justify-center font-bold shadow-sm">
                 {selectedUser.fullName?.charAt(0) || 'U'}
               </div>
-              <div>
-                <h3 className="font-bold text-slate-800 dark:text-white leading-tight">{selectedUser.fullName}</h3>
-                <p className="text-[11px] font-medium text-blue-600 flex items-center gap-1 mt-0.5"><div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div> Đang hoạt động</p>
+              <div className="min-w-0">
+                <h3 className="font-bold text-slate-800 dark:text-white leading-tight truncate">{selectedUser.fullName}</h3>
+                <p className="text-[11px] font-medium text-blue-600 flex items-center gap-1 mt-0.5"><span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span> Đang hoạt động</p>
               </div>
             </div>
 
@@ -194,7 +201,7 @@ export default function DirectMessagesTab() {
                   return (
                     <div key={msg.messageId} className={`flex ${isMe ? 'justify-end' : 'justify-start'} items-end gap-2`}>
                       {!isMe && (
-                        <div className="w-8 h-8 flex-shrink-0">
+                        <div className="w-8 h-8 flex-shrink-0 hidden sm:block">
                           {showAvatar ? (
                             <div className="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
                               {selectedUser.fullName?.charAt(0) || 'U'}
@@ -203,12 +210,12 @@ export default function DirectMessagesTab() {
                         </div>
                       )}
                       
-                      <div className={`max-w-[70%] px-4 py-2.5 shadow-sm ${
+                      <div className={`max-w-[85%] sm:max-w-[70%] px-4 py-2.5 shadow-sm animate-slide-up ${
                         isMe 
                           ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl rounded-br-sm' 
                           : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-2xl rounded-bl-sm border border-slate-200/50 dark:border-slate-700/50'
-                      }`}>
-                        <p className="text-[15px] leading-relaxed">{msg.content}</p>
+                      }`} style={{ animationDelay: `${(index % 10) * 50}ms` }}>
+                        <p className="text-[15px] leading-relaxed break-words">{msg.content}</p>
                       </div>
                     </div>
                   );
@@ -223,12 +230,12 @@ export default function DirectMessagesTab() {
                 value={newMessage}
                 onChange={e => setNewMessage(e.target.value)}
                 placeholder="Nhập tin nhắn..."
-                className="flex-1 bg-slate-100 dark:bg-slate-800 border-none rounded-full px-5 py-3 focus:outline-none focus:ring-0 dark:text-white text-[15px]"
+                className="flex-1 min-w-0 bg-slate-100 dark:bg-slate-800 border-none rounded-full px-4 sm:px-5 py-2.5 sm:py-3 focus:outline-none focus:ring-0 dark:text-white text-[14px] sm:text-[15px]"
               />
               <button
                 type="submit"
                 disabled={!newMessage.trim()}
-                className="p-3 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:text-blue-300 rounded-full transition-colors"
+                className="p-2.5 sm:p-3 shrink-0 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:text-blue-300 rounded-full transition-all duration-300 hover:scale-110 active:scale-95"
               >
                 <FiSend className="w-5 h-5" />
               </button>

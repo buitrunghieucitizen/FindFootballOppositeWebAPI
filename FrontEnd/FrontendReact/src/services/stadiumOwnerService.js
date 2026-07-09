@@ -21,8 +21,8 @@ const stadiumOwnerService = {
     const res = await apiClient.post(`/StadiumOwner/Bookings/${id}/Confirm`);
     return res;
   },
-  rejectBooking: async (id) => {
-    const res = await apiClient.post(`/StadiumOwner/Bookings/${id}/Reject`);
+  rejectBooking: async (id, reason) => {
+    const res = await apiClient.post(`/StadiumOwner/Bookings/${id}/Reject`, { reason });
     return res;
   },
   getOwnerRevenue: async (year = new Date().getFullYear()) => {
@@ -33,11 +33,26 @@ const stadiumOwnerService = {
         return { data: [] };
     }
   },
+  getOwnerInvoices: async () => {
+    try {
+      const res = await apiClient.get('/StadiumOwner/Invoices');
+      return res.data;
+    } catch(err) {
+      return [];
+    }
+  },
+  payCommission: async () => {
+    const res = await apiClient.post('/Payment/CreatePaymentLink', { Type: 'PayDebt' });
+    return res.data;
+  },
   getTournaments: async () => {
     return await apiClient.get('/StadiumOwner/Tournaments');
   },
   createTournament: async (data) => {
     return await apiClient.post('/StadiumOwner/CreateTournament', data);
+  },
+  uploadMedia: async (formData) => {
+    return { url: 'https://placehold.co/150x150/indigo/white?text=Media' };
   },
   getTournamentSettings: async (id) => {
     const res = await apiClient.get(`/StadiumOwner/TournamentSettings/${id}`);
@@ -48,6 +63,14 @@ const stadiumOwnerService = {
   },
   getTournamentTeams: async (id) => {
     const res = await apiClient.get(`/StadiumOwner/Tournaments/${id}/Teams`);
+    return res.data;
+  },
+  acceptTournamentTeam: async (tournamentId, teamId) => {
+    const res = await apiClient.post(`/StadiumOwner/Tournaments/${tournamentId}/AcceptTeam/${teamId}`);
+    return res.data;
+  },
+  rejectTournamentTeam: async (tournamentId, teamId) => {
+    const res = await apiClient.post(`/StadiumOwner/Tournaments/${tournamentId}/RejectTeam/${teamId}`);
     return res.data;
   },
   getTournamentBracket: async (id) => {
@@ -82,15 +105,64 @@ const stadiumOwnerService = {
     const res = await apiClient.put(`/StadiumOwner/Tournaments/Match/${matchId}`, data);
     return res.data;
   },
+  submitTournamentMatchResult: async (matchId, homeScore, awayScore) => {
+    const res = await apiClient.post(`/StadiumOwner/Tournaments/Match/${matchId}/SubmitResult`, { homeScore, awayScore });
+    return res.data;
+  },
   getTournamentMatches: async (id) => {
     const res = await apiClient.get(`/StadiumOwner/Tournaments/${id}/Matches`);
+    return res.data;
+  },
+  getTournamentBracket: async (id) => {
+    const res = await apiClient.get(`/StadiumOwner/Tournaments/${id}/Bracket`);
+    return res.data;
+  },
+  updateTournamentBracket: async (id, data) => {
+    const res = await apiClient.put(`/StadiumOwner/Tournaments/${id}/Bracket`, data);
+    return res.data;
+  },
+  updateSwissMatches: async (id, roundNum, matches) => {
+    const res = await apiClient.put(`/StadiumOwner/Tournaments/${id}/SwissMatches`, { roundNum, matches });
+    return res.data;
+  },
+  createTournamentFeeLink: async (tournamentId) => {
+    const res = await apiClient.post('/Payment/create-tournament-fee-link/' + tournamentId);
+    return res.data;
+  },
+  cancelTournament: async (id) => {
+    const res = await apiClient.post(`/StadiumOwner/Tournaments/${id}/Cancel`);
+    return res.data;
+  },
+  requestRefund: async (id) => {
+    const res = await apiClient.post(`/StadiumOwner/Tournaments/${id}/RequestRefund`);
+    return res.data;
+  },
+  confirmRefund: async (id) => {
+    const res = await apiClient.post(`/StadiumOwner/Tournaments/${id}/ConfirmRefund`);
     return res.data;
   },
   
   createRecurringSchedule: async (pitchId, data) => {
     const res = await apiClient.post(`/StadiumOwner/Pitches/${pitchId}/RecurringSchedules`, data);
     return res.data;
+  },
+  
+  // Recurring Bookings (from Captain)
+  getRecurringBookings: async () => {
+    const res = await apiClient.get('/StadiumOwner/RecurringBookings');
+    return res.data;
+  },
+  acceptRecurringBooking: async (id) => {
+    const res = await apiClient.post(`/StadiumOwner/RecurringBookings/${id}/Accept`);
+    return res.data;
+  },
+  rejectRecurringBooking: async (id) => {
+    const res = await apiClient.post(`/StadiumOwner/RecurringBookings/${id}/Reject`);
+    return res.data;
   }
 };
 
 export default stadiumOwnerService;
+
+
+

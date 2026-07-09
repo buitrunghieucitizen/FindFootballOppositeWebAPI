@@ -247,6 +247,9 @@ namespace FInd_Op_Web.Migrations
                         .HasColumnType("int")
                         .HasColumnName("AwayTeamID");
 
+                    b.Property<string>("BookingType")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("CancelReason")
                         .HasColumnType("nvarchar(max)");
 
@@ -254,11 +257,17 @@ namespace FInd_Op_Web.Migrations
                         .HasColumnType("int")
                         .HasColumnName("CancelRequestedBy");
 
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("int");
+
                     b.Property<TimeSpan?>("EndTime")
                         .HasColumnType("time");
 
                     b.Property<DateTime?>("ExpiresAt")
                         .HasColumnType("datetime");
+
+                    b.Property<bool?>("HasExtraTime")
+                        .HasColumnType("bit");
 
                     b.Property<bool?>("HomeConfirmed")
                         .HasColumnType("bit");
@@ -289,6 +298,9 @@ namespace FInd_Op_Web.Migrations
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("PitchId")
+                        .HasColumnType("int");
+
                     b.Property<string>("ResultVisibility")
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(50)
@@ -298,6 +310,10 @@ namespace FInd_Op_Web.Migrations
                     b.Property<int?>("ScheduleId")
                         .HasColumnType("int")
                         .HasColumnName("ScheduleID");
+
+                    b.Property<string>("SetScores")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int?>("SportId")
                         .HasColumnType("int")
@@ -569,8 +585,14 @@ namespace FInd_Op_Web.Migrations
                     b.Property<int?>("PitchSize")
                         .HasColumnType("int");
 
-                    b.Property<decimal>("PricePerHour")
+                    b.Property<decimal>("PricePerSlot")
                         .HasColumnType("decimal(18, 2)");
+
+                    b.Property<string>("QrCodeUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SlotDurationMinutes")
+                        .HasColumnType("int");
 
                     b.Property<int?>("SportId")
                         .HasColumnType("int")
@@ -918,9 +940,17 @@ namespace FInd_Op_Web.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("HasScoring")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Icon")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ScoringFormat")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("SportName")
                         .IsRequired()
@@ -954,6 +984,9 @@ namespace FInd_Op_Web.Migrations
                     b.Property<string>("BankName")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<TimeSpan?>("CloseTime")
+                        .HasColumnType("time");
+
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime")
@@ -974,9 +1007,18 @@ namespace FInd_Op_Web.Migrations
                     b.Property<double?>("Longitude")
                         .HasColumnType("float");
 
+                    b.Property<TimeSpan?>("OpenTime")
+                        .HasColumnType("time");
+
                     b.Property<int?>("OwnerId")
                         .HasColumnType("int")
                         .HasColumnName("OwnerID");
+
+                    b.Property<string>("QrCodeUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("SlotDurationMinutes")
+                        .HasColumnType("int");
 
                     b.Property<string>("StadiumName")
                         .IsRequired()
@@ -1045,6 +1087,9 @@ namespace FInd_Op_Web.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TeamId"));
 
+                    b.Property<string>("BackgroundUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("CaptainId")
                         .HasColumnType("int")
                         .HasColumnName("CaptainID");
@@ -1053,6 +1098,12 @@ namespace FInd_Op_Web.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime")
                         .HasDefaultValueSql("(getdate())");
+
+                    b.Property<int>("FairplayScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FairplayWarnings")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("FoundedDate")
                         .HasColumnType("datetime");
@@ -1079,6 +1130,9 @@ namespace FInd_Op_Web.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("IsInternal")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsSubscriptionActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1093,6 +1147,9 @@ namespace FInd_Op_Web.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<int>("Points")
+                        .HasColumnType("int");
+
                     b.Property<string>("QualityLevel")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -1100,7 +1157,10 @@ namespace FInd_Op_Web.Migrations
                     b.Property<int>("RankingScore")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
-                        .HasDefaultValue(1000);
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("RankingTier")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("SportId")
                         .HasColumnType("int")
@@ -1320,6 +1380,16 @@ namespace FInd_Op_Web.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TournamentId"));
 
+                    b.Property<string>("ApprovalStatus")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BankQrCodeUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BracketJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1344,8 +1414,26 @@ namespace FInd_Op_Web.Migrations
                     b.Property<int?>("MaxPlayersPerTeam")
                         .HasColumnType("int");
 
+                    b.Property<int>("MaxTeams")
+                        .HasColumnType("int");
+
+                    b.Property<string>("OrganizerCccd")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OrganizerDriverLicense")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("OrganizerId")
                         .HasColumnType("int");
+
+                    b.Property<string>("RefundStatus")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Scope")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("Public");
 
                     b.Property<int?>("SportId")
                         .HasColumnType("int");
@@ -1439,6 +1527,9 @@ namespace FInd_Op_Web.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasDefaultValue("Pending");
 
+                    b.Property<string>("TeamAbbreviation")
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("TournamentId", "TeamId");
 
                     b.HasIndex("TeamId");
@@ -1486,6 +1577,9 @@ namespace FInd_Op_Web.Migrations
                     b.Property<string>("AvatarUrl")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("BackgroundUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime")
@@ -1499,6 +1593,12 @@ namespace FInd_Op_Web.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("IdCardBackUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IdCardFrontUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool?>("IsFreeAgent")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -1509,6 +1609,9 @@ namespace FInd_Op_Web.Migrations
 
                     b.Property<bool>("IsTwoFactorEnabled")
                         .HasColumnType("bit");
+
+                    b.Property<string>("KycStatus")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()

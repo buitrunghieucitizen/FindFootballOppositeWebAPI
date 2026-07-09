@@ -14,6 +14,8 @@ namespace FInd_Op_Web.Models
 
         public bool NoBettingCommitment { get; set; } = false;
 
+        public string? TeamAbbreviation { get; set; }
+
         public virtual Tournament? Tournament { get; set; }
         public virtual Team? Team { get; set; }
     }

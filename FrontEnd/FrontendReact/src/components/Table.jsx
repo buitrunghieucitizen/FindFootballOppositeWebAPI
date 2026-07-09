@@ -44,7 +44,8 @@ export const Table = ({
             <tr
               key={idx}
               onClick={() => onRowClick?.(row)}
-              className="border-b border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors cursor-pointer bg-white dark:bg-slate-900"
+              className="border-b border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all duration-300 cursor-pointer bg-white dark:bg-slate-900 animate-fade-in-up"
+              style={{ animationDelay: `${(idx % 15) * 50}ms`, animationFillMode: 'both' }}
             >
               {columns.map((col) => (
                 <td key={col.key} className="px-6 py-4 text-sm text-gray-700 dark:text-slate-300">

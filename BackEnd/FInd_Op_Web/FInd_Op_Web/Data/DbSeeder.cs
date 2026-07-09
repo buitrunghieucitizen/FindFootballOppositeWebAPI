@@ -9,17 +9,26 @@ namespace FInd_Op_Web.Data
         {
             // Add Sports if not exist
             var defaultSports = new[] {
-                new Sport { SportName = "Bóng đá", Icon = "⚽" },
-                new Sport { SportName = "Cầu lông", Icon = "🏸" },
-                new Sport { SportName = "Pickleball", Icon = "🏓" },
-                new Sport { SportName = "Khác", Icon = "🏆" }
+                new Sport { SportName = "Bóng đá", Icon = "⚽", ScoringFormat = "Goals" },
+                new Sport { SportName = "Bóng rổ", Icon = "🏀", ScoringFormat = "Goals" },
+                new Sport { SportName = "Cầu lông", Icon = "🏸", ScoringFormat = "Sets" },
+                new Sport { SportName = "Bóng bàn", Icon = "🏓", ScoringFormat = "Sets" },
+                new Sport { SportName = "Pickleball", Icon = "🏓", ScoringFormat = "Sets" },
+                new Sport { SportName = "Tennis", Icon = "🎾", ScoringFormat = "Sets" },
+                new Sport { SportName = "Khác", Icon = "🏆", ScoringFormat = "Goals" }
             };
 
             foreach (var sport in defaultSports)
             {
-                if (!context.Sports.Any(s => s.SportName == sport.SportName))
+                var existing = context.Sports.FirstOrDefault(s => s.SportName == sport.SportName);
+                if (existing == null)
                 {
                     context.Sports.Add(sport);
+                }
+                else
+                {
+                    existing.ScoringFormat = sport.ScoringFormat;
+                    existing.Icon = sport.Icon;
                 }
             }
             context.SaveChanges();

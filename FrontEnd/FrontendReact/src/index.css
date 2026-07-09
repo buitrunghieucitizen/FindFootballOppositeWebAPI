@@ -27,10 +27,53 @@
 
   /* Smooth transitions for theme-sensitive elements */
   body, main, aside, header, footer, nav,
-  section, article, div, span, p, h1, h2, h3, h4, h5, h6,
-  a, button, input, select, textarea, label,
-  table, th, td, tr {
+  section, article {
     transition: background-color 0.3s ease, border-color 0.3s ease, color 0.15s ease, box-shadow 0.3s ease;
+  }
+
+  /* ===== CUSTOM SCROLLBAR — WC2026 Theme ===== */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+  }
+  .dark * {
+    scrollbar-color: rgba(212, 175, 55, 0.25) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.35);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.55);
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 55, 0.2);
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(212, 175, 55, 0.4);
+  }
+
+  /* ===== FOCUS VISIBLE — Accessibility ===== */
+  :focus-visible {
+    outline: 2px solid rgba(212, 175, 55, 0.6);
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+
+  /* ===== REDUCED MOTION — Accessibility ===== */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
@@ -62,6 +105,17 @@
   }
   .team-card h3, .list-card strong, .pitch-card h3, .detail-card h3, .quick-link h3 {
     @apply text-lg font-bold text-slate-900 dark:text-slate-100;
+  }
+
+  /* ===== GLASS CARD — Premium Glassmorphism ===== */
+  .glass-card {
+    @apply bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl border border-white/20 dark:border-white/[0.08] rounded-2xl shadow-lg;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-card:hover {
+    @apply shadow-xl;
+    border-color: rgba(212, 175, 55, 0.3);
+    transform: translateY(-1px);
   }
 
   /* ===== LISTS ===== */
@@ -129,6 +183,76 @@
     border-image: linear-gradient(135deg, #D4AF37, #FFE178, #D4AF37) 1;
   }
 
+  /* ===== TEXT GRADIENT GOLD ===== */
+  .text-gradient-gold {
+    @apply text-transparent bg-clip-text;
+    background-image: linear-gradient(135deg, #D4AF37, #FFE178, #D4AF37);
+  }
+  .dark .text-gradient-gold {
+    background-image: linear-gradient(135deg, #FFD85C, #FFE178, #D4AF37);
+  }
+
+  /* ===== SKELETON LOADING ===== */
+  .skeleton {
+    @apply rounded-xl;
+    background: linear-gradient(90deg, 
+      rgba(148, 163, 184, 0.1) 25%, 
+      rgba(148, 163, 184, 0.2) 50%, 
+      rgba(148, 163, 184, 0.1) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  }
+  .dark .skeleton {
+    background: linear-gradient(90deg, 
+      rgba(212, 175, 55, 0.05) 25%, 
+      rgba(212, 175, 55, 0.12) 50%, 
+      rgba(212, 175, 55, 0.05) 75%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* ===== STAT CARD GLOW ===== */
+  .stat-card {
+    @apply relative overflow-hidden;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba(212, 175, 55, 0.15);
+  }
+  .stat-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #D4AF37, #FFE178, #D4AF37);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .stat-card:hover::after {
+    opacity: 1;
+  }
+
+  /* ===== GOLDEN BUTTON — Primary CTA ===== */
+  .btn-gold {
+    @apply px-6 py-3 rounded-xl font-bold text-sm;
+    background: linear-gradient(135deg, #D4AF37, #B8960C);
+    color: #0A0E1A;
+    box-shadow: 0 4px 15px -3px rgba(212, 175, 55, 0.35);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .btn-gold:hover {
+    background: linear-gradient(135deg, #FFD85C, #D4AF37);
+    box-shadow: 0 8px 25px -5px rgba(212, 175, 55, 0.45);
+    transform: translateY(-1px);
+  }
+  .btn-gold:active {
+    transform: translateY(0) scale(0.98);
+  }
+
   /* ===== PAGE TRANSITION ===== */
   .page-enter {
     animation: pageEnter 0.25s ease-out forwards;
@@ -171,6 +295,32 @@
   0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.6; }
   50% { transform: translateY(-20px) rotate(180deg); opacity: 1; }
 }
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes bounceIn {
+  0% { opacity: 0; transform: scale(0.3); }
+  50% { opacity: 1; transform: scale(1.05); }
+  70% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+@keyframes pulseGold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(212, 175, 55, 0); }
+}
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out forwards;
@@ -180,4 +330,24 @@
 }
 .animate-slide-in-left {
   animation: slideInLeft 0.3s ease-out forwards;
+}
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out forwards;
+}
+.animate-slide-up {
+  animation: slideUp 0.35s ease-out forwards;
+}
+.animate-bounce-in {
+  animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+.animate-pulse-gold {
+  animation: pulseGold 2s ease-in-out infinite;
+}
+.animate-count-up {
+  animation: countUp 0.5s ease-out forwards;
+}
+
+/* Fix sweetalert font */
+.swal2-container {
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji" !important;
 }

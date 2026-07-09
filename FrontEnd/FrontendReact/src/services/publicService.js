@@ -1,9 +1,28 @@
 import apiClient from './apiClient';
 
 export const publicService = {
-  getTeams: async () => {
-    const res = await apiClient.get('/Public/Teams');
-    return res.data.map(t => ({
+  getTeams: async (filters = {}) => {
+    let url = '/Public/Teams';
+    const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
+    if (filters.rankingTier) params.append('rankingTier', filters.rankingTier);
+    if (filters.homeArea) params.append('homeArea', filters.homeArea);
+    if (filters.minFairplay) params.append('minFairplay', filters.minFairplay);
+    if (filters.page) params.append('page', filters.page);
+    if (filters.pageSize) params.append('pageSize', filters.pageSize);
+    
+    const queryString = params.toString();
+    if (queryString) {
+      url += '?' + queryString;
+    }
+
+    const res = await apiClient.get(url);
+    const data = res.data;
+    
+    // Check if the response is paginated (has .teams) or not
+    const teamsList = data.teams || data;
+    
+    const mappedTeams = teamsList.map(t => ({
       id: t.teamId,
       teamId: t.teamId,
       name: t.teamName,
@@ -13,30 +32,83 @@ export const publicService = {
       homeArea: t.homeArea,
       history: t.history,
       createdAt: t.createdAt,
-      sportName: t.sportName
+      sportName: t.sportName,
+      rankingScore: t.rankingScore,
+      fairplayScore: t.fairplayScore
     }));
+
+    if (data.teams) {
+      return {
+        teams: mappedTeams,
+        totalCount: data.totalCount,
+        totalPages: data.totalPages,
+        page: data.page,
+        pageSize: data.pageSize
+      };
+    }
+    return mappedTeams;
   },
-  getStadiums: async () => {
-    const res = await apiClient.get('/Public/Stadiums');
+  getTeam: async (id) => {
+    const res = await apiClient.get(`/Public/Teams/${id}`);
     return res.data;
   },
-  getMatches: async () => {
-    const res = await apiClient.get('/Public/Matches');
+  getSports: async () => {
+    const res = await apiClient.get('/Sports');
     return res.data;
   },
-  getTournaments: async () => {
-    const res = await apiClient.get('/Public/Tournaments');
+  getStadiums: async (filters = {}) => {
+    let url = '/Public/Stadiums';
+    const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
+    if (filters.sportId) params.append('sportId', filters.sportId);
+    if (params.toString()) url += '?' + params.toString();
+    
+    const res = await apiClient.get(url);
+    return res.data;
+  },
+  getMatches: async (filters = {}) => {
+    let url = '/Public/Matches';
+    const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
+    if (filters.sportId) params.append('sportId', filters.sportId);
+    if (params.toString()) url += '?' + params.toString();
+    
+    const res = await apiClient.get(url);
+    return res.data;
+  },
+  getTournaments: async (filters = {}) => {
+    let url = '/Public/Tournaments';
+    const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
+    if (filters.sportId) params.append('sportId', filters.sportId);
+    if (params.toString()) url += '?' + params.toString();
+    
+    const res = await apiClient.get(url);
     return res.data.map(t => ({
       id: t.tournamentId,
       name: t.tournamentName,
       format: t.format,
       status: t.status,
+      scope: t.scope,
       startDate: t.startDate,
       endDate: t.endDate,
       description: t.description,
       createdAt: t.createdAt,
-      stadiumName: t.stadiumName
+      stadiumName: t.stadiumName,
+      registeredTeamIds: t.registeredTeamIds || []
     }));
+  },
+  getTournamentTeams: async (id) => {
+    const res = await apiClient.get(`/Public/Tournaments/${id}/Teams`);
+    return res.data;
+  },
+  getTournamentMatches: async (id) => {
+    const res = await apiClient.get(`/Public/Tournaments/${id}/Matches`);
+    return res.data;
+  },
+  getTournamentBracket: async (id) => {
+    const res = await apiClient.get(`/Public/Tournaments/${id}/Bracket`);
+    return res.data;
   },
   getRecruitments: async () => {
     const res = await apiClient.get('/Public/Recruitments');
@@ -55,6 +127,10 @@ export const publicService = {
   },
   getPosts: async () => {
     const res = await apiClient.get('/Public/Posts');
+    return res.data;
+  },
+  submitFeedback: async (data) => {
+    const res = await apiClient.post('/Public/Feedback', data);
     return res.data;
   }
 };

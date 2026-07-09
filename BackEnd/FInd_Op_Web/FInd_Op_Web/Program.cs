@@ -17,7 +17,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173") // Default Vite port
+            policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173", "https://sportifyx.id.vn", "http://sportifyx.id.vn") // Default Vite port & Prod domain
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
@@ -76,6 +76,7 @@ builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<PortalDataService>();
 builder.Services.AddScoped<FInd_Op_Web.Services.IEmailService, FInd_Op_Web.Services.EmailService>();
 builder.Services.AddHostedService<FInd_Op_Web.Services.MonthlyInvoiceService>();
+builder.Services.AddHostedService<FInd_Op_Web.Services.MatchMaintenanceService>();
 
 // Add API Controllers
 builder.Services.AddControllers().AddJsonOptions(options =>
@@ -238,7 +239,7 @@ app.MapFallbackToFile("index.html");
 
 try
 {
-    app.Run();
+     app.Run();
 }
 catch (IOException ex) when (ex.InnerException?.Message.Contains("address already in use") == true)
 {

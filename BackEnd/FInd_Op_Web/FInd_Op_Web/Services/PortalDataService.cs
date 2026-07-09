@@ -115,7 +115,7 @@ public sealed class PortalDataService
                         PitchId = 1,
                         PitchName = "Sân 1A",
                         PitchSize = 7,
-                        PricePerHour = 500000,
+                        PricePerSlot = 500000,
                         AvailabilityLabel = "Trống: Thứ 4, 20:30 - 22:00"
                     },
                     new PitchCardViewModel
@@ -123,7 +123,7 @@ public sealed class PortalDataService
                         PitchId = 2,
                         PitchName = "Sân 1B",
                         PitchSize = 7,
-                        PricePerHour = 500000,
+                        PricePerSlot = 500000,
                         AvailabilityLabel = "Trống: Thứ 5, 19:00 - 20:30"
                     },
                     new PitchCardViewModel
@@ -131,7 +131,7 @@ public sealed class PortalDataService
                         PitchId = 3,
                         PitchName = "Sân 2 (Sân lớn)",
                         PitchSize = 11,
-                        PricePerHour = 1200000,
+                        PricePerSlot = 1200000,
                         AvailabilityLabel = "Trống: Chủ nhật, 16:00 - 18:00"
                     }
                 }

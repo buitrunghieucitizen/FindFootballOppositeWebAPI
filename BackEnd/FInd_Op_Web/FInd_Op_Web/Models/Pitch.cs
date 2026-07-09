@@ -15,11 +15,15 @@ public partial class Pitch
 
     public int? PitchSize { get; set; }
 
-    public decimal PricePerHour { get; set; }
+    public decimal PricePerSlot { get; set; }
 
     public bool? IsActive { get; set; }
 
     public string? GrassType { get; set; }
+
+    public string? QrCodeUrl { get; set; }
+
+    public int? SlotDurationMinutes { get; set; } = 60;
 
     public virtual ICollection<PitchSchedule> PitchSchedules { get; set; } = new List<PitchSchedule>();
 

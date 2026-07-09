@@ -13,12 +13,41 @@ export default function PaymentSuccess() {
   const cancel = searchParams.get('cancel');
 
   useEffect(() => {
-    if (cancel === 'true' || code !== '00') {
-      setStatus('failed');
-    } else if (code === '00') {
-      setStatus('success');
-    }
-  }, [code, cancel]);
+    const verifyTransaction = async () => {
+      if (cancel === 'true' || code !== '00') {
+        setStatus('failed');
+        return;
+      }
+      
+      try {
+        const baseUrl = import.meta.env.DEV ? 'http://localhost:5229' : '';
+        const response = await fetch(`${baseUrl}/api/Payment/VerifyPayment?orderCode=${orderCode}`);
+        const data = await response.json();
+        
+        if (data.success && data.status === 'PAID') {
+          setStatus('success');
+        } else {
+          setStatus('failed');
+        }
+      } catch (err) {
+        console.error('Lỗi verify payment', err);
+        setStatus('success'); // Fallback in case backend is unreachable but PayOS says success
+      }
+    };
+
+    verifyTransaction();
+  }, [code, cancel, orderCode]);
+
+  const handleReturnDashboard = () => {
+    const userStr = localStorage.getItem('user');
+    const user = userStr ? JSON.parse(userStr) : null;
+    const role = user?.role;
+    
+    if (role === 'Captain') navigate('/captain?tab=tournaments');
+    else if (role === 'StadiumOwner') navigate('/owner?tab=tournaments');
+    else if (role === 'Admin') navigate('/admin');
+    else navigate('/player?tab=tournaments');
+  };
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-900 font-sans pb-20">
@@ -51,22 +80,16 @@ export default function PaymentSuccess() {
                 Cảm ơn bạn đã sử dụng dịch vụ của Sportify.
               </p>
               <p className="text-slate-500 dark:text-slate-400 font-medium mb-10">
-                Mã đơn hàng: <span className="font-mono text-slate-800 dark:text-white bg-slate-100 px-2 py-1 rounded">{orderCode}</span>
+                Mã đơn hàng: <span className="font-mono text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">{orderCode}</span>
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button 
-                  onClick={() => navigate(-1)} 
+                  onClick={handleReturnDashboard} 
                   className="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2"
                 >
-                  Quay lại trang trước <FiArrowRight />
+                  Về Bảng điều khiển <FiArrowRight />
                 </button>
-                <Link 
-                  to="/" 
-                  className="px-8 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center justify-center gap-2"
-                >
-                  <FiHome /> Trang chủ
-                </Link>
               </div>
             </div>
           )}
@@ -81,22 +104,16 @@ export default function PaymentSuccess() {
                 Giao dịch của bạn đã bị hủy hoặc có lỗi xảy ra.
               </p>
               <p className="text-slate-500 dark:text-slate-400 font-medium mb-10">
-                Mã đơn hàng: <span className="font-mono text-slate-800 dark:text-white bg-slate-100 px-2 py-1 rounded">{orderCode}</span>
+                Mã đơn hàng: <span className="font-mono text-slate-800 dark:text-white bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">{orderCode}</span>
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button 
-                  onClick={() => navigate(-1)} 
-                  className="px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg shadow-slate-900/20 transition-all flex items-center justify-center gap-2"
+                  onClick={handleReturnDashboard} 
+                  className="px-8 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-bold rounded-xl shadow-lg shadow-slate-900/20 transition-all flex items-center justify-center gap-2"
                 >
-                  Thử lại <FiArrowRight />
+                  Về Bảng điều khiển <FiArrowRight />
                 </button>
-                <Link 
-                  to="/" 
-                  className="px-8 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:text-slate-200 font-bold rounded-xl transition-all flex items-center justify-center gap-2"
-                >
-                  <FiHome /> Trang chủ
-                </Link>
               </div>
             </div>
           )}

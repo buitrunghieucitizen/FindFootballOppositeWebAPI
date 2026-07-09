@@ -4,6 +4,7 @@ import sportService from '../../services/sportService';
 import { FiUsers, FiMapPin, FiStar } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import Swal from 'sweetalert2';
 
 export default function TeamActionsTab() {
   const { logout } = useAuth();
@@ -114,7 +115,12 @@ export default function TeamActionsTab() {
       setError(null);
       setSuccess(null);
       await playerService.requestJoin(teamId);
-      setSuccess('Đã gửi yêu cầu tham gia đội thành công!');
+      Swal.fire({
+        title: 'Thành công!',
+        text: 'Đã gửi yêu cầu tham gia đội thành công!',
+        icon: 'success',
+        confirmButtonColor: '#10b981',
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Lỗi khi gửi yêu cầu. Bạn có thể đã gửi yêu cầu trước đó.');
     } finally {

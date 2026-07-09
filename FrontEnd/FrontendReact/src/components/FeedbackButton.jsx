@@ -50,7 +50,7 @@ export default function FeedbackButton() {
 
       {isOpen && (
         <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden relative">
+          <div className="bg-white dark:bg-slate-800 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden relative animate-scale-in">
             <div className="bg-indigo-600 p-6 text-white text-center relative">
               <button 
                 onClick={() => setIsOpen(false)}

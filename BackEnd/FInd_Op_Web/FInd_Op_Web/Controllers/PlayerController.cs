@@ -101,6 +101,29 @@ namespace FInd_Op_Web.Controllers
             });
         }
 
+        [HttpGet("MyTeams")]
+        public async Task<IActionResult> GetMyTeams()
+        {
+            var userId = GetUserId();
+            var teamMembers = await _context.TeamMembers
+                .Include(tm => tm.Team)
+                .ThenInclude(t => t.Sport)
+                .Where(tm => tm.PlayerId == userId && tm.Status == "Active")
+                .ToListAsync();
+
+            var result = teamMembers.Select(tm => new {
+                tm.TeamId,
+                tm.Team.TeamName,
+                tm.Team.HomeArea,
+                tm.Team.QualityLevel,
+                tm.RoleInTeam,
+                tm.JoinedDate,
+                SportName = tm.Team.Sport?.SportName
+            }).ToList();
+
+            return Ok(result);
+        }
+
         // 2. POST api/Player/LeaveTeam
         [HttpPost("LeaveTeam")]
         public async Task<IActionResult> LeaveTeam()
@@ -117,7 +140,182 @@ namespace FInd_Op_Web.Controllers
             _context.TeamMembers.Remove(teamMember);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "You have left the team." });
+            return Ok(new { message = "Gửi yêu cầu đánh giá thành công." });
+        }
+
+        // --- STADIUM BOOKING FOR PLAYERS (PRACTICE) ---
+
+        [HttpGet("Stadiums")]
+        public async Task<IActionResult> GetStadiums()
+        {
+            var stadiums = await _context.Stadiums
+                .Include(s => s.Pitches)
+                .Select(s => new
+                {
+                    s.StadiumId,
+                    s.StadiumName,
+                    s.Address,
+                    s.Hotline,
+                    Pitches = s.Pitches.Select(p => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot })
+                })
+                .ToListAsync();
+
+            return Ok(stadiums);
+        }
+
+        [HttpGet("Stadiums/{id}")]
+        public async Task<IActionResult> GetStadiumDetails(int id)
+        {
+            var stadium = await _context.Stadiums
+                .Include(s => s.Pitches)
+                .Select(s => new
+                {
+                    s.StadiumId,
+                    s.StadiumName,
+                    s.Address,
+                    s.Hotline,
+                    s.Description,
+                    s.OwnerId,
+                    Pitches = s.Pitches.Select(p => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot, p.GrassType })
+                })
+                .FirstOrDefaultAsync(s => s.StadiumId == id);
+
+            if (stadium == null) return NotFound(new { message = "Stadium not found." });
+            return Ok(stadium);
+        }
+
+        [HttpGet("Pitches/{pitchId}/Calendar")]
+        public async Task<IActionResult> GetPitchCalendar(int pitchId, [FromQuery] DateTime date)
+        {
+            var startOfDay = date.Date;
+            var endOfDay = startOfDay.AddDays(1).AddTicks(-1);
+
+            var schedules = await _context.PitchSchedules
+                .Where(ps => ps.PitchId == pitchId && ps.StartTime >= startOfDay && ps.EndTime <= endOfDay)
+                .Select(ps => new
+                {
+                    ps.ScheduleId,
+                    ps.StartTime,
+                    ps.EndTime,
+                    ps.ScheduleStatus,
+                    ps.LockedUntil
+                })
+                .ToListAsync();
+
+            return Ok(schedules);
+        }
+
+        [HttpGet("BookingHistory")]
+        public async Task<IActionResult> GetBookingHistory()
+        {
+            var userId = GetUserId();
+
+            var bookings = await _context.PitchSchedules
+                .Include(ps => ps.Pitch)
+                .ThenInclude(p => p.Stadium)
+                .Where(ps => ps.BookedById == userId)
+                .OrderByDescending(ps => ps.StartTime)
+                .Select(ps => new
+                {
+                    ps.ScheduleId,
+                    ps.PitchId,
+                    PitchName = ps.Pitch != null ? ps.Pitch.PitchName : "",
+                    StadiumName = ps.Pitch != null && ps.Pitch.Stadium != null ? ps.Pitch.Stadium.StadiumName : "",
+                    ps.StartTime,
+                    ps.EndTime,
+                    ps.ScheduleStatus,
+                    // Kiem tra xem booking nay co match nao khong
+                    HasMatch = _context.Matches.Any(m => m.ScheduleId == ps.ScheduleId)
+                })
+                .ToListAsync();
+
+            return Ok(bookings);
+        }
+
+        [HttpPost("BookPitch")]
+        public async Task<IActionResult> BookPitch([FromBody] BookPitchDto dto)
+        {
+            var userId = GetUserId();
+
+            if (dto.StartTime < DateTime.Now || dto.EndTime <= dto.StartTime)
+            {
+                return BadRequest(new { message = "Thời gian đặt sân không hợp lệ (không thể đặt trong quá khứ)." });
+            }
+
+            using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            try
+            {
+                var overlapping = await _context.PitchSchedules
+                    .Where(ps => ps.PitchId == dto.PitchId 
+                              && ps.StartTime < dto.EndTime 
+                              && ps.EndTime > dto.StartTime
+                              && (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed" || (ps.LockedUntil != null && ps.LockedUntil > DateTime.Now)))
+                    .AnyAsync();
+
+                if (overlapping)
+                {
+                    return BadRequest(new { message = "Khung giờ này đã có người đặt hoặc đang trong quá trình thanh toán chờ." });
+                }
+
+                bool isPayLater = dto.BookingType == "pay_later";
+                var pitchSchedule = new PitchSchedule
+                {
+                    PitchId = dto.PitchId,
+                    StartTime = dto.StartTime,
+                    EndTime = dto.EndTime,
+                    ScheduleStatus = isPayLater ? "Booked" : "PendingPayment",
+                    LockedUntil = isPayLater ? null : DateTime.Now.AddMinutes(10),
+                    BookedById = userId
+                };
+
+                _context.PitchSchedules.Add(pitchSchedule);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                // Gửi thông báo cho Chủ sân
+                var pitch = await _context.Pitches.Include(p => p.Stadium).FirstOrDefaultAsync(p => p.PitchId == dto.PitchId);
+                if (pitch != null && pitch.Stadium != null && isPayLater)
+                {
+                    int ownerId = pitch.Stadium.OwnerId ?? 0;
+                    var notif = new Notification
+                    {
+                        UserId = ownerId,
+                        Title = "Có đội đặt sân mới",
+                        Message = $"Sân {pitch.PitchName} ({pitch.Stadium.StadiumName}) vừa được đặt vào lúc {dto.StartTime:HH:mm dd/MM/yyyy}. Thanh toán tại sân.",
+                        CreatedAt = DateTime.Now,
+                        IsRead = false
+                    };
+                    _context.Notifications.Add(notif);
+                    await _context.SaveChangesAsync();
+
+                    var connId = FInd_Op_Web.Hubs.NotificationHub.GetConnectionIdForUser(ownerId.ToString());
+                    if (!string.IsNullOrEmpty(connId))
+                    {
+                        await _hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+                    }
+                }
+
+                if (isPayLater)
+                {
+                    return Ok(new { 
+                        message = "Đặt sân thành công (Thanh toán tại sân).", 
+                        scheduleId = pitchSchedule.ScheduleId,
+                        paymentRequired = false
+                    });
+                }
+
+                return Ok(new { 
+                    message = "Pitch reserved. Please proceed to payment within 10 minutes.", 
+                    scheduleId = pitchSchedule.ScheduleId,
+                    paymentRequired = true,
+                    paymentType = "BookingDeposit"
+                });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = "Lỗi khi đặt sân: " + ex.Message });
+            }
         }
 
         // 3. POST api/Player/CreateTeam
@@ -538,6 +736,8 @@ namespace FInd_Op_Web.Controllers
                     .ThenInclude(s => s.Pitch)
                         .ThenInclude(p => p.Stadium)
                 .Where(m => m.HomeTeamId != null && myTeams.Contains((int)m.HomeTeamId) || m.AwayTeamId != null && myTeams.Contains((int)m.AwayTeamId))
+                .OrderByDescending(m => m.MatchDate)
+                .ThenByDescending(m => m.StartTime)
                 .Select(m => new
                 {
                     m.MatchId,
@@ -550,6 +750,8 @@ namespace FInd_Op_Web.Controllers
                     m.AwayScore,
                     m.MatchStatus,
                     m.MatchType,
+                    m.Location,
+                    m.MatchDate,
                     Schedule = m.Schedule != null ? new
                     {
                         m.Schedule.ScheduleId,
@@ -568,25 +770,38 @@ namespace FInd_Op_Web.Controllers
         [HttpGet("PickupMatches")]
         public async Task<IActionResult> GetPickupMatches()
         {
-            var posts = await _context.Posts
-                .Include(p => p.Team)
-                .Include(p => p.Match)
-                .Where(p => p.PostType == "Recruitment" && p.MatchId != null)
-                .OrderByDescending(p => p.CreatedAt)
-                .Select(p => new
-                {
-                    p.PostId,
-                    p.Title,
-                    p.Content,
-                    p.TeamId,
-                    TeamName = p.Team != null ? p.Team.TeamName : null,
-                    p.MatchId,
-                    MatchTime = p.Match != null && p.Match.Schedule != null ? p.Match.Schedule.StartTime : (DateTime?)null,
-                    p.CreatedAt
-                })
+            var matches = await _context.Matches
+                .Include(m => m.Sport)
+                .Where(m => m.MatchType == "PickUp" && m.MatchStatus == "Pending")
+                .OrderByDescending(m => m.ExpiresAt)
                 .ToListAsync();
 
-            return Ok(posts);
+            var result = matches.Select(m => {
+                string desc = "";
+                string loc = "";
+                try {
+                    if (!string.IsNullOrEmpty(m.CancelReason)) {
+                        using (var doc = System.Text.Json.JsonDocument.Parse(m.CancelReason)) {
+                            if (doc.RootElement.TryGetProperty("Description", out var d)) desc = d.GetString() ?? "";
+                            if (doc.RootElement.TryGetProperty("Location", out var l)) loc = l.GetString() ?? "";
+                        }
+                    }
+                } catch { }
+                
+                return new {
+                    PostId = m.MatchId,
+                    Title = $"Cá nhân tìm trận {(m.Sport != null ? m.Sport.SportName : "")}{(string.IsNullOrEmpty(loc) ? "" : $" tại {loc}")}",
+                    Content = desc,
+                    MatchId = m.MatchId,
+                    Match = new {
+                        Sport = new { SportName = m.Sport != null ? m.Sport.SportName : "Thể thao" },
+                        ExpiresAt = m.ExpiresAt
+                    },
+                    CreatedAt = m.ExpiresAt ?? DateTime.Now
+                };
+            });
+
+            return Ok(result);
         }
 
         // 10.7 POST api/Player/JoinPickupMatch/{postId}
@@ -677,6 +892,18 @@ namespace FInd_Op_Web.Controllers
                 return NotFound(new { message = "Match not found." });
             }
 
+            if (match.TournamentId != null && dto.IsAttending)
+            {
+                var isMember = await _context.TeamMembers.AnyAsync(tm => 
+                    tm.PlayerId == userId && tm.Status == "Active" &&
+                    (tm.TeamId == match.HomeTeamId || tm.TeamId == match.AwayTeamId));
+
+                if (!isMember)
+                {
+                    return BadRequest(new { message = "Vào giải sẽ không được phép đá ở đội khác, chỉ đá với đội của mình thôi." });
+                }
+            }
+
             var poll = await _context.MatchPolls
                 .FirstOrDefaultAsync(p => p.MatchId == matchId && p.PlayerId == userId);
 
@@ -700,7 +927,59 @@ namespace FInd_Op_Web.Controllers
             return Ok(new { message = "Attendance voted successfully.", isAttending = dto.IsAttending });
         }
 
+        // 11.5 GET api/Player/Tournaments
+        [HttpGet("Tournaments")]
+        public async Task<IActionResult> GetTournaments()
+        {
+            var userId = GetUserId();
+            var teamMember = await _context.TeamMembers.FirstOrDefaultAsync(tm => tm.PlayerId == userId && tm.Status == "Active");
+            
+            if (teamMember == null)
+            {
+                return Ok(new List<object>()); // Empty list if player is not in a team
+            }
+
+            var tournaments = await _context.TournamentTeams
+                .Include(tt => tt.Tournament)
+                .Where(tt => tt.TeamId == teamMember.TeamId && tt.Tournament != null)
+                .Select(tt => new {
+                    tt.Tournament.TournamentId,
+                    tt.Tournament.TournamentName,
+                    tt.Tournament.Format,
+                    tt.Tournament.Status,
+                    tt.Tournament.StartDate,
+                    tt.Tournament.EndDate,
+                    tt.Tournament.Scope,
+                    tt.Tournament.MaxTeams,
+                    tt.Tournament.MaxPlayersPerTeam,
+                    tt.Tournament.Description
+                })
+                .ToListAsync();
+
+            return Ok(tournaments);
+        }
+
         // 12. POST api/Player/CreateIndividualMatch
+        [HttpGet("MyPickupMatches")]
+        public async Task<IActionResult> GetMyPickupMatches()
+        {
+            var userId = GetUserId();
+            var matches = await _context.Matches
+                .Where(m => m.MatchType == "PickUp" && m.CancelReason != null && m.CancelReason.Contains($"\"CreatorId\":{userId}"))
+                .OrderByDescending(m => m.ExpiresAt)
+                .Select(m => new
+                {
+                    m.MatchId,
+                    m.MatchStatus,
+                    m.CancelReason,
+                    m.ExpiresAt,
+                    m.SportId
+                })
+                .ToListAsync();
+
+            return Ok(matches);
+        }
+
         [HttpPost("CreateIndividualMatch")]
         public async Task<IActionResult> CreateIndividualMatch([FromBody] CreateIndividualMatchDto dto)
         {
@@ -746,6 +1025,31 @@ namespace FInd_Op_Web.Controllers
 
             return Ok(new { message = "Tạo trận cá nhân thành công!", matchId = newMatch.MatchId });
         }
-    }
 
+        [HttpDelete("DeletePickupMatch/{id}")]
+        public async Task<IActionResult> DeletePickupMatch(int id)
+        {
+            var userId = GetUserId();
+            var match = await _context.Matches.FindAsync(id);
+            if (match == null || match.MatchType != "PickUp") return NotFound();
+
+            if (!match.CancelReason.Contains($"\"CreatorId\":{userId}"))
+            {
+                return Forbid();
+            }
+
+            // Remove related polls
+            var polls = await _context.MatchPolls.Where(p => p.MatchId == id).ToListAsync();
+            _context.MatchPolls.RemoveRange(polls);
+            
+            // Remove related posts
+            var posts = await _context.Posts.Where(p => p.MatchId == id).ToListAsync();
+            _context.Posts.RemoveRange(posts);
+
+            _context.Matches.Remove(match);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã xóa kèo thành công!" });
+        }
+    }
 }

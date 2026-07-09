@@ -35,13 +35,8 @@ export default function MatchChatModal({ matchId, onClose }) {
         // 1. Fetch encrypted history
         const historyData = await captainService.getMatchChats(matchId);
         
-        // 2. Fetch or Generate encryption key
-        let key = localStorage.getItem(`matchKey_${matchId}`);
-        if (!key) {
-          // Fallback simple shared secret based on matchId for demo
-          key = matchId.toString().padStart(16, '0').substring(0, 16); 
-          localStorage.setItem(`matchKey_${matchId}`, key);
-        }
+        // 2. Generate encryption key from matchId
+        const key = await deriveKey(matchId);
         setCryptoKey(key);
 
         // Fetch My Team

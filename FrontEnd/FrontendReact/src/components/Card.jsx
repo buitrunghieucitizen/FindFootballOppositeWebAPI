@@ -5,7 +5,7 @@ export const Card = ({
   className = '',
 }) => {
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-lg shadow-md border border-gray-100 dark:border-slate-700 overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-slate-800 rounded-lg shadow-md border border-gray-100 dark:border-slate-700 overflow-hidden animate-fade-in-up transition-all duration-300 hover:shadow-lg ${className}`}>
       {header && (
         <div className="px-6 py-4 border-b border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700/50">
           {typeof header === 'string' ? (

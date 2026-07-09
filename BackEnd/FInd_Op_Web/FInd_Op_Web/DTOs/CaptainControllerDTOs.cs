@@ -23,7 +23,14 @@ namespace FInd_Op_Web.DTOs
             public DateTime? EndDate { get; set; }
             public int SportId { get; set; } = 1;
             public string Scope { get; set; } = "Internal";
+            public string? OrganizerCccd { get; set; }
+            public string? OrganizerDriverLicense { get; set; }
+            public int MaxPlayersPerTeam { get; set; } = 5;
             public string Stadium { get; set; } = string.Empty;
+            public string? Phone { get; set; }
+            public string? IdCardFrontUrl { get; set; }
+            public string? IdCardBackUrl { get; set; }
+            public string? BankQrCodeUrl { get; set; }
         }
     
         public class TournamentSettingsDto
@@ -31,11 +38,25 @@ namespace FInd_Op_Web.DTOs
             public string Name { get; set; } = string.Empty;
             public string Sport { get; set; } = "Bóng đá";
             public string Stadium { get; set; } = string.Empty;
+            public int? StadiumId { get; set; }
             public string Format { get; set; } = "Swiss";
             public string Scope { get; set; } = "Internal";
             public int MaxTeams { get; set; } = 16;
             public DateTime? StartDate { get; set; }
             public DateTime? EndDate { get; set; }
+            public string? Status { get; set; }
+        }
+
+        public class MatchScheduleDto
+        {
+            public int? PitchId { get; set; }
+            public DateTime? MatchDate { get; set; }
+            public TimeSpan? StartTime { get; set; }
+            public int? DurationMinutes { get; set; }
+            public bool? HasExtraTime { get; set; }
+            public int? HomeScore { get; set; }
+            public int? AwayScore { get; set; }
+            public string? MatchStatus { get; set; }
         }
     
         public class TournamentAddTeamDto
@@ -45,15 +66,20 @@ namespace FInd_Op_Web.DTOs
             public string? Abbr { get; set; }
         }
     
-            public class UpdateTournamentMatchDto
-            {
-                public DateTime? MatchDate { get; set; }
-                public TimeSpan? StartTime { get; set; }
-                public TimeSpan? EndTime { get; set; }
-                public int? HomeScore { get; set; }
-                public int? AwayScore { get; set; }
-                public string MatchStatus { get; set; }
-            }
+        public class UpdateTournamentMatchDto
+        {
+            public DateTime? MatchDate { get; set; }
+            public TimeSpan? StartTime { get; set; }
+            public TimeSpan? EndTime { get; set; }
+            public int? PitchId { get; set; }
+            public string? Location { get; set; }
+            public int? DurationMinutes { get; set; }
+            public bool? HasExtraTime { get; set; }
+            public int? HomeScore { get; set; }
+            public int? AwayScore { get; set; }
+            public string? SetScores { get; set; }
+            public string? MatchStatus { get; set; }
+        }
     
         public class MatchRequestDto
         {
@@ -80,6 +106,7 @@ namespace FInd_Op_Web.DTOs
         {
             public int HomeScore { get; set; }
             public int AwayScore { get; set; }
+            public string? SetScores { get; set; }
         }
     
         public class CancelDto
@@ -93,12 +120,22 @@ namespace FInd_Op_Web.DTOs
             public TimeSpan? StartTime { get; set; }
             public string? Location { get; set; }
             public string? Notes { get; set; }
+            public int? ScheduleId { get; set; }
+        }
+
+        public class UpdateChallengeDto
+        {
+            public DateTime? MatchDate { get; set; }
+            public TimeSpan? StartTime { get; set; }
+            public string? Location { get; set; }
+            public string? Notes { get; set; }
         }
     
         public class RegisterTournamentDto
         {
             public List<int>? PlayerIds { get; set; }
             public bool NoBettingCommitment { get; set; }
+            public string? TeamAbbreviation { get; set; }
         }
     
         public class BookPitchDto
@@ -107,6 +144,7 @@ namespace FInd_Op_Web.DTOs
             public DateTime StartTime { get; set; }
             public DateTime EndTime { get; set; }
             public int? MatchId { get; set; }
+            public string? BookingType { get; set; }
         }
     
         public class CaptainCreateTeamDto
@@ -117,6 +155,7 @@ namespace FInd_Op_Web.DTOs
             public bool IsClubOwner { get; set; } = false;
             public int SportId { get; set; } = 1;
             public string? LogoUrl { get; set; }
+            public string? BackgroundUrl { get; set; }
         }
         
         public class CaptainUpdateTeamDto
@@ -126,6 +165,7 @@ namespace FInd_Op_Web.DTOs
             public string? Introduction { get; set; }
             public string? QualityLevel { get; set; }
             public string? LogoUrl { get; set; }
+            public string? BackgroundUrl { get; set; }
         }
     
         public class TransferRoleDto
@@ -133,6 +173,14 @@ namespace FInd_Op_Web.DTOs
             public int NewCaptainId { get; set; }
             public string NewRoleForOldCaptain { get; set; } = "Player"; // "Owner" or "Player"
         }
-    
-}
 
+        public class BookRecurringPitchDto
+        {
+            public int PitchId { get; set; }
+            public int DayOfWeek { get; set; } // 0 = Sunday, 1 = Monday...
+            public string StartTime { get; set; } = null!; // "HH:mm:ss"
+            public string EndTime { get; set; } = null!;   // "HH:mm:ss"
+            public string FromDate { get; set; } = null!;  // "yyyy-MM-dd"
+            public string ToDate { get; set; } = null!;    // "yyyy-MM-dd"
+        }
+}

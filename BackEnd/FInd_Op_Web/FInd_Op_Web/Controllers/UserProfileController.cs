@@ -43,17 +43,37 @@ namespace FInd_Op_Web.Controllers
             var notifications = await _context.Notifications
                 .Where(n => n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
-                .Take(50)
-                .Select(n => new
-                {
+                .Select(n => new {
                     n.NotificationId,
+                    n.Title,
                     n.Message,
-                    n.IsRead,
-                    n.CreatedAt
+                    n.RelatedLink,
+                    n.CreatedAt,
+                    n.IsRead
                 })
                 .ToListAsync();
 
             return Ok(notifications);
+        }
+
+
+
+        [HttpPut("notifications/readall")]
+        public async Task<IActionResult> MarkAllAsRead()
+        {
+            var userIdStr = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userIdStr) || !int.TryParse(userIdStr, out int userId))
+            {
+                return Unauthorized();
+            }
+
+            var notifications = await _context.Notifications.Where(n => n.UserId == userId && n.IsRead != true).ToListAsync();
+            foreach (var n in notifications)
+            {
+                n.IsRead = true;
+            }
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Đã đánh dấu tất cả đã đọc." });
         }
 
         [HttpPut("notifications/{id}/read")]
@@ -129,7 +149,9 @@ namespace FInd_Op_Web.Controllers
                 isFreeAgent = user.IsFreeAgent,
                 createdAt = user.CreatedAt,
                 roles = user.Roles.Select(r => r.RoleName).ToList(),
-                matchHistory = matches
+                matchHistory = matches,
+                avatarUrl = user.AvatarUrl,
+                backgroundUrl = user.BackgroundUrl
             });
         }
 
@@ -202,6 +224,11 @@ namespace FInd_Op_Web.Controllers
                 user.AvatarUrl = request.AvatarUrl;
             }
 
+            if (!string.IsNullOrWhiteSpace(request.BackgroundUrl))
+            {
+                user.BackgroundUrl = request.BackgroundUrl;
+            }
+
             await _context.SaveChangesAsync();
 
             return Ok(new
@@ -214,7 +241,8 @@ namespace FInd_Op_Web.Controllers
                 avatarUrl = user.AvatarUrl,
                 isFreeAgent = user.IsFreeAgent,
                 createdAt = user.CreatedAt,
-                roles = user.Roles.Select(r => r.RoleName).ToList()
+                roles = user.Roles.Select(r => r.RoleName).ToList(),
+                backgroundUrl = user.BackgroundUrl
             });
         }
 

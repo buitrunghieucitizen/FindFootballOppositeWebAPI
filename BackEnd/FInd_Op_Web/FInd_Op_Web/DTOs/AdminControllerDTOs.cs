@@ -36,6 +36,16 @@ namespace FInd_Op_Web.DTOs
                 public int? SportId { get; set; }
             }
     
+            public class UpdateTeamDto
+            {
+                public string TeamName { get; set; } = string.Empty;
+                public string? QualityLevel { get; set; }
+                public string? HomeArea { get; set; }
+                public string? History { get; set; }
+                public bool? LookingForOpponent { get; set; }
+                public int? SportId { get; set; }
+            }
+    
             public class CreateStadiumDto
             {
                 public string StadiumName { get; set; } = string.Empty;
@@ -59,7 +69,7 @@ namespace FInd_Op_Web.DTOs
             {
                 public string? PitchName { get; set; }
                 public int? PitchSize { get; set; } // 5, 7, 9, 11
-                public decimal PricePerHour { get; set; }
+                public decimal PricePerSlot { get; set; }
                 public string? GrassType { get; set; }
                 public bool? IsActive { get; set; }
                 public int? SportId { get; set; }

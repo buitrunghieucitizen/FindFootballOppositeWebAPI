@@ -7,18 +7,34 @@ import { PublicHeader } from '../../components/portal-ui';
 
 export default function PublicStadiums() {
   const [stadiums, setStadiums] = useState([]);
+  const [sports, setSports] = useState([]);
+  const [filters, setFilters] = useState({ search: '', sportId: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedStadium, setSelectedStadium] = useState(null);
 
   useEffect(() => {
-    fetchStadiums();
+    fetchSports();
   }, []);
+
+  useEffect(() => {
+    fetchStadiums();
+  }, [filters.sportId]);
+
+  const fetchSports = async () => {
+    try {
+      const data = await publicService.getSports();
+      const sportsData = data?.data || data?.$values || data || [];
+      setSports(Array.isArray(sportsData) ? sportsData : []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const fetchStadiums = async () => {
     try {
       setLoading(true);
-      const data = await publicService.getStadiums();
+      const data = await publicService.getStadiums(filters);
       setStadiums(data || []);
     } catch (err) {
       console.error(err);
@@ -67,6 +83,33 @@ export default function PublicStadiums() {
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 mb-8 flex flex-col md:flex-row gap-4">
+          <input
+            type="text"
+            placeholder="Tìm sân theo tên, địa chỉ..."
+            value={filters.search}
+            onChange={(e) => setFilters(prev => ({...prev, search: e.target.value}))}
+            className="flex-1 px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          />
+          <select
+            value={filters.sportId}
+            onChange={(e) => setFilters(prev => ({...prev, sportId: e.target.value}))}
+            className="px-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 min-w-[200px]"
+          >
+            <option value="">Tất cả môn thể thao</option>
+            {sports.map(s => (
+              <option key={s.sportId} value={s.sportId}>{s.sportName}</option>
+            ))}
+          </select>
+          <button
+            onClick={() => fetchStadiums()}
+            className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors"
+          >
+            Tìm kiếm
+          </button>
+        </div>
+
         {error && (
           <div className="bg-rose-50 dark:bg-rose-900/20 border border-rose-200 text-rose-600 px-6 py-4 rounded-2xl mb-8 flex items-center">
             <FiInfo className="mr-3 text-rose-500 text-xl" />
@@ -109,10 +152,16 @@ export default function PublicStadiums() {
               >
                 
                 <div className="w-full sm:w-2/5 h-56 sm:h-auto bg-slate-100 dark:bg-slate-800 rounded-2xl relative overflow-hidden flex-shrink-0">
-                  <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-emerald-500/20 group-hover:opacity-0 transition-opacity duration-300"></div>
-                  <div className="w-full h-full flex items-center justify-center text-emerald-500">
-                    <FiMapPin className="w-16 h-16 opacity-30 group-hover:scale-110 transition-transform duration-500" />
-                  </div>
+                  {stadium.imageUrl ? (
+                    <img src={stadium.imageUrl} alt={stadium.stadiumName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-emerald-500/20 group-hover:opacity-0 transition-opacity duration-300"></div>
+                      <div className="w-full h-full flex items-center justify-center text-emerald-500">
+                        <FiMapPin className="w-16 h-16 opacity-30 group-hover:scale-110 transition-transform duration-500" />
+                      </div>
+                    </>
+                  )}
                 </div>
                 
                 <div className="flex-1 flex flex-col justify-between">
@@ -214,9 +263,19 @@ export default function PublicStadiums() {
                     </div>
                     <div>
                       <div className="text-sm font-bold text-slate-900 dark:text-white mb-1">Địa chỉ</div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                      <div className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
                         {selectedStadium.address || 'Chưa cập nhật địa chỉ'}
                       </div>
+                      {selectedStadium.latitude && selectedStadium.longitude && (
+                        <a 
+                          href={`https://maps.google.com/?q=${selectedStadium.latitude},${selectedStadium.longitude}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
+                        >
+                          <FiMapPin /> Xem trên Google Maps
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -249,8 +308,8 @@ export default function PublicStadiums() {
                   {selectedStadium.pitches && selectedStadium.pitches.length > 0 ? (
                     selectedStadium.pitches.map((pitch, idx) => (
                       <div key={pitch.pitchId || idx} className="bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl p-4 text-center hover:border-emerald-300 transition-colors cursor-default">
-                        <div className="font-bold text-slate-900 dark:text-white mb-1">{pitch.pitchName || `Sân ${pitch.pitchSize}`}</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Sân {pitch.pitchSize} người</div>
+                        <div className="font-bold text-slate-900 dark:text-white mb-1">{pitch.pitchName || `Sân ${pitch.pitchSize || pitch.grassType}`}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Sân {pitch.pitchSize || pitch.grassType} người</div>
                       </div>
                     ))
                   ) : (

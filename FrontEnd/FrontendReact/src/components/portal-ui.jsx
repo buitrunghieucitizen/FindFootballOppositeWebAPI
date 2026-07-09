@@ -10,16 +10,17 @@ const publicNav = [
   { label: 'Giải Đấu', tab: 'tournaments' },
   { label: 'Tuyển Quân', tab: 'recruitments' },
   { label: 'Bảng Xếp Hạng', tab: 'rankings' },
+  { label: 'Cộng Đồng', tab: 'feed' },
 ];
 
 const adminNav = [
-  { id: 'overview', label: 'Tổng Quan', to: '/admin-dashboard' },
-  { id: 'users', label: 'Quản Lý Người Dùng', to: '/admin-dashboard?tab=users' },
-  { id: 'teams', label: 'Quản Lý Đội Thể Thao', to: '/admin-dashboard?tab=teams' },
-  { id: 'stadiums', label: 'Quản Lý Sân Thể Thao', to: '/admin-dashboard?tab=stadiums' },
-  { id: 'matches', label: 'Quản Lý Trận Đấu', to: '/admin-dashboard?tab=matches' },
+  { id: 'overview', label: 'Tổng Quan', to: '/admin-home' },
+  { id: 'users', label: 'Quản Lý Người Dùng', to: '/admin-home?tab=users' },
+  { id: 'teams', label: 'Quản Lý Đội Thể Thao', to: '/admin-home?tab=teams' },
+  { id: 'stadiums', label: 'Quản Lý Sân Thể Thao', to: '/admin-home?tab=stadiums' },
+  { id: 'matches', label: 'Quản Lý Trận Đấu', to: '/admin-home?tab=matches' },
 ];
-import { FiMenu, FiX, FiLogOut, FiHome, FiUser, FiAward, FiSun, FiMoon, FiDollarSign, FiHeart } from 'react-icons/fi';
+import { FiMenu, FiX, FiLogOut, FiHome, FiUser, FiAward, FiSun, FiMoon, FiDollarSign, FiHeart, FiSettings } from 'react-icons/fi';
 import { useState } from 'react';
 
 export function cn(...classes) {
@@ -88,7 +89,7 @@ export function Badge({ tone = 'slate', children }) {
 
 export function SurfaceCard({ title, subtitle, aside, className, children }) {
   return (
-    <section className={cn('bg-white dark:bg-wc-navy-900/80 backdrop-blur-xl border border-slate-200 dark:border-wc-navy-800/60 rounded-3xl p-6 sm:p-8 shadow-xl shadow-wc-navy-950/5 hover:shadow-2xl hover:shadow-wc-gold-500/5 transition-all duration-300 relative overflow-hidden group', className)}>
+    <section className={cn('bg-white dark:bg-wc-navy-900/80 backdrop-blur-xl border border-slate-200 dark:border-wc-navy-800/60 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-xl shadow-wc-navy-950/5 hover:shadow-2xl hover:shadow-wc-gold-500/5 transition-all duration-300 relative overflow-hidden group', className)}>
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-wc-gold-400 to-wc-gold-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
       {(title || subtitle || aside) && (
         <header className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
@@ -108,8 +109,8 @@ export function SurfaceCard({ title, subtitle, aside, className, children }) {
 
 export function PageSection({ eyebrow, title, subtitle, actions, children }) {
   return (
-    <section className="mb-16">
-      <div className="flex flex-col md:flex-row justify-between items-start gap-6 mb-10">
+    <section className="mb-8 sm:mb-16">
+      <div className="flex flex-col md:flex-row justify-between items-start gap-4 sm:gap-6 mb-6 sm:mb-10">
         <div className="max-w-3xl">
           {eyebrow ? <span className="inline-block text-xs font-bold tracking-widest text-wc-gold-700 dark:text-wc-gold-400 uppercase mb-2 bg-wc-gold-50 dark:bg-wc-gold-500/10 px-3 py-1 rounded-full border border-wc-gold-200 dark:border-wc-gold-500/20">{eyebrow}</span> : null}
           {title ? <h2 className="text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-3">{title}</h2> : null}
@@ -124,9 +125,9 @@ export function PageSection({ eyebrow, title, subtitle, actions, children }) {
 
 export function MetricGrid({ items }) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-16">
       {items.map((item) => (
-        <article className="bg-white dark:bg-wc-navy-900/80 rounded-3xl p-6 border border-slate-100 dark:border-wc-navy-800/50 shadow-lg shadow-slate-200/40 dark:shadow-wc-navy-950/20 relative overflow-hidden group" key={item.label}>
+        <article className="bg-white dark:bg-wc-navy-900/80 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-slate-100 dark:border-wc-navy-800/50 shadow-lg shadow-slate-200/40 dark:shadow-wc-navy-950/20 relative overflow-hidden group" key={item.label}>
           <div className="absolute -right-6 -top-6 w-24 h-24 bg-slate-100 dark:bg-wc-navy-800 rounded-full blur-2xl group-hover:bg-wc-gold-100 dark:group-hover:bg-wc-gold-500/10 transition-colors duration-500"></div>
           <span className="block text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2 relative z-10">{item.label}</span>
           <strong className="block text-4xl font-black mb-2 relative z-10 bg-clip-text text-transparent bg-gradient-to-br from-slate-900 to-slate-700 dark:from-wc-gold-300 dark:to-wc-gold-500">{item.value}</strong>
@@ -140,6 +141,13 @@ export function MetricGrid({ items }) {
 export function PublicHeader() {
   const [isOpen, setIsOpen] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [hideOnboarding, setHideOnboarding] = useState(localStorage.getItem('hideOnboarding') === 'true');
+
+  const toggleOnboarding = () => {
+    const newVal = !hideOnboarding;
+    setHideOnboarding(newVal);
+    localStorage.setItem('hideOnboarding', newVal.toString());
+  };
   const { user, isAuthenticated, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -158,6 +166,7 @@ export function PublicHeader() {
     if (tab === 'tournaments') return '/tournaments';
     if (tab === 'recruitments') return '/recruitments';
     if (tab === 'rankings') return '/rankings';
+    if (tab === 'feed') return '/feed';
     return '/';
   };
 
@@ -170,7 +179,7 @@ export function PublicHeader() {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 bg-white/90 dark:bg-wc-navy-950/90 backdrop-blur-xl border-b border-slate-200 dark:border-wc-navy-800/80 z-50 transition-colors duration-300">
-        <div className="w-full px-4 sm:px-8 lg:px-16 xl:px-24">
+        <div className="w-full px-3 sm:px-6 lg:px-8 xl:px-16">
         <div className="flex justify-between items-center h-20">
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center group">
@@ -196,14 +205,7 @@ export function PublicHeader() {
           </nav>
 
           <div className="hidden md:flex items-center gap-3">
-            {/* Theme toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-2.5 rounded-xl bg-slate-100 dark:bg-wc-navy-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-wc-navy-700 transition-colors"
-              title={isDark ? 'Chế độ sáng' : 'Chế độ tối'}
-            >
-              {isDark ? <FiSun className="w-4 h-4" /> : <FiMoon className="w-4 h-4" />}
-            </button>
+
             {isAuthenticated ? (
               <>
                 <div className="relative">
@@ -225,10 +227,7 @@ export function PublicHeader() {
                 {showUserMenu && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-wc-navy-800 rounded-xl shadow-lg border border-slate-200 dark:border-wc-navy-700 py-2 z-50">
                     <Link onClick={() => setShowUserMenu(false)} to={
-                      user?.role === 'Admin' ? '/admin-home?tab=profile' :
-                      user?.role === 'Captain' ? '/captain-home?tab=profile' :
-                      user?.role === 'StadiumOwner' ? '/owner-home?tab=profile' :
-                      user?.role === 'Player' ? '/player-home?tab=profile' : '/profile'
+                      '/profile'
                     } className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-wc-navy-700 hover:text-slate-900 dark:hover:text-white transition-colors">
                       <FiUser className="text-slate-400" /> Hồ sơ cá nhân
                     </Link>
@@ -240,6 +239,18 @@ export function PublicHeader() {
                     } className="flex items-center gap-2 px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-wc-navy-700 hover:text-slate-900 dark:hover:text-white transition-colors">
                       <FiHome className="text-slate-400" /> Bảng điều khiển
                     </Link>
+                    <button onClick={toggleTheme} className="w-full flex items-center justify-between px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-wc-navy-700 hover:text-slate-900 dark:hover:text-white transition-colors">
+                      <div className="flex items-center gap-2">
+                        {isDark ? <FiSun className="text-slate-400" /> : <FiMoon className="text-slate-400" />} Giao diện
+                      </div>
+                      <span className="text-[10px] bg-slate-100 dark:bg-wc-navy-900 px-1.5 py-0.5 rounded text-slate-500">{isDark ? 'Tối' : 'Sáng'}</span>
+                    </button>
+                    <button onClick={toggleOnboarding} className="w-full flex items-center justify-between px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-wc-navy-700 hover:text-slate-900 dark:hover:text-white transition-colors">
+                      <div className="flex items-center gap-2">
+                        <FiSettings className="text-slate-400" /> Hướng dẫn
+                      </div>
+                      <span className="text-[10px] bg-slate-100 dark:bg-wc-navy-900 px-1.5 py-0.5 rounded text-slate-500">{hideOnboarding ? 'Tắt' : 'Bật'}</span>
+                    </button>
                     <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors">
                       <FiLogOut className="text-red-400" /> Đăng xuất
                     </button>
@@ -339,11 +350,11 @@ export function PublicLayout({ title, subtitle, actions, children }) {
         <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-wc-gold-200/15 blur-[120px]"></div>
         <div className="absolute top-[20%] left-[-10%] w-[40%] h-[40%] rounded-full bg-wc-red-200/15 blur-[120px]"></div>
       </div>
-      
+
       <PublicHeader />
-      
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <section className="bg-gradient-to-br from-wc-navy-950 via-wc-navy-900 to-wc-red-900/60 rounded-[2.5rem] p-8 md:p-12 lg:p-16 mb-16 text-white shadow-2xl relative overflow-hidden">
+
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <section className="bg-gradient-to-br from-wc-navy-950 via-wc-navy-900 to-wc-red-900/60 rounded-2xl sm:rounded-[2.5rem] p-6 sm:p-8 md:p-12 lg:p-16 mb-12 sm:mb-16 text-white shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-full h-full overflow-hidden pointer-events-none">
              <div className="absolute -right-20 -top-20 w-96 h-96 bg-wc-gold-500/15 rounded-full blur-[80px]"></div>
              <div className="absolute -left-20 -bottom-20 w-96 h-96 bg-wc-teal-500/20 rounded-full blur-[80px]"></div>
@@ -626,6 +637,7 @@ export function DashboardSidebar({ brandLabel = 'SportifyX', subLabel, navItems,
           {/* Close button on mobile */}
           <button
             onClick={() => setMobileOpen(false)}
+            aria-label="Đóng menu"
             className="lg:hidden p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-wc-navy-800 transition-colors"
           >
             <FiX className="w-5 h-5" />
@@ -634,7 +646,7 @@ export function DashboardSidebar({ brandLabel = 'SportifyX', subLabel, navItems,
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4">
+      <nav className="sidebar-nav flex-1 px-3 py-4">
         <div className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-3 px-3">Menu Quản Lý</div>
         <div className="space-y-1">
           {navItems.map((item) => {
@@ -644,7 +656,7 @@ export function DashboardSidebar({ brandLabel = 'SportifyX', subLabel, navItems,
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl font-medium text-sm transition-colors ${
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl font-medium text-sm transition-colors tour-step-${item.id} ${
                   active
                     ? 'bg-wc-gold-50 dark:bg-wc-gold-500/10 text-wc-gold-700 dark:text-wc-gold-400'
                     : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-wc-navy-800'
@@ -674,22 +686,25 @@ export function DashboardSidebar({ brandLabel = 'SportifyX', subLabel, navItems,
         {/* Theme toggle - visible on mobile */}
         <button
           onClick={toggleTheme}
-          className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-wc-navy-800 rounded-xl font-medium text-sm transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-wc-navy-800 rounded-xl font-medium text-sm transition-colors"
         >
           {isDark ? <FiSun className="text-lg text-wc-gold-400" /> : <FiMoon className="text-lg text-slate-400 dark:text-slate-500" />}
           {isDark ? 'Chế độ sáng' : 'Chế độ tối'}
         </button>
 
-        <button 
-          onClick={() => handleNavClick('profile')} 
-          className="w-full flex items-center gap-3 px-3 py-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-wc-navy-800 rounded-xl font-medium text-sm transition-colors"
+        <button
+          onClick={() => {
+            if(setActiveTab) setActiveTab('profile');
+            setMobileOpen(false);
+          }}
+          className="w-full flex items-center gap-3 px-3 py-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-wc-navy-800 rounded-xl font-medium text-sm transition-colors text-left"
         >
           <FiUser className="text-lg text-slate-400 dark:text-slate-500" /> Hồ sơ cá nhân
         </button>
-        <Link to="/" className="flex items-center gap-3 px-3 py-2.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-wc-navy-800 rounded-xl font-medium text-sm transition-colors">
+        <Link to="/" className="flex items-center gap-3 px-3 py-3 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-wc-navy-800 rounded-xl font-medium text-sm transition-colors">
           <FiHome className="text-lg text-slate-400 dark:text-slate-500" /> Về trang chủ
         </Link>
-        <button onClick={() => { onLogout(); setMobileOpen(false); }} className="w-full flex items-center gap-3 px-3 py-2.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl font-medium text-sm transition-colors">
+        <button onClick={() => { onLogout(); setMobileOpen(false); }} className="w-full flex items-center gap-3 px-3 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-xl font-medium text-sm transition-colors">
           <FiLogOut className="text-lg text-red-400" /> Đăng xuất
         </button>
       </div>
@@ -740,7 +755,7 @@ export function DashboardSidebar({ brandLabel = 'SportifyX', subLabel, navItems,
 
       {/* Mobile sidebar - slide-in overlay */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
+        <div className="lg:hidden fixed inset-0 z-[60]">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-wc-navy-950/60 backdrop-blur-sm animate-fade-in"
@@ -763,7 +778,7 @@ export function DashboardLayout({ sidebar, topBar, children }) {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-wc-navy-950 flex">
       {sidebar}
-      <main className="flex-1 p-4 pt-16 lg:pt-6 lg:p-8 overflow-x-hidden page-enter">
+      <main className="flex-1 p-3 pt-20 sm:p-4 sm:pt-16 lg:pt-6 lg:p-8 overflow-x-hidden page-enter">
         {topBar}
         {children}
       </main>

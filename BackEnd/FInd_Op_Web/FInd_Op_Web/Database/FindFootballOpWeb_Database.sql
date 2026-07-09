@@ -63,6 +63,8 @@ CREATE TABLE [Users] (
     [PremiumUntil] datetime2 NULL,
     [Tokens] int NULL,
     [PublicKey] nvarchar(max) NULL,
+    [AvatarUrl] nvarchar(max) NULL,
+    [BackgroundUrl] nvarchar(max) NULL,
     CONSTRAINT [PK__Users__1788CCAC4609C301] PRIMARY KEY ([UserID])
 );
 GO
@@ -140,6 +142,8 @@ CREATE TABLE [Teams] (
     [IsFundUnlocked] bit NULL DEFAULT CAST(0 AS bit),
     [RankingScore] int NOT NULL DEFAULT 1000,
     [LogoUrl] nvarchar(500) NULL,
+    [BackgroundUrl] nvarchar(max) NULL,
+    [FairplayScore] int NOT NULL DEFAULT 100,
     CONSTRAINT [PK__Teams__123AE7B988944AE2] PRIMARY KEY ([TeamID]),
     CONSTRAINT [FK_Teams_Sports_SportId] FOREIGN KEY ([SportId]) REFERENCES [Sports] ([SportId]),
     CONSTRAINT [FK__Teams__CaptainID__44FF419A] FOREIGN KEY ([CaptainID]) REFERENCES [Users] ([UserID])
@@ -709,6 +713,59 @@ GO
 
 INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
 VALUES (N'20260602000000_AddFeedbacksAndMatchDates', N'8.0.26');
+GO
+
+COMMIT;
+GO
+
+-- =============================================
+-- SCHEMA UPDATES (2026-06-10)
+-- =============================================
+BEGIN TRANSACTION;
+GO
+
+ALTER TABLE [Teams] ADD [Points] int NOT NULL DEFAULT 0;
+ALTER TABLE [Teams] ADD [RankingTier] nvarchar(50) NULL;
+GO
+
+ALTER TABLE [TournamentTeams] ADD [TeamAbbreviation] nvarchar(10) NULL;
+GO
+
+ALTER TABLE [Pitches] ADD [QrCodeUrl] nvarchar(max) NULL;
+ALTER TABLE [Stadiums] ADD [QrCodeUrl] nvarchar(max) NULL;
+GO
+
+ALTER TABLE [Users] ADD [IdCardFrontUrl] nvarchar(max) NULL;
+ALTER TABLE [Users] ADD [IdCardBackUrl] nvarchar(max) NULL;
+ALTER TABLE [Users] ADD [KycStatus] nvarchar(50) NULL DEFAULT N'Pending';
+GO
+
+ALTER TABLE [Matches] ADD [BookingType] nvarchar(50) NULL;
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260610000000_UpdateSchemaForTournamentAndKYC', N'8.0.26');
+GO
+
+COMMIT;
+GO
+
+-- =============================================
+-- SCHEMA UPDATES (2026-07-07)
+-- =============================================
+BEGIN TRANSACTION;
+GO
+
+ALTER TABLE [Users] ADD [AvatarUrl] nvarchar(max) NULL;
+ALTER TABLE [Users] ADD [BackgroundUrl] nvarchar(max) NULL;
+GO
+
+ALTER TABLE [Teams] ADD [BackgroundUrl] nvarchar(max) NULL;
+ALTER TABLE [Teams] ADD [FairplayScore] int NOT NULL DEFAULT 100;
+GO
+
+INSERT INTO [__EFMigrationsHistory] ([MigrationId], [ProductVersion])
+VALUES (N'20260707000000_AddProfileImagesAndFairplay', N'8.0.26');
 GO
 
 COMMIT;

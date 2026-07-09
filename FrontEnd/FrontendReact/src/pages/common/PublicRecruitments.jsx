@@ -12,6 +12,7 @@ export default function PublicRecruitments() {
   const [error, setError] = useState(null);
   const { user, isAuthenticated } = useAuth();
   const [actionLoading, setActionLoading] = useState(false);
+  const [filterType, setFilterType] = useState('All'); // 'All', 'FindMember', 'FindOpponent', 'FindStadium'
 
   useEffect(() => {
     fetchRecruitments();
@@ -35,22 +36,25 @@ export default function PublicRecruitments() {
         teamName: ad.teamName,
         teamQuality: ad.teamQuality,
         teamHomeArea: ad.teamHomeArea,
-        type: 'ad'
+        type: 'ad',
+        postType: 'FindMember'
       }));
 
+      const allowedTypes = ['FindMember', 'FindOpponent', 'FindStadium'];
       const formattedPosts = (postsData || [])
-        .filter(p => p.postType === 'FindMember')
+        .filter(p => allowedTypes.includes(p.postType))
         .map(p => ({
           id: `post-${p.postId}`,
           teamId: p.teamId,
           title: p.title,
           content: p.content,
-          positionNeeded: 'Mọi vị trí',
+          positionNeeded: p.postType === 'FindMember' ? 'Mọi vị trí' : '',
           createdAt: p.createdAt,
           teamName: p.teamName || p.authorName,
           teamQuality: '',
           teamHomeArea: '',
-          type: 'post'
+          type: 'post',
+          postType: p.postType
         }));
 
       const merged = [...formattedAds, ...formattedPosts].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -63,7 +67,7 @@ export default function PublicRecruitments() {
     }
   };
 
-  const handleApply = async (teamId) => {
+  const handleApply = async (rec) => {
     if (!isAuthenticated || user.role !== 'Player') {
       window.location.href = '/login';
       return;
@@ -71,7 +75,23 @@ export default function PublicRecruitments() {
     
     try {
       setActionLoading(true);
-      await playerService.requestJoin(teamId);
+
+      if (rec.postType === 'FindOpponent') {
+        const myTeams = await playerService.getMyTeams();
+        if (myTeams && myTeams.some(t => t.teamId === rec.teamId)) {
+          alert('Bạn không thể nhận kèo của chính đội bóng mình đang tham gia!');
+          return;
+        }
+        // Since it's a match, they probably just create a match request
+        // Using playerService.requestJoin might be wrong for FindOpponent.
+        alert('Tính năng nhận kèo dành cho Player đang được cập nhật. Vui lòng liên hệ Đội trưởng!');
+        return;
+      } else if (rec.postType === 'FindStadium') {
+        alert('Vui lòng liên hệ trực tiếp với người đăng bài.');
+        return;
+      }
+
+      await playerService.requestJoin(rec.teamId);
       alert('Đã gửi yêu cầu ứng tuyển thành công!');
     } catch (err) {
       alert(err.response?.data?.message || 'Lỗi khi ứng tuyển. Có thể bạn đã gửi yêu cầu trước đó.');
@@ -79,6 +99,10 @@ export default function PublicRecruitments() {
       setActionLoading(false);
     }
   };
+
+  const filteredRecruitments = filterType === 'All' 
+    ? recruitments 
+    : recruitments.filter(r => r.postType === filterType);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-800 dark:bg-slate-950 font-sans">
@@ -101,9 +125,27 @@ export default function PublicRecruitments() {
           </div>
         )}
 
+        <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+          {['All', 'FindMember', 'FindOpponent', 'FindStadium'].map(type => (
+            <button
+              key={type}
+              onClick={() => setFilterType(type)}
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                filterType === type 
+                ? 'bg-indigo-600 text-white' 
+                : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700'
+              }`}
+            >
+              {type === 'All' ? 'Tất cả' : 
+               type === 'FindMember' ? 'Tuyển thành viên' : 
+               type === 'FindOpponent' ? 'Tìm đối thủ' : 'Tìm sân'}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <div className="text-center py-20 text-slate-400 animate-pulse font-medium">Đang tìm kiếm các tin tuyển quân...</div>
-        ) : recruitments.length === 0 ? (
+        ) : filteredRecruitments.length === 0 ? (
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-16 text-center border border-slate-200 dark:border-slate-700 shadow-sm">
             <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-500">
               <FiUserPlus className="w-12 h-12" />
@@ -113,12 +155,18 @@ export default function PublicRecruitments() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {recruitments.map(rec => (
+            {filteredRecruitments.map(rec => (
               <div key={rec.id} className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group flex flex-col">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <span className="inline-block px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 text-xs font-bold rounded-lg mb-3 border border-indigo-100">
-                      Tuyển: {rec.positionNeeded || 'Mọi vị trí'}
+                    <span className={`inline-block px-3 py-1 text-xs font-bold rounded-lg mb-3 border ${
+                      rec.postType === 'FindOpponent' ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 border-rose-100' :
+                      rec.postType === 'FindStadium' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 border-emerald-100' :
+                      'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 border-indigo-100'
+                    }`}>
+                      {rec.postType === 'FindOpponent' ? 'Tìm đối thủ' : 
+                       rec.postType === 'FindStadium' ? 'Tìm sân' : 
+                       `Tuyển: ${rec.positionNeeded || 'Mọi vị trí'}`}
                     </span>
                     <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">
                       {rec.title}
@@ -153,11 +201,12 @@ export default function PublicRecruitments() {
                     {new Date(rec.createdAt).toLocaleDateString('vi-VN')}
                   </div>
                   <button 
-                    onClick={() => handleApply(rec.teamId)}
+                    onClick={() => handleApply(rec)}
                     disabled={actionLoading}
                     className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold rounded-xl shadow-md transition-colors disabled:opacity-50"
                   >
-                    Ứng tuyển ngay
+                    {rec.postType === 'FindOpponent' ? 'Nhận kèo' : 
+                     rec.postType === 'FindStadium' ? 'Liên hệ' : 'Ứng tuyển ngay'}
                   </button>
                 </div>
               </div>

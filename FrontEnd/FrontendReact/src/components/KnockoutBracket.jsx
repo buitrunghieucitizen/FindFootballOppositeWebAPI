@@ -1,22 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-export default function KnockoutBracket({ data, onMatchUpdate, numTeams = 8 }) {
+export default function KnockoutBracket({ data, onMatchUpdate, numTeams = 8, teams = [], readOnly = false, tournamentId, service }) {
   // data.rounds array of { matches: [...] }
   const [editingMatch, setEditingMatch] = useState(null);
   const [homeScore, setHomeScore] = useState('');
   const [awayScore, setAwayScore] = useState('');
-  const [homeName, setHomeName] = useState('');
-  const [awayName, setAwayName] = useState('');
+  const [homeTeamId, setHomeTeamId] = useState('');
+  const [awayTeamId, setAwayTeamId] = useState('');
+  const [dbMatches, setDbMatches] = useState([]);
+
+  useEffect(() => {
+    if (tournamentId && service) {
+      service.getTournamentMatches(tournamentId)
+        .then(res => setDbMatches(res || []))
+        .catch(err => console.warn("Lỗi tải trận đấu", err));
+    }
+  }, [tournamentId, service, data]);
 
   const openEdit = (match, roundIndex, matchIndex) => {
+    if (readOnly) return;
     setEditingMatch({ match, roundIndex, matchIndex });
     setHomeScore(match.homeScore !== null ? match.homeScore : '');
     setAwayScore(match.awayScore !== null ? match.awayScore : '');
-    setHomeName(match.home);
-    setAwayName(match.away);
+    setHomeTeamId(match.homeTeamId || '');
+    setAwayTeamId(match.awayTeamId || '');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingMatch) return;
     const { roundIndex, matchIndex } = editingMatch;
     
@@ -26,8 +36,56 @@ export default function KnockoutBracket({ data, onMatchUpdate, numTeams = 8 }) {
 
     newBracket.rounds[roundIndex].matches[matchIndex].homeScore = hScore;
     newBracket.rounds[roundIndex].matches[matchIndex].awayScore = aScore;
-    newBracket.rounds[roundIndex].matches[matchIndex].home = homeName;
-    newBracket.rounds[roundIndex].matches[matchIndex].away = awayName;
+    newBracket.rounds[roundIndex].matches[matchIndex].homeTeamId = homeTeamId ? Number(homeTeamId) : null;
+    newBracket.rounds[roundIndex].matches[matchIndex].awayTeamId = awayTeamId ? Number(awayTeamId) : null;
+    
+    // Tìm tên đội từ list
+    const hTeam = teams.find(t => t.id === Number(homeTeamId));
+    const aTeam = teams.find(t => t.id === Number(awayTeamId));
+    newBracket.rounds[roundIndex].matches[matchIndex].home = hTeam ? hTeam.name : 'Unknown';
+    newBracket.rounds[roundIndex].matches[matchIndex].away = aTeam ? aTeam.name : 'Unknown';
+
+    // Tự động đẩy đội thắng lên vòng trong (nếu có vòng tiếp theo)
+    if (hScore !== null && aScore !== null && roundIndex + 1 < newBracket.rounds.length) {
+      const nextRoundIndex = roundIndex + 1;
+      const nextMatchIndex = Math.floor(matchIndex / 2);
+      const isHomeSlot = matchIndex % 2 === 0;
+
+      let winningTeamId = null;
+      let winningTeamName = 'Unknown';
+
+      if (hScore > aScore) {
+        winningTeamId = newBracket.rounds[roundIndex].matches[matchIndex].homeTeamId;
+        winningTeamName = newBracket.rounds[roundIndex].matches[matchIndex].home;
+      } else if (aScore > hScore) {
+        winningTeamId = newBracket.rounds[roundIndex].matches[matchIndex].awayTeamId;
+        winningTeamName = newBracket.rounds[roundIndex].matches[matchIndex].away;
+      }
+
+      if (winningTeamId) {
+        if (isHomeSlot) {
+          newBracket.rounds[nextRoundIndex].matches[nextMatchIndex].homeTeamId = winningTeamId;
+          newBracket.rounds[nextRoundIndex].matches[nextMatchIndex].home = winningTeamName;
+        } else {
+          newBracket.rounds[nextRoundIndex].matches[nextMatchIndex].awayTeamId = winningTeamId;
+          newBracket.rounds[nextRoundIndex].matches[nextMatchIndex].away = winningTeamName;
+        }
+      }
+      
+      if (tournamentId && service) {
+        const hTeamIdNum = Number(homeTeamId);
+        const aTeamIdNum = Number(awayTeamId);
+        const dbMatch = dbMatches.find(m => m.homeTeamId === hTeamIdNum && m.awayTeamId === aTeamIdNum);
+        if (dbMatch) {
+          try {
+            await service.submitTournamentMatchResult(dbMatch.matchId, hScore, aScore);
+            alert('Đã cập nhật kết quả và cộng điểm thành công!');
+          } catch (e) {
+            console.warn("Lỗi cập nhật trận đấu", e);
+          }
+        }
+      }
+    }
 
     if (onMatchUpdate) {
       onMatchUpdate(newBracket);
@@ -43,7 +101,7 @@ export default function KnockoutBracket({ data, onMatchUpdate, numTeams = 8 }) {
     return (
       <div 
         onClick={() => openEdit(match, roundIndex, matchIndex)}
-        className="w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm overflow-hidden text-sm cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all relative z-10"
+        className={`w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm overflow-hidden text-sm relative z-10 ${readOnly ? '' : 'cursor-pointer hover:border-emerald-500 hover:shadow-md transition-all'}`}
       >
         <div className="flex flex-col">
           <div className={`flex justify-between items-center p-2 border-b border-slate-100 dark:border-slate-700 ${homeWon ? 'bg-emerald-50 dark:bg-emerald-900/20' : ''}`}>
@@ -69,23 +127,56 @@ export default function KnockoutBracket({ data, onMatchUpdate, numTeams = 8 }) {
 
   const renderRounds = () => {
     if (!data?.rounds || data.rounds.length === 0) return null;
+    const containerMinHeight = Math.max(600, data.rounds[0].matches.length * 100);
     return (
-      <div className="flex gap-16 overflow-x-auto pb-8 pt-4 px-4 custom-scrollbar">
-        {data.rounds.map((round, rIndex) => (
-          <div key={rIndex} className="flex flex-col justify-around relative min-w-[192px]">
-            <div className="absolute -top-8 left-0 right-0 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
-              {rIndex === data.rounds.length - 1 ? 'Chung Kết' : 
-               rIndex === data.rounds.length - 2 ? 'Bán Kết' : 
-               `Vòng ${rIndex + 1}`}
-            </div>
-            {round.matches.map((match, mIndex) => (
-              <div key={match.id} className="relative my-4 flex items-center justify-center">
-                <MatchBox match={match} roundIndex={rIndex} matchIndex={mIndex} />
-              </div>
-            ))}
+      <div className="flex overflow-x-auto pb-8 pt-8 px-4 w-full" style={{ minHeight: containerMinHeight }}>
+      {data.rounds && data.rounds.map((round, rIndex) => (
+        <div key={rIndex} className="flex flex-col flex-1 min-w-[260px] relative">
+          <div className="absolute -top-6 left-0 right-0 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+            {rIndex === data.rounds.length - 1 ? 'Chung Kết' : 
+             (rIndex === 0 ? 'Vòng 1' : 
+             (rIndex === data.rounds.length - 2 ? 'Bán Kết' : 
+             `Vòng ${rIndex + 1}`))}
           </div>
-        ))}
-      </div>
+          {round.matches.map((match, mIndex) => {
+            const isTop = mIndex % 2 === 0;
+            const hasNextRound = rIndex < data.rounds.length - 1;
+            const hasPrevRound = rIndex > 0;
+            
+            return (
+              <div key={mIndex} className="flex-1 flex flex-col justify-center relative py-4">
+                
+                {/* Dòng kẻ bên Trái */}
+                {hasPrevRound && (
+                   <div className="absolute border-b-2 border-slate-300 dark:border-slate-600" style={{ top: '50%', left: 0, width: 'calc(50% - 6rem)' }}></div>
+                )}
+
+                {/* MatchBox */}
+                <div className="relative z-10 w-full flex justify-center">
+                   <MatchBox match={match} roundIndex={rIndex} matchIndex={mIndex} />
+                </div>
+
+                {/* Dòng kẻ bên Phải */}
+                {hasNextRound && (
+                   <>
+                     {/* Đường ngang */}
+                     <div className="absolute border-b-2 border-slate-300 dark:border-slate-600" style={{ top: '50%', right: 0, width: 'calc(50% - 6rem)' }}></div>
+                     
+                     {/* Cột dọc */}
+                     {isTop ? (
+                       <div className="absolute right-0 border-r-2 border-slate-300 dark:border-slate-600" style={{ top: '50%', bottom: 0 }}></div>
+                     ) : (
+                       <div className="absolute right-0 border-r-2 border-slate-300 dark:border-slate-600" style={{ top: 0, bottom: '50%' }}></div>
+                     )}
+                   </>
+                )}
+
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
     );
   };
 
@@ -103,12 +194,16 @@ export default function KnockoutBracket({ data, onMatchUpdate, numTeams = 8 }) {
             
             <div className="space-y-4 mb-8">
               <div className="flex items-center gap-4">
-                <input 
-                  type="text"
-                  value={homeName}
-                  onChange={(e) => setHomeName(e.target.value)}
+                <select 
+                  value={homeTeamId}
+                  onChange={(e) => setHomeTeamId(e.target.value)}
                   className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
-                />
+                >
+                  <option value="">-- Chọn đội --</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
                 <input 
                   type="number" 
                   value={homeScore}
@@ -119,12 +214,16 @@ export default function KnockoutBracket({ data, onMatchUpdate, numTeams = 8 }) {
               </div>
               <div className="text-center font-bold text-slate-400">VS</div>
               <div className="flex items-center gap-4">
-                <input 
-                  type="text"
-                  value={awayName}
-                  onChange={(e) => setAwayName(e.target.value)}
+                <select 
+                  value={awayTeamId}
+                  onChange={(e) => setAwayTeamId(e.target.value)}
                   className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white"
-                />
+                >
+                  <option value="">-- Chọn đội --</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
                 <input 
                   type="number" 
                   value={awayScore}
@@ -215,4 +314,57 @@ export const DEFAULT_KNOCKOUT_16 = {
       ] 
     }
   ]
+};
+
+export const generateKnockout = (teams, maxTeams = 8) => {
+  if (!teams) return DEFAULT_KNOCKOUT_8;
+  
+  let size = maxTeams || 8;
+  if (teams.length > size) {
+    while (size < teams.length) size *= 2;
+  }
+  if (size < 4 && teams.length > 2) size = 4;
+  
+  const rounds = [];
+  let currentMatches = size / 2;
+  let roundIdx = 1;
+  
+  let firstRoundMatches = [];
+  for (let i = 0; i < currentMatches; i++) {
+    const t1 = teams[i * 2];
+    const t2 = teams[i * 2 + 1];
+    firstRoundMatches.push({
+      id: `r1_${i + 1}`,
+      home: t1 ? (t1.name || t1.teamName) : 'Unknown',
+      away: t2 ? (t2.name || t2.teamName) : 'Unknown',
+      homeTeamId: t1 ? (t1.id || t1.teamId) : null,
+      awayTeamId: t2 ? (t2.id || t2.teamId) : null,
+      homeScore: null,
+      awayScore: null
+    });
+  }
+  rounds.push({ matches: firstRoundMatches });
+  
+  currentMatches /= 2;
+  roundIdx++;
+  
+  while (currentMatches >= 1) {
+    let roundMatches = [];
+    for (let i = 0; i < currentMatches; i++) {
+      roundMatches.push({
+        id: `r${roundIdx}_${i + 1}`,
+        home: 'Unknown',
+        away: 'Unknown',
+        homeTeamId: null,
+        awayTeamId: null,
+        homeScore: null,
+        awayScore: null
+      });
+    }
+    rounds.push({ matches: roundMatches });
+    currentMatches /= 2;
+    roundIdx++;
+  }
+  
+  return { rounds };
 };

@@ -166,11 +166,12 @@ export default function PostsTab() {
               >
                 <option value="FindOpponent">Tìm đối thủ (Bắt kèo)</option>
                 <option value="FindMember">Tuyển quân (Tìm thành viên)</option>
+                <option value="FindStadium">Tìm sân</option>
                 <option value="General">Thảo luận chung</option>
               </select>
             </div>
 
-            {postType === 'FindOpponent' && (
+            {(postType === 'FindOpponent' || postType === 'FindStadium') && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Phạm vi / Khu vực</label>
@@ -182,6 +183,7 @@ export default function PostsTab() {
                     placeholder="VD: Cầu Giấy, Hà Nội"
                   />
                 </div>
+                {postType === 'FindOpponent' && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Trình độ mong muốn</label>
                   <select
@@ -198,6 +200,7 @@ export default function PostsTab() {
                     <option value="Mạnh">Mạnh</option>
                   </select>
                 </div>
+                )}
               </div>
             )}
 

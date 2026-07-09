@@ -100,7 +100,7 @@ export function ToastProvider({ children }) {
       {children}
 
       {/* Toast Container - Top Right */}
-      <div className="fixed top-24 right-4 z-[200] flex flex-col gap-2.5 pointer-events-none">
+      <div className="fixed top-24 right-4 z-[9999] flex flex-col gap-2.5 pointer-events-none max-w-screen">
         {toasts.map((toast) => (
           <div key={toast.id} className="pointer-events-auto">
             <ToastItem toast={toast} onRemove={removeToast} />

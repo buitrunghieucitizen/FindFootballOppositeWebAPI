@@ -12,6 +12,8 @@ export default function PlayerTournamentsTab() {
   const [selectedTournament, setSelectedTournament] = useState(null);
   const [showReportForm, setShowReportForm] = useState(false);
   const [reportReason, setReportReason] = useState('');
+  const [viewMode, setViewMode] = useState('public'); // 'public' or 'mine'
+  const [myTournaments, setMyTournaments] = useState([]);
 
   // Real data for registration flow
   const [registrationState, setRegistrationState] = useState('idle'); // idle, form, paying, done
@@ -19,9 +21,11 @@ export default function PlayerTournamentsTab() {
   const [myTeamMembers, setMyTeamMembers] = useState([]);
   const [selectedPlayers, setSelectedPlayers] = useState([]);
   const [noBettingCommitment, setNoBettingCommitment] = useState(false);
+  const [teamAbbreviation, setTeamAbbreviation] = useState('');
 
   useEffect(() => {
     fetchTournaments();
+    fetchMyTournaments();
     fetchMyTeam();
     if (user?.role === 'Captain') {
       fetchMyTeamMembers();
@@ -64,6 +68,17 @@ export default function PlayerTournamentsTab() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMyTournaments = async () => {
+    try {
+      if (user?.role === 'Player') {
+        const data = await playerService.getTournaments();
+        setMyTournaments(data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching my tournaments:', err);
     }
   };
 
@@ -110,7 +125,8 @@ export default function PlayerTournamentsTab() {
       }
       await captainService.registerTournament(tId, {
         playerIds: selectedPlayers,
-        noBettingCommitment: noBettingCommitment
+        noBettingCommitment: noBettingCommitment,
+        teamAbbreviation: teamAbbreviation
       });
       setRegistrationState('done');
     } catch (err) {
@@ -145,8 +161,23 @@ export default function PlayerTournamentsTab() {
         </div>
       </div>
 
+      <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl w-max mx-auto mb-6">
+        <button 
+          onClick={() => setViewMode('public')}
+          className={`flex items-center gap-2 px-6 py-2 rounded-lg font-bold text-sm transition-all ${viewMode === 'public' ? 'bg-white dark:bg-slate-700 text-teal-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+        >
+          Giải Đấu Cộng Đồng
+        </button>
+        <button 
+          onClick={() => setViewMode('mine')}
+          className={`flex items-center gap-2 px-6 py-2 rounded-lg font-bold text-sm transition-all ${viewMode === 'mine' ? 'bg-white dark:bg-slate-700 text-teal-600 shadow-sm' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}`}
+        >
+          Giải Đấu Đội Tôi Tham Gia
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {tournaments.length === 0 ? (
+        {(viewMode === 'public' ? tournaments : myTournaments).length === 0 ? (
           <div className="col-span-full py-12 text-center text-slate-500 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
             <FiAward className="w-12 h-12 mx-auto mb-3 opacity-20" />
             <p className="font-medium text-lg">Hiện chưa có giải đấu nào.</p>
@@ -174,19 +205,27 @@ export default function PlayerTournamentsTab() {
                 {t.description || 'Không có mô tả.'}
               </p>
               <div className="flex gap-3">
-                <button 
-                  onClick={() => handleRegisterClick(t)}
-                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md"
-                >
-                  Đăng ký tham gia
-                </button>
-                <button 
-                  onClick={() => setShowReportForm(t)}
-                  className="px-4 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors font-bold flex items-center justify-center"
-                  title="Tố cáo giải đấu"
-                >
-                  <FiAlertTriangle />
-                </button>
+                {viewMode === 'public' ? (
+                  <>
+                    <button 
+                      onClick={() => handleRegisterClick(t)}
+                      className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-md"
+                    >
+                      Đăng ký tham gia
+                    </button>
+                    <button 
+                      onClick={() => setShowReportForm(t)}
+                      className="px-4 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl transition-colors font-bold flex items-center justify-center"
+                      title="Tố cáo giải đấu"
+                    >
+                      <FiAlertTriangle />
+                    </button>
+                  </>
+                ) : (
+                  <div className="w-full text-center py-2 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-xl font-bold border border-emerald-200 dark:border-emerald-800">
+                    Đang tham gia
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -208,6 +247,10 @@ export default function PlayerTournamentsTab() {
                   <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-800/50">
                     <p className="text-sm text-emerald-800 dark:text-emerald-300 font-bold mb-1">Đội đăng ký:</p>
                     <p className="text-xl font-black text-emerald-600">{myTeamName}</p>
+                    <div className="mt-3">
+                      <label className="block text-sm text-emerald-800 dark:text-emerald-300 font-bold mb-1">Tên viết tắt (Abbreviation)</label>
+                      <input type="text" className="w-full px-3 py-2 border border-emerald-200 dark:border-emerald-800 rounded-lg text-sm bg-white dark:bg-slate-900" placeholder="Ví dụ: FCB" maxLength="5" value={teamAbbreviation} onChange={e => setTeamAbbreviation(e.target.value.toUpperCase())} />
+                    </div>
                   </div>
                   
                   <div>
@@ -275,18 +318,24 @@ export default function PlayerTournamentsTab() {
                   
                   <div className="text-center space-y-2">
                     <p className="text-slate-600 dark:text-slate-300">Vui lòng thanh toán lệ phí cho Người tạo giải</p>
-                    <p className="text-2xl font-bold text-rose-500">{selectedTournament.registrationFee?.toLocaleString() || selectedTournament.fee?.toLocaleString() || '2.000.000'} đ</p>
+                    <p className="text-2xl font-bold text-rose-500">{selectedTournament.entryFee?.toLocaleString() || selectedTournament.fee?.toLocaleString() || 'Miễn phí'} đ</p>
                   </div>
 
                   <div className="bg-slate-50 dark:bg-slate-900 p-6 rounded-2xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-700">
                     <div className="w-48 h-48 bg-white p-2 rounded-xl shadow-sm mb-4 border border-slate-200">
-                      {/* Fake QR Code */}
-                      <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=ChuyenTienCho_${selectedTournament.ownerName}`} alt="QR" className="w-full h-full" />
+                      {selectedTournament.bankQrCodeUrl ? (
+                        <img src={selectedTournament.bankQrCodeUrl.includes('http') ? selectedTournament.bankQrCodeUrl : `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(selectedTournament.bankQrCodeUrl)}`} alt="QR" className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400">
+                           <FiAlertTriangle className="text-2xl mb-2" />
+                           <p className="text-xs text-center">Chưa có mã QR</p>
+                        </div>
+                      )}
                     </div>
                     <div className="text-center">
-                      <p className="font-bold text-slate-800 dark:text-white">{selectedTournament.ownerBank || 'MBBank - 0987654321'}</p>
+                      <p className="font-bold text-slate-800 dark:text-white">{selectedTournament.bankQrCodeUrl || 'Chuyển khoản trực tiếp'}</p>
                       <p className="text-sm text-slate-500 uppercase">{selectedTournament.ownerName || 'Chủ Giải Đấu'}</p>
-                      <p className="text-xs text-slate-400 mt-2">Nội dung chuyển khoản: Tên Đội - SĐT</p>
+                      <p className="text-xs text-slate-400 mt-2">Nội dung: DK Giai {selectedTournament.tournamentName} - {myTeamName}</p>
                     </div>
                   </div>
 

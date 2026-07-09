@@ -42,10 +42,15 @@ namespace FInd_Op_Web.Controllers
 
                 // Create a unique OrderCode (must be max 53 bit integer)
                 long orderCode = long.Parse(DateTimeOffset.Now.ToString("yyMMddHHmmssfff"));
-                int amount = 59000; // default Player Pro 59k
-                string description = "Player Pro Subscription";
+                int amount = 0;
+                string description = "";
 
-                if (dto.Type == "TeamUpgrade")
+                if (dto.Type == "UserPremium")
+                {
+                    amount = 59000;
+                    description = "Player Pro Subscription";
+                }
+                else if (dto.Type == "TeamUpgrade")
                 {
                     amount = 99000;
                     description = $"Team {dto.TeamId} Pro Upgrade";
@@ -86,11 +91,41 @@ namespace FInd_Op_Web.Controllers
                     var schedule = await _context.PitchSchedules.Include(ps => ps.Pitch).FirstOrDefaultAsync(ps => ps.ScheduleId == dto.ScheduleId);
                     if (schedule == null || schedule.Pitch == null) return NotFound("Schedule or Pitch not found");
                     
-                    var durationHours = (decimal)(schedule.EndTime - schedule.StartTime).TotalHours;
-                    var totalAmount = durationHours * schedule.Pitch.PricePerHour;
+                    var slots = (decimal)Math.Max(1, Math.Ceiling((schedule.EndTime - schedule.StartTime).TotalMinutes / (schedule.Pitch.SlotDurationMinutes ?? 60.0)));
+                    var totalAmount = slots * schedule.Pitch.PricePerSlot;
                     amount = (int)(totalAmount * 0.3m); // 30% deposit
                     if (amount < 2000) amount = 2000; // PayOS min amount is 2000 VND
-                    description = $"Cọc 30% sân {schedule.Pitch.PitchName}";
+                    description = "Coc 30% tien san";
+                }
+                else if (dto.Type == "TournamentFee")
+                {
+                    if (dto.TournamentId == null) return BadRequest("TournamentId is required");
+                    var tournament = await _context.Tournaments.FindAsync(dto.TournamentId);
+                    if (tournament == null) return NotFound("Tournament not found");
+                    if (tournament.ApprovalStatus != "Approved") return BadRequest("Giải đấu chưa được duyệt.");
+                    if (tournament.IsFeePaid) return BadRequest("Giải đấu đã được thanh toán.");
+
+                    if (tournament.MaxTeams <= 8) amount = 130000;
+                    else if (tournament.MaxTeams <= 16) amount = 200000;
+                    else amount = 500000;
+
+                    description = $"Phi tao giai {tournament.TournamentId}";
+                }
+                else if (dto.Type == "PayDebt")
+                {
+                    var debt = await _context.BookingCommissions
+                        .Where(c => c.StadiumOwnerId == userId && c.Status == "Pending")
+                        .SumAsync(c => (decimal?)c.CommissionAmount) ?? 0;
+                    
+                    if (debt <= 0) return BadRequest(new { message = "Không có công nợ cần thanh toán." });
+                    if (debt < 2000) return BadRequest(new { message = "Tiền hoa hồng phải đạt được 2000 mới đủ điều kiện thanh toán." });
+                    
+                    amount = (int)debt;
+                    description = "Thanh toan hoa hong";
+                }
+                else
+                {
+                    return BadRequest(new { message = "Loại thanh toán không hợp lệ." });
                 }
 
                 // Save pending transaction
@@ -101,6 +136,7 @@ namespace FInd_Op_Web.Controllers
                     OrderCode = orderCode,
                     Status = "Pending",
                     TransactionType = dto.Type,
+                    ReferenceId = dto.TournamentId ?? dto.InvoiceId,
                     Description = description,
                     CreatedAt = DateTime.Now
                 };
@@ -113,7 +149,7 @@ namespace FInd_Op_Web.Controllers
                 {
                     OrderCode = orderCode,
                     Amount = amount,
-                    Description = "Upgrade Premium",
+                    Description = description,
                     CancelUrl = _configuration["PayOS:CancelUrl"],
                     ReturnUrl = _configuration["PayOS:ReturnUrl"]
                 };
@@ -161,6 +197,26 @@ namespace FInd_Op_Web.Controllers
                             user.PremiumUntil = DateTime.Now.AddMonths(1);
                         }
                     }
+                    else if (transaction.TransactionType == "TournamentFee")
+                    {
+                        var tournament = await _context.Tournaments.FindAsync(transaction.ReferenceId);
+
+                        if (tournament != null && tournament.OrganizerId == transaction.UserId)
+                        {
+                            tournament.IsFeePaid = true;
+                            tournament.Status = "Upcoming";
+
+                            // Send notification
+                            _context.Notifications.Add(new Notification
+                            {
+                                UserId = tournament.OrganizerId,
+                                Title = "Thanh toán thành công",
+                                Message = $"Bạn đã thanh toán lệ phí cho giải đấu '{tournament.TournamentName}'. Bây giờ bạn có thể truy cập Quản lý giải.",
+                                IsRead = false,
+                                CreatedAt = DateTime.Now
+                            });
+                        }
+                    }
                     else if (transaction.TransactionType == "BookingDeposit")
                     {
                         var schedule = await _context.PitchSchedules
@@ -170,26 +226,34 @@ namespace FInd_Op_Web.Controllers
 
                         if (schedule != null)
                         {
-                            schedule.ScheduleStatus = "Booked"; // or Confirmed
-
-                            // Calculate 8% commission
-                            var fullSchedule = await _context.PitchSchedules.Include(s => s.Pitch).ThenInclude(p => p.Stadium).FirstOrDefaultAsync(s => s.ScheduleId == schedule.ScheduleId);
-                            if (fullSchedule?.Pitch?.Stadium != null)
+                            var overlap = await _context.PitchSchedules.Where(ps => ps.PitchId == schedule.PitchId && ps.ScheduleId != schedule.ScheduleId && ps.StartTime < schedule.EndTime && ps.EndTime > schedule.StartTime && (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed")).AnyAsync();
+                            if (overlap)
                             {
-                                var durationHours = (decimal)(fullSchedule.EndTime - fullSchedule.StartTime).TotalHours;
-                                var totalAmount = durationHours * fullSchedule.Pitch.PricePerHour;
-                                var commission = totalAmount * 0.08m;
+                                schedule.ScheduleStatus = "RefundRequired";
+                            }
+                            else
+                            {
+                                schedule.ScheduleStatus = "Booked"; // or Confirmed
 
-                                var commissionRecord = new BookingCommission
+                                // Calculate 8% commission
+                                var fullSchedule = await _context.PitchSchedules.Include(s => s.Pitch).ThenInclude(p => p.Stadium).FirstOrDefaultAsync(s => s.ScheduleId == schedule.ScheduleId);
+                                if (fullSchedule?.Pitch?.Stadium != null)
                                 {
-                                    ScheduleId = fullSchedule.ScheduleId,
-                                    StadiumOwnerId = fullSchedule.Pitch.Stadium.OwnerId ?? 0,
-                                    BookingAmount = totalAmount,
-                                    CommissionAmount = commission,
-                                    IsPaidToPlatform = false,
-                                    CreatedAt = DateTime.Now
-                                };
-                                _context.BookingCommissions.Add(commissionRecord);
+                                    var slots = (decimal)Math.Max(1, Math.Ceiling((fullSchedule.EndTime - fullSchedule.StartTime).TotalMinutes / (fullSchedule.Pitch.SlotDurationMinutes ?? 60.0)));
+                                    var totalAmount = slots * fullSchedule.Pitch.PricePerSlot;
+                                    var commission = totalAmount * 0.08m;
+
+                                    var commissionRecord = new BookingCommission
+                                    {
+                                        ScheduleId = fullSchedule.ScheduleId,
+                                        StadiumOwnerId = fullSchedule.Pitch.Stadium.OwnerId ?? 0,
+                                        BookingAmount = totalAmount,
+                                        CommissionAmount = commission,
+                                        IsPaidToPlatform = false,
+                                        CreatedAt = DateTime.Now
+                                    };
+                                    _context.BookingCommissions.Add(commissionRecord);
+                                }
                             }
                         }
                     }
@@ -210,6 +274,17 @@ namespace FInd_Op_Web.Controllers
                                 Description = "Nạp Token",
                                 CreatedAt = DateTime.Now
                             });
+                        }
+                    }
+                    else if (transaction.TransactionType == "PayDebt")
+                    {
+                        var commissions = await _context.BookingCommissions
+                            .Where(c => c.StadiumOwnerId == transaction.UserId && c.Status == "Pending")
+                            .ToListAsync();
+                        foreach (var c in commissions)
+                        {
+                            c.Status = "Paid";
+                            c.IsPaidToPlatform = true;
                         }
                     }
                     
@@ -294,26 +369,65 @@ namespace FInd_Op_Web.Controllers
 
                             if (schedule != null)
                             {
-                                schedule.ScheduleStatus = "Booked"; // or Confirmed
-
-                                // Calculate 8% commission
-                                if (schedule.Pitch != null && schedule.Pitch.Stadium != null)
+                                var overlap = await _context.PitchSchedules.Where(ps => ps.PitchId == schedule.PitchId && ps.ScheduleId != schedule.ScheduleId && ps.StartTime < schedule.EndTime && ps.EndTime > schedule.StartTime && (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed")).AnyAsync();
+                                if (overlap)
                                 {
-                                    var durationHours = (decimal)(schedule.EndTime - schedule.StartTime).TotalHours;
-                                    var totalAmount = durationHours * schedule.Pitch.PricePerHour;
-                                    var commission = totalAmount * 0.08m;
-
-                                    var commissionRecord = new BookingCommission
-                                    {
-                                        ScheduleId = schedule.ScheduleId,
-                                        StadiumOwnerId = schedule.Pitch.Stadium.OwnerId ?? 0,
-                                        BookingAmount = totalAmount,
-                                        CommissionAmount = commission,
-                                        IsPaidToPlatform = false,
-                                        CreatedAt = DateTime.Now
-                                    };
-                                    _context.BookingCommissions.Add(commissionRecord);
+                                    schedule.ScheduleStatus = "RefundRequired";
                                 }
+                                else
+                                {
+                                    schedule.ScheduleStatus = "Booked"; // or Confirmed
+
+                                    // Calculate 8% commission
+                                    if (schedule.Pitch != null && schedule.Pitch.Stadium != null)
+                                    {
+                                        var slots = (decimal)Math.Max(1, Math.Ceiling((schedule.EndTime - schedule.StartTime).TotalMinutes / (schedule.Pitch.SlotDurationMinutes ?? 60.0)));
+                                        var totalAmount = slots * schedule.Pitch.PricePerSlot;
+                                        var commission = totalAmount * 0.08m;
+
+                                        var commissionRecord = new BookingCommission
+                                        {
+                                            ScheduleId = schedule.ScheduleId,
+                                            StadiumOwnerId = schedule.Pitch.Stadium.OwnerId ?? 0,
+                                            BookingAmount = totalAmount,
+                                            CommissionAmount = commission,
+                                            IsPaidToPlatform = false,
+                                            CreatedAt = DateTime.Now
+                                        };
+                                        _context.BookingCommissions.Add(commissionRecord);
+                                    }
+                                }
+                            }
+                        }
+                        else if (transaction.TransactionType == "TournamentFee")
+                        {
+                            var tournament = await _context.Tournaments.FindAsync(transaction.ReferenceId);
+
+                            if (tournament != null && tournament.OrganizerId == transaction.UserId)
+                            {
+                                tournament.IsFeePaid = true;
+                                tournament.Status = "Upcoming";
+
+                                // Send notification
+                                _context.Notifications.Add(new Notification
+                                {
+                                    UserId = tournament.OrganizerId,
+                                    Title = "Thanh toán thành công",
+                                    Message = $"Bạn đã thanh toán lệ phí cho giải đấu '{tournament.TournamentName}'. Bây giờ bạn có thể truy cập Quản lý giải.",
+                                    IsRead = false,
+                                    CreatedAt = DateTime.Now
+                                });
+                            }
+                        }
+                        else if (transaction.TransactionType == "PayDebt")
+                        {
+                            var commissions = await _context.BookingCommissions
+                                .Where(c => c.StadiumOwnerId == transaction.UserId && c.Status == "Pending")
+                                .ToListAsync();
+                            foreach (var c in commissions)
+                            {
+                                c.Status = "Paid";
+                                c.IsPaidToPlatform = true;
                             }
                         }
 
@@ -371,6 +485,75 @@ namespace FInd_Op_Web.Controllers
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "Nâng cấp Đội VIP thành công!" });
+        }
+
+        [HttpGet("VerifyPayment")]
+        public async Task<IActionResult> VerifyPayment([FromQuery] long orderCode)
+        {
+            try
+            {
+                // First, check DB if it's already processed (e.g. mock mode)
+                var existingTransaction = await _context.PaymentTransactions.FirstOrDefaultAsync(t => t.OrderCode == orderCode);
+                if (existingTransaction != null && existingTransaction.Status == "Paid")
+                {
+                    return Ok(new { success = true, status = "PAID" });
+                }
+
+                if (_payOS == null) return BadRequest("PayOS not configured");
+
+                var paymentInfo = await _payOS.PaymentRequests.GetAsync(orderCode);
+                
+                if (paymentInfo.Status == PaymentLinkStatus.Paid)
+                {
+                    // Find transaction
+                    var transaction = existingTransaction;
+                    if (transaction != null && transaction.Status == "Pending")
+                    {
+                        transaction.Status = "Paid";
+                        var userId = transaction.UserId;
+                        var user = await _context.Users.FindAsync(userId);
+
+                        if (transaction.TransactionType == "TournamentFee")
+                        {
+                            var tournament = await _context.Tournaments.FindAsync(transaction.ReferenceId);
+                            if (tournament != null && tournament.OrganizerId == userId)
+                            {
+                                tournament.IsFeePaid = true;
+                                tournament.Status = "Upcoming";
+
+                                _context.Notifications.Add(new Notification
+                                {
+                                    UserId = tournament.OrganizerId,
+                                    Title = "Thanh toán thành công",
+                                    Message = $"Bạn đã thanh toán lệ phí cho giải đấu '{tournament.TournamentName}'. Bây giờ bạn có thể truy cập Quản lý giải.",
+                                    IsRead = false,
+                                    CreatedAt = DateTime.Now
+                                });
+                            }
+                        }
+                        else if (transaction.TransactionType == "PayDebt")
+                        {
+                            var commissions = await _context.BookingCommissions
+                                .Where(c => c.StadiumOwnerId == transaction.UserId && c.Status == "Pending")
+                                .ToListAsync();
+                            foreach (var c in commissions)
+                            {
+                                c.Status = "Paid";
+                                c.IsPaidToPlatform = true;
+                            }
+                        }
+                        
+                        await _context.SaveChangesAsync();
+                    }
+                    return Ok(new { success = true, status = "PAID" });
+                }
+                
+                return Ok(new { success = true, status = paymentInfo.Status.ToString() });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new { success = false, message = ex.Message, stack = ex.StackTrace });
+            }
         }
 
         [Authorize]
