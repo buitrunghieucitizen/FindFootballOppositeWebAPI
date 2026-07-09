@@ -103,7 +103,13 @@ export default function MatchDetail() {
             </span>
             <div className="flex justify-center items-center gap-4 sm:gap-8 relative z-10">
               <div className="text-right flex-1">
-                <h3 className="text-2xl sm:text-4xl font-black">{match.homeTeamName || 'Đội nhà'}</h3>
+                {match.homeTeamId ? (
+                  <Link to={`/teams/${match.homeTeamId}`} className="hover:text-emerald-300 transition-colors">
+                    <h3 className="text-2xl sm:text-4xl font-black">{match.homeTeamName || 'Đội nhà'}</h3>
+                  </Link>
+                ) : (
+                  <h3 className="text-2xl sm:text-4xl font-black">{match.homeTeamName || 'Đội nhà'}</h3>
+                )}
               </div>
               <div className="text-center shrink-0">
                 <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl px-6 py-4 border border-slate-700">
@@ -113,7 +119,13 @@ export default function MatchDetail() {
                 </div>
               </div>
               <div className="text-left flex-1">
-                <h3 className="text-2xl sm:text-4xl font-black">{match.awayTeamName || 'Đang chờ...'}</h3>
+                {match.awayTeamId ? (
+                  <Link to={`/teams/${match.awayTeamId}`} className="hover:text-emerald-300 transition-colors">
+                    <h3 className="text-2xl sm:text-4xl font-black">{match.awayTeamName || 'Đang chờ...'}</h3>
+                  </Link>
+                ) : (
+                  <h3 className="text-2xl sm:text-4xl font-black">{match.awayTeamName || 'Đang chờ...'}</h3>
+                )}
               </div>
             </div>
             <div className="mt-6 inline-block px-4 py-1.5 rounded-full bg-white text-slate-900 text-sm font-bold uppercase relative z-10">

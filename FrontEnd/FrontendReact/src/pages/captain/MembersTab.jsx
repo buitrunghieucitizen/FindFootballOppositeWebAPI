@@ -3,6 +3,7 @@ import { FiUsers, FiUserPlus, FiCheck, FiRefreshCw, FiX } from 'react-icons/fi';
 import { captainService } from '../../services/captainService';
 import playerService from '../../services/playerService';
 import { useAuth } from '../../contexts/AuthContext';
+import Pagination from '../../components/Pagination';
 
 export default function MembersTab() {
   const [members, setMembers] = useState([]);
@@ -17,6 +18,10 @@ export default function MembersTab() {
   const [showRateModal, setShowRateModal] = useState(false);
   const [selectedPlayerToRate, setSelectedPlayerToRate] = useState(null);
   const [rateData, setRateData] = useState({ score: 5, month: new Date().getMonth() + 1, year: new Date().getFullYear(), comment: '' });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const { logout } = useAuth();
 
@@ -176,8 +181,9 @@ export default function MembersTab() {
           </button>
         </div>
         {members.length > 0 ? (
-          <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-x-auto">
-            <table className="w-full text-left text-sm min-w-[600px]">
+          <>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl overflow-x-auto">
+              <table className="w-full text-left text-sm min-w-[600px]">
               <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
                 <tr>
                   <th className="px-4 py-3 font-semibold text-slate-600 dark:text-slate-300">Tên cầu thủ</th>
@@ -188,7 +194,7 @@ export default function MembersTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {members.map((member, index) => (
+                {members.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((member, index) => (
                   <tr key={member.playerId || member.memberId || index} className="hover:bg-slate-50 dark:hover:bg-slate-700 dark:bg-slate-900 transition-colors">
                     <td className="px-4 py-3 font-medium text-slate-800 dark:text-white">{member.fullName || member.username || 'N/A'}</td>
                     <td className="px-4 py-3">
@@ -240,7 +246,17 @@ export default function MembersTab() {
               </tbody>
             </table>
           </div>
-        ) : (
+          {Math.ceil(members.length / pageSize) > 1 && (
+            <div className="mt-6">
+              <Pagination 
+                currentPage={currentPage} 
+                totalPages={Math.ceil(members.length / pageSize)} 
+                onPageChange={setCurrentPage} 
+              />
+            </div>
+          )}
+        </>
+      ) : (
           <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 border-dashed rounded-xl p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
             Đội chưa có thành viên nào.
           </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FiMessageSquare, FiCheck, FiClock, FiX } from 'react-icons/fi';
 import { adminService } from '../../services/adminService';
+import Pagination from '../../components/Pagination';
 
 export default function AdminFeedbacksTab() {
   const [feedbacks, setFeedbacks] = useState([]);
@@ -140,22 +141,8 @@ export default function AdminFeedbacksTab() {
           </table>
 
           {totalPages > 1 && (
-            <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-center gap-2">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(p => p - 1)}
-                className="px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-md disabled:opacity-50"
-              >
-                Trước
-              </button>
-              <span className="px-3 py-1">Trang {page} / {totalPages}</span>
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage(p => p + 1)}
-                className="px-3 py-1 bg-slate-100 dark:bg-slate-700 rounded-md disabled:opacity-50"
-              >
-                Sau
-              </button>
+            <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+              <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
             </div>
           )}
         </div>

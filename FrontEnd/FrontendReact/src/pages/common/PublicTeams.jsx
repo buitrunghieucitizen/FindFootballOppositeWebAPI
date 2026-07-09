@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { publicService } from '../../services/publicService';
 import playerService from '../../services/playerService';
 import { useAuth } from '../../contexts/AuthContext';
-import { FiUsers, FiMapPin, FiStar, FiCalendar, FiArrowLeft } from 'react-icons/fi';
+import { FiUsers, FiMapPin, FiStar, FiCalendar, FiArrowLeft, FiSearch } from 'react-icons/fi';
 import { Link } from 'react-router-dom';
 import { PublicHeader } from '../../components/portal-ui';
+import Pagination from '../../components/Pagination';
 
 export default function PublicTeams() {
   const [teams, setTeams] = useState([]);
@@ -12,7 +13,6 @@ export default function PublicTeams() {
   const [error, setError] = useState(null);
   const { user, isAuthenticated } = useAuth();
   const [actionLoading, setActionLoading] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState(null);
 
   // Filters & Pagination
   const [filters, setFilters] = useState({
@@ -30,7 +30,7 @@ export default function PublicTeams() {
 
   useEffect(() => {
     fetchTeams(1);
-  }, [filters]);
+  }, []);
 
   const fetchTeams = async (page = pagination.page) => {
     try {
@@ -92,29 +92,38 @@ export default function PublicTeams() {
         </div>
 
         {/* Filters Section */}
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">Tìm kiếm đội</label>
-            <input 
-              type="text" 
-              placeholder="Nhập tên đội..." 
-              value={filters.search}
-              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
-            />
+        <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 mb-8 grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="md:col-span-1">
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Tìm kiếm</label>
+            <div className="flex">
+              <input 
+                type="text" 
+                placeholder="Tên đội bóng..." 
+                value={filters.search}
+                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                onKeyDown={(e) => e.key === 'Enter' && fetchTeams(1)}
+                className="w-full px-4 py-2 rounded-l-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+              />
+              <button 
+                onClick={() => fetchTeams(1)}
+                className="px-4 py-2 bg-wc-gold-500 hover:bg-wc-gold-600 text-wc-navy-950 font-bold rounded-r-xl flex items-center justify-center transition-all shadow-sm"
+              >
+                <FiSearch />
+              </button>
+            </div>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 mb-1">Trình độ</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Điểm ranking</label>
             <select 
               value={filters.rankingTier}
               onChange={(e) => setFilters(prev => ({ ...prev, rankingTier: e.target.value }))}
-              className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
+              className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
             >
               <option value="">Tất cả</option>
-              <option value="yếu">Yếu (Dưới 900 điểm)</option>
-              <option value="trung bình">Trung bình (900 - 1100)</option>
-              <option value="khá">Khá (1100 - 1300)</option>
-              <option value="đá hay">Đá hay (Trên 1300)</option>
+              <option value="yếu">Dưới 20 điểm</option>
+              <option value="trung bình">Từ 20 - 50 điểm</option>
+              <option value="khá">Từ 50 - 100 điểm</option>
+              <option value="đá hay">Trên 100 điểm</option>
             </select>
           </div>
           <div>
@@ -124,6 +133,7 @@ export default function PublicTeams() {
               placeholder="VD: Cầu Giấy, Hà Nội" 
               value={filters.homeArea}
               onChange={(e) => setFilters(prev => ({ ...prev, homeArea: e.target.value }))}
+              onKeyDown={(e) => e.key === 'Enter' && fetchTeams(1)}
               className="w-full px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white"
             />
           </div>
@@ -176,8 +186,7 @@ export default function PublicTeams() {
             {teams.map((team, index) => (
               <div 
                 key={team.id || index} 
-                onClick={() => setSelectedTeam(team)}
-                className="group bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/5 border border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:border-slate-700 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer"
+                className="group bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm hover:shadow-2xl hover:shadow-emerald-900/5 border border-slate-100 dark:border-slate-700 hover:border-slate-200 transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full"
               >
                 <div className="flex justify-between items-start mb-4">
                   <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-slate-800 to-black flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-emerald-500/30">
@@ -187,17 +196,17 @@ export default function PublicTeams() {
                     <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold rounded-full border border-slate-200 dark:border-slate-700">
                       {team.sportName || 'Chưa cập nhật'}
                     </span>
-                    <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold rounded-full">
-                      {team.qualityLevel || 'Chưa phân loại'}
+                    <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-full border border-amber-200 dark:border-amber-800">
+                      Điểm ranking: {team.rankingScore || 0}
                     </span>
                   </div>
                 </div>
                 
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3 group-hover:text-slate-800 dark:hover:text-white dark:text-slate-200 transition-colors">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-3 group-hover:text-slate-800 dark:group-hover:text-slate-200 transition-colors">
                   {team.name}
                 </h3>
                 
-                <div className="space-y-3 mb-6">
+                <div className="space-y-3 mb-6 flex-grow">
                   <div className="flex items-center text-slate-600 dark:text-slate-400 text-sm">
                     <FiMapPin className="mr-2 text-rose-400" />
                     <span className="truncate">{team.homeArea || 'Chưa cập nhật khu vực'}</span>
@@ -212,141 +221,38 @@ export default function PublicTeams() {
                   {team.history || 'Đội thể thao chưa cập nhật thông tin giới thiệu.'}
                 </p>
                 
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleApply(team.id);
-                  }}
-                  disabled={actionLoading}
-                  className="block w-full py-3 px-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 dark:bg-slate-800 text-center text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white dark:text-white font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:border-slate-600 transition-all disabled:opacity-50"
-                >
-                  Xin gia nhập đội
-                </button>
+                <div className="flex gap-2 mt-auto">
+                  <Link
+                    to={`/teams/${team.id}`}
+                    className="flex-1 py-3 px-4 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-center text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white font-semibold rounded-xl border border-slate-200 dark:border-slate-700 hover:border-slate-300 transition-all"
+                  >
+                    Xem chi tiết
+                  </Link>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleApply(team.id);
+                    }}
+                    disabled={actionLoading}
+                    className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-center text-white font-semibold rounded-xl shadow-sm hover:shadow-md transition-all disabled:opacity-50"
+                  >
+                    Xin gia nhập
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
 
         {/* Pagination */}
-        {pagination.totalPages > 1 && !loading && (
-          <div className="flex justify-center mt-12 gap-2">
-            <button 
-              onClick={() => fetchTeams(pagination.page - 1)}
-              disabled={pagination.page === 1}
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-50"
-            >
-              Trước
-            </button>
-            <span className="px-4 py-2 text-slate-700 dark:text-slate-300">Trang {pagination.page} / {pagination.totalPages}</span>
-            <button 
-              onClick={() => fetchTeams(pagination.page + 1)}
-              disabled={pagination.page === pagination.totalPages}
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 disabled:opacity-50"
-            >
-              Sau
-            </button>
-          </div>
+        {!loading && pagination.totalPages > 1 && (
+          <Pagination 
+            currentPage={pagination.page} 
+            totalPages={pagination.totalPages} 
+            onPageChange={fetchTeams} 
+          />
         )}
       </main>
-
-      {/* Team Detail Modal */}
-      {selectedTeam && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200 dark:border-slate-800 animate-fade-in">
-            <div className="p-8">
-              <div className="flex justify-between items-start mb-6 border-b border-slate-100 dark:border-slate-700 pb-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-slate-800 to-black flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-emerald-500/30">
-                    {selectedTeam.name ? selectedTeam.name.charAt(0).toUpperCase() : 'T'}
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">{selectedTeam.name}</h3>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold rounded-full border border-slate-200 dark:border-slate-700">
-                        {selectedTeam.sportName || 'Chưa cập nhật'}
-                      </span>
-                      <span className="px-3 py-1 bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-full border border-amber-200 dark:border-amber-500/20">
-                        Rank: {selectedTeam.rankingScore ?? 0}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setSelectedTeam(null)}
-                  className="text-slate-400 hover:text-slate-600 dark:text-slate-300 dark:hover:text-white text-xl p-2"
-                >
-                  ✕
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Khu vực hoạt động</div>
-                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
-                    <FiMapPin className="mr-2 text-rose-500" />
-                    {selectedTeam.homeArea || 'Chưa cập nhật khu vực'}
-                  </div>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Thành lập</div>
-                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
-                    <FiCalendar className="mr-2 text-amber-500" />
-                    {selectedTeam.createdAt ? new Date(selectedTeam.createdAt).toLocaleDateString('vi-VN') : 'Không rõ'}
-                  </div>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Trình độ</div>
-                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
-                    <FiStar className="mr-2 text-blue-500" />
-                    {selectedTeam.qualityLevel || 'Chưa phân loại'}
-                  </div>
-                </div>
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                  <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Đội trưởng</div>
-                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
-                    <FiUsers className="mr-2 text-emerald-500" />
-                    {selectedTeam.captainName || 'Ẩn danh'}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-8">
-                <h4 className="font-bold text-slate-800 dark:text-slate-200 mb-2">Giới thiệu</h4>
-                <p className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700 text-sm leading-relaxed">
-                  {selectedTeam.history || 'Đội thể thao chưa cập nhật thông tin giới thiệu chi tiết.'}
-                </p>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-700">
-                <button 
-                  onClick={() => setSelectedTeam(null)}
-                  className="px-6 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl font-bold transition-colors"
-                >
-                  Đóng
-                </button>
-                <button 
-                  onClick={() => {
-                    alert('Tính năng nhắn tin cho Đội trưởng này đang được cập nhật!');
-                  }}
-                  className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2"
-                >
-                  Nhắn tin
-                </button>
-                <button 
-                  onClick={() => {
-                    handleApply(selectedTeam.id);
-                    setSelectedTeam(null);
-                  }}
-                  disabled={actionLoading}
-                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-all disabled:opacity-50"
-                >
-                  Xin gia nhập đội
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

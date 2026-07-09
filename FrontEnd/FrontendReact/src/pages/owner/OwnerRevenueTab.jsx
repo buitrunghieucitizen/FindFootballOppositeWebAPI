@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import stadiumOwnerService from '../../services/stadiumOwnerService';
 import { FiBarChart2, FiTrendingUp, FiActivity, FiDollarSign, FiCalendar, FiClock } from 'react-icons/fi';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Swal from 'sweetalert2';
 
 export default function OwnerRevenueTab() {
@@ -125,30 +126,49 @@ export default function OwnerRevenueTab() {
         {loading ? (
           <div className="flex justify-center items-center h-64 text-slate-400">Đang tải...</div>
         ) : (
-          <div className="h-64 flex items-end justify-between gap-2 mt-8 border-b-2 border-slate-100 dark:border-slate-700/50 pb-2 relative">
-            {/* Grid lines */}
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none border-t border-slate-50">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="border-b border-slate-50 w-full h-full" />
-              ))}
-            </div>
-
-            {revenueData.map((data, idx) => {
-              const maxRev = Math.max(...revenueData.map(d => d.revenue), 1);
-              const heightPercent = (data.revenue / maxRev) * 100;
-              return (
-                <div key={idx} className="relative flex flex-col items-center justify-end w-full h-full group">
-                  <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap z-10 pointer-events-none shadow-lg">
-                    {new Intl.NumberFormat('vi-VN').format(data.revenue)} đ
-                  </div>
-                  <div 
-                    className="w-full max-w-[40px] bg-gradient-to-t from-emerald-500 to-teal-400 rounded-t-md transition-all duration-1000 ease-out relative z-0 group-hover:from-emerald-400 group-hover:to-teal-300 shadow-sm"
-                    style={{ height: mounted ? `${Math.max(heightPercent, 2)}%` : '0%' }}
-                  ></div>
-                  <span className="absolute -bottom-7 text-xs font-bold text-slate-500 dark:text-slate-400">T{data.month}</span>
-                </div>
-              );
-            })}
+          <div className="h-72 mt-8">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={revenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" />
+                    <stop offset="95%" stopColor="#14b8a6" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="month" 
+                  tickFormatter={(val) => `T${val}`} 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fontSize: 12}} 
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{fontSize: 12}}
+                  tickFormatter={(val) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(val)}
+                />
+                <Tooltip 
+                  cursor={{fill: 'rgba(16, 185, 129, 0.1)'}}
+                  formatter={(value) => [new Intl.NumberFormat('vi-VN').format(value) + ' đ', 'Doanh thu']}
+                  labelFormatter={(label) => `Tháng ${label}`}
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }} 
+                  itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#475569', fontWeight: 'bold', marginBottom: '4px' }}
+                />
+                <Bar 
+                  dataKey="revenue" 
+                  name="Doanh thu" 
+                  fill="url(#colorRevenue)" 
+                  radius={[4, 4, 0, 0]}
+                  barSize={40}
+                  isAnimationActive={mounted} 
+                  animationDuration={1500} 
+                  animationEasing="ease-in-out" 
+                />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         )}
       </div>

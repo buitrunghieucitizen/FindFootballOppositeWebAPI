@@ -88,6 +88,44 @@ const playerService = {
   getBookingHistory: async () => {
     const res = await apiClient.get('/Player/BookingHistory');
     return res.data;
+  },
+  
+  // Individual Matches Endpoints
+  getIndividualMatches: async () => {
+    const res = await apiClient.get('/Player/IndividualMatches');
+    return res.data;
+  },
+  createIndividualMatch: async (data) => {
+    const res = await apiClient.post('/Player/CreateIndividualMatch', data);
+    return res.data;
+  },
+  deleteIndividualMatch: async (id) => {
+    const res = await apiClient.delete(`/Player/DeleteIndividualMatch/${id}`);
+    return res.data;
+  },
+  requestIndividualMatch: async (id, data) => {
+    const res = await apiClient.post(`/Player/IndividualMatches/${id}/Request`, data);
+    return res.data;
+  },
+  getIndividualMatchRequests: async () => {
+    const res = await apiClient.get('/Player/IndividualMatchRequests');
+    return res.data;
+  },
+  acceptIndividualMatchRequest: async (id) => {
+    const res = await apiClient.post(`/Player/IndividualMatchRequests/${id}/Accept`);
+    return res.data;
+  },
+  rejectIndividualMatchRequest: async (id) => {
+    const res = await apiClient.post(`/Player/IndividualMatchRequests/${id}/Reject`);
+    return res.data;
+  },
+  updateIndividualMatchScore: async (id, data) => {
+    const res = await apiClient.put(`/Player/IndividualMatches/${id}/Score`, data);
+    return res.data;
+  },
+  rateIndividualOpponent: async (id, data) => {
+    const res = await apiClient.post(`/Player/IndividualMatches/${id}/RateOpponent`, data);
+    return res.data;
   }
 };
 

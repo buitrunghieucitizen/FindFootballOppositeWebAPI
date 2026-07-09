@@ -309,7 +309,7 @@ export default function PlayerPickUpTab() {
                               title: 'Thông tin người tạo',
                               html: `
                                 <div class="flex flex-col items-center">
-                                  <img src="${match.homeTeamAvatar || 'https://via.placeholder.com/100'}" class="w-24 h-24 rounded-full mb-4 object-cover border-4 border-slate-100 shadow-sm" />
+                                  <img src="${match.homeTeamAvatar || 'https://placehold.co/100x100/slate/white?text=Avatar'}" class="w-24 h-24 rounded-full mb-4 object-cover border-4 border-slate-100 shadow-sm" />
                                   <h3 class="font-bold text-xl mb-1">${match.homeTeamName || 'Người chơi ẩn'}</h3>
                                   <p class="text-slate-500 font-medium">SĐT: ${match.homeTeamPhone || 'Không công khai'}</p>
                                 </div>

@@ -259,14 +259,23 @@ export function PublicHeader() {
               </div>
               </>
             ) : (
-              <>
-                <Link className="px-5 py-2 rounded-xl font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-wc-navy-800 border border-slate-200 dark:border-wc-navy-700 hover:bg-slate-50 dark:hover:bg-wc-navy-700 transition-all" to="/login">
-                  Đăng nhập
-                </Link>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <button 
+                    onClick={toggleTheme} 
+                    className="p-2.5 rounded-xl bg-white dark:bg-wc-navy-800 border border-slate-200 dark:border-wc-navy-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-wc-navy-700 transition-all shadow-sm"
+                    title={isDark ? "Chuyển sang nền sáng" : "Chuyển sang nền tối"}
+                  >
+                    {isDark ? <FiSun className="w-5 h-5 text-wc-gold-400" /> : <FiMoon className="w-5 h-5 text-slate-600" />}
+                  </button>
+                  <Link className="px-5 py-2 rounded-xl font-semibold text-slate-700 dark:text-slate-300 bg-white dark:bg-wc-navy-800 border border-slate-200 dark:border-wc-navy-700 hover:bg-slate-50 dark:hover:bg-wc-navy-700 transition-all" to="/login">
+                    Đăng nhập
+                  </Link>
+                </div>
                 <Link className="px-5 py-2 rounded-xl font-semibold text-wc-navy-950 bg-gradient-to-r from-wc-gold-400 to-wc-gold-500 hover:from-wc-gold-300 hover:to-wc-gold-400 shadow-sm shadow-wc-gold-500/20 transition-all" to="/register">
                   Đăng ký
                 </Link>
-              </>
+              </div>
             )}
           </div>
 

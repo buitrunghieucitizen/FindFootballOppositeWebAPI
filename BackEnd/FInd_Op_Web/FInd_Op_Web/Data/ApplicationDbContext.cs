@@ -127,6 +127,14 @@ public partial class ApplicationDbContext : DbContext
             entity.HasOne(d => d.Tournament).WithMany(p => p.Matches)
                 .HasForeignKey(d => d.TournamentId)
                 .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(d => d.HomePlayer).WithMany()
+                .HasForeignKey(d => d.HomePlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(d => d.AwayPlayer).WithMany()
+                .HasForeignKey(d => d.AwayPlayerId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<MatchPoll>(entity =>

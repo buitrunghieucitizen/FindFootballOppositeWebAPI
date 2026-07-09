@@ -453,7 +453,8 @@ namespace FInd_Op_Web.Controllers
                     memberCount = t.TeamMembers.Count,
                     t.LookingForOpponent,
                     t.HomeArea,
-                    t.FoundedDate
+                    t.FoundedDate,
+                    t.RankingScore
                 })
                 .ToListAsync();
 
@@ -547,6 +548,8 @@ namespace FInd_Op_Web.Controllers
                 History = dto.History,
                 LookingForOpponent = dto.LookingForOpponent,
                 SportId = dto.SportId,
+                RankingScore = dto.RankingScore,
+                FoundedDate = dto.FoundedDate,
                 CreatedAt = DateTime.Now,
                 IsDisbanded = false
             };
@@ -582,6 +585,8 @@ namespace FInd_Op_Web.Controllers
             team.QualityLevel = dto.QualityLevel;
             team.HomeArea = dto.HomeArea;
             team.History = dto.History;
+            team.RankingScore = dto.RankingScore;
+            team.FoundedDate = dto.FoundedDate;
             if (dto.LookingForOpponent.HasValue)
             {
                 team.LookingForOpponent = dto.LookingForOpponent.Value;

@@ -24,6 +24,6 @@ namespace FInd_Op_Web.Models
         public string Status { get; set; } = "New";
 
         [ForeignKey("UserId")]
-        public User User { get; set; }
+        public User? User { get; set; }
     }
 }

@@ -51,16 +51,16 @@ namespace FInd_Op_Web.Controllers
                 switch (rankingTier.ToLower())
                 {
                     case "yếu":
-                        query = query.Where(t => t.RankingScore < 900);
+                        query = query.Where(t => t.RankingScore < 20);
                         break;
                     case "trung bình":
-                        query = query.Where(t => t.RankingScore >= 900 && t.RankingScore < 1100);
+                        query = query.Where(t => t.RankingScore >= 20 && t.RankingScore < 50);
                         break;
                     case "khá":
-                        query = query.Where(t => t.RankingScore >= 1100 && t.RankingScore <= 1300);
+                        query = query.Where(t => t.RankingScore >= 50 && t.RankingScore <= 100);
                         break;
                     case "đá hay":
-                        query = query.Where(t => t.RankingScore > 1300);
+                        query = query.Where(t => t.RankingScore > 100);
                         break;
                 }
             }
@@ -116,7 +116,47 @@ namespace FInd_Op_Web.Controllers
                 .FirstOrDefaultAsync(t => t.TeamId == id);
 
             if (team == null) return NotFound(new { message = "Không tìm thấy đội." });
-            return Ok(team);
+
+            var matches = await _context.Matches
+                .Include(m => m.HomeTeam)
+                .Include(m => m.AwayTeam)
+                .Where(m => (m.HomeTeamId == id || m.AwayTeamId == id) && m.MatchStatus == "Đã kết thúc")
+                .OrderByDescending(m => m.MatchDate)
+                .ToListAsync();
+
+            int totalMatches = matches.Count;
+            int wonMatches = matches.Count(m => 
+                (m.HomeTeamId == id && m.HomeScore > m.AwayScore) || 
+                (m.AwayTeamId == id && m.AwayScore > m.HomeScore)
+            );
+            int drawMatches = matches.Count(m => m.HomeScore == m.AwayScore);
+            int lostMatches = totalMatches - wonMatches - drawMatches;
+            double winRate = totalMatches > 0 ? Math.Round((double)wonMatches / totalMatches * 100, 2) : 0;
+
+            var matchHistory = matches.Select(m => new {
+                m.MatchId,
+                m.MatchDate,
+                HomeTeamName = m.HomeTeam?.TeamName,
+                AwayTeamName = m.AwayTeam?.TeamName,
+                HomeTeamLogo = m.HomeTeam?.LogoUrl,
+                AwayTeamLogo = m.AwayTeam?.LogoUrl,
+                m.HomeScore,
+                m.AwayScore,
+                Result = (m.HomeTeamId == id && m.HomeScore > m.AwayScore) || (m.AwayTeamId == id && m.AwayScore > m.HomeScore) ? "Thắng" : 
+                         (m.HomeScore == m.AwayScore ? "Hòa" : "Thua")
+            }).Take(10).ToList();
+
+            return Ok(new { 
+                team, 
+                stats = new { 
+                    totalMatches, 
+                    wonMatches, 
+                    drawMatches, 
+                    lostMatches, 
+                    winRate 
+                }, 
+                matchHistory 
+            });
         }
 
         [HttpGet("TestMatchRequests")]
@@ -216,6 +256,7 @@ namespace FInd_Op_Web.Controllers
                 .Include(m => m.MatchPolls)
                     .ThenInclude(mp => mp.Player)
                 .Include(m => m.Sport)
+                .Where(m => !m.IsIndividualMatch)
                 .AsQueryable();
 
             if (!string.IsNullOrEmpty(search))
@@ -262,6 +303,54 @@ namespace FInd_Op_Web.Controllers
                     PitchName = m.Schedule != null && m.Schedule.Pitch != null ? m.Schedule.Pitch.PitchName : "Chưa xác định"
                 })
                 .OrderByDescending(m => m.StartTime)
+                .ToListAsync();
+
+            return Ok(matches);
+        }
+
+        [HttpGet("IndividualMatches")]
+        public async Task<IActionResult> GetIndividualMatches([FromQuery] int? sportId, [FromQuery] string? search)
+        {
+            var query = _context.Matches
+                .Include(m => m.HomePlayer)
+                .Include(m => m.AwayPlayer)
+                .Include(m => m.Sport)
+                .Where(m => m.IsIndividualMatch)
+                .AsQueryable();
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                query = query.Where(m => (m.HomePlayer != null && m.HomePlayer.FullName.Contains(search)) || 
+                                         (m.AwayPlayer != null && m.AwayPlayer.FullName.Contains(search)));
+            }
+
+            if (sportId.HasValue && sportId.Value > 0)
+            {
+                query = query.Where(m => m.SportId == sportId.Value);
+            }
+
+            var matches = await query
+                .Select(m => new
+                {
+                    m.MatchId,
+                    m.MatchStatus,
+                    m.MatchType,
+                    HomePlayerName = m.HomePlayer != null ? m.HomePlayer.FullName : "Không xác định",
+                    HomePlayerAvatar = m.HomePlayer != null ? m.HomePlayer.AvatarUrl : null,
+                    HomePlayerRanking = m.HomePlayer != null ? m.HomePlayer.RankingScore : 0,
+                    HomePlayerId = m.HomePlayerId,
+                    AwayPlayerName = m.AwayPlayer != null ? m.AwayPlayer.FullName : "Đang tìm đối thủ",
+                    AwayPlayerAvatar = m.AwayPlayer != null ? m.AwayPlayer.AvatarUrl : null,
+                    AwayPlayerRanking = m.AwayPlayer != null ? m.AwayPlayer.RankingScore : 0,
+                    AwayPlayerId = m.AwayPlayerId,
+                    SportName = m.Sport != null ? m.Sport.SportName : null,
+                    MatchDate = m.MatchDate,
+                    m.StartTime,
+                    m.Location,
+                    m.HomeScore,
+                    m.AwayScore
+                })
+                .OrderByDescending(m => m.MatchDate)
                 .ToListAsync();
 
             return Ok(matches);

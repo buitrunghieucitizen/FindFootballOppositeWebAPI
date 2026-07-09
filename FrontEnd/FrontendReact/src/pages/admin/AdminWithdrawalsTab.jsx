@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '../../services/adminService';
+import Pagination from '../../components/Pagination';
 import { FiCheckCircle, FiXCircle, FiImage, FiDownload } from 'react-icons/fi';
 
 export default function AdminWithdrawalsTab() {
@@ -186,10 +187,8 @@ export default function AdminWithdrawalsTab() {
         </div>
         
         {totalPages > 1 && (
-          <div className="flex justify-center items-center gap-2 p-4 border-t border-slate-200 dark:border-slate-700">
-            <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50">Trước</button>
-            <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Trang {page} / {totalPages}</span>
-            <button disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50">Sau</button>
+          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+            <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
           </div>
         )}
       </div>

@@ -12,6 +12,12 @@ public partial class Match
 
     public int? AwayTeamId { get; set; }
 
+    public int? HomePlayerId { get; set; }
+
+    public int? AwayPlayerId { get; set; }
+
+    public bool IsIndividualMatch { get; set; } = false;
+
     public int? SportId { get; set; }
 
     public int? ScheduleId { get; set; }
@@ -58,6 +64,10 @@ public partial class Match
     public virtual Team? CancelRequestedByNavigation { get; set; }
 
     public virtual Team? HomeTeam { get; set; }
+
+    public virtual User? HomePlayer { get; set; }
+
+    public virtual User? AwayPlayer { get; set; }
 
     public virtual ICollection<MatchPoll> MatchPolls { get; set; } = new List<MatchPoll>();
 

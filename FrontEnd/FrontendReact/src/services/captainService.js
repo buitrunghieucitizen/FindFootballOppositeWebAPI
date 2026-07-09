@@ -22,6 +22,8 @@ export const captainService = {
   updateChallenge: async (id, data) => { const res = await apiClient.put(`/Captain/Matches/${id}/Challenge`, data); return res.data; },
   getChallengeRequests: async () => { const res = await apiClient.get('/Captain/ChallengeRequests'); return res.data; },
   acceptChallenge: async (matchId) => { const res = await apiClient.post(`/Captain/AcceptChallenge/${matchId}`); return res.data; },
+  inviteTeamToMatch: async (matchId, targetTeamId) => { const res = await apiClient.post(`/Captain/Matches/${matchId}/InviteTeam/${targetTeamId}`); return res.data; },
+  getReceivedInvites: async () => { const res = await apiClient.get('/Captain/Matches/ReceivedInvites'); return res.data; },
   rateOpponent: async (data) => { const res = await apiClient.post('/Captain/RateOpponent', data); return res.data; },
   rateOpponentPlayer: async (playerId, data) => { const res = await apiClient.post(`/Captain/RateOpponentPlayer/${playerId}`, data); return res.data; },
   getTeamRankings: async () => { const res = await apiClient.get('/Captain/TeamRankings'); return res.data; },

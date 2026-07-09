@@ -126,7 +126,11 @@ export default function AdminRevenueTab() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }} 
+                      itemStyle={{ color: '#3b82f6', fontWeight: 'bold' }}
+                      labelStyle={{ color: '#475569', fontWeight: 'bold', marginBottom: '4px' }}
+                    />
                     <Line type="monotone" dataKey="users" name="Người dùng" stroke="#3b82f6" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} isAnimationActive={mounted} animationDuration={2000} animationEasing="ease-in-out" />
                   </LineChart>
                 </ResponsiveContainer>
@@ -148,7 +152,11 @@ export default function AdminRevenueTab() {
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 12}} />
                     <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12}} />
-                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }} 
+                      itemStyle={{ color: '#a855f7', fontWeight: 'bold' }}
+                      labelStyle={{ color: '#475569', fontWeight: 'bold', marginBottom: '4px' }}
+                    />
                     <Area type="monotone" dataKey="bookings" name="Lượt đặt sân" stroke="#a855f7" strokeWidth={2} fillOpacity={1} fill="url(#colorBookings)" isAnimationActive={mounted} animationDuration={2000} animationEasing="ease-in-out" />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -158,30 +166,47 @@ export default function AdminRevenueTab() {
             {/* Revenue Chart */}
             <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm lg:col-span-2">
               <h3 className="font-bold text-slate-800 dark:text-white mb-6">Doanh thu</h3>
-              <div className="h-80 flex items-end justify-between gap-2 border-b-2 border-slate-100 dark:border-slate-700/50 pb-2 relative pt-8">
-                {/* Grid lines */}
-                <div className="absolute inset-0 flex flex-col justify-between pointer-events-none border-t border-slate-50 dark:border-slate-700/30">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="border-b border-slate-50 dark:border-slate-700/30 w-full h-full" />
-                  ))}
-                </div>
-
-                {stats.map((data, idx) => {
-                  const maxRev = Math.max(...stats.map(d => d.revenue), 1);
-                  const heightPercent = (data.revenue / maxRev) * 100;
-                  return (
-                    <div key={idx} className="relative flex flex-col items-center justify-end w-full h-full group">
-                      <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg whitespace-nowrap z-10 pointer-events-none shadow-lg">
-                        {new Intl.NumberFormat('vi-VN').format(data.revenue)} đ
-                      </div>
-                      <div 
-                        className="w-full max-w-[40px] bg-gradient-to-t from-emerald-500 to-teal-400 rounded-t-md transition-all duration-1000 ease-out relative z-0 group-hover:from-emerald-400 group-hover:to-teal-300 shadow-sm"
-                        style={{ height: mounted ? `${Math.max(heightPercent, 2)}%` : '0%' }}
-                      ></div>
-                      <span className="absolute -bottom-7 text-xs font-bold text-slate-500 dark:text-slate-400">{data.label}</span>
-                    </div>
-                  );
-                })}
+              <div className="h-80 mt-8">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorAdminRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" />
+                        <stop offset="95%" stopColor="#14b8a6" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis 
+                      dataKey="label" 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{fontSize: 12}} 
+                    />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{fontSize: 12}}
+                      tickFormatter={(val) => new Intl.NumberFormat('vi-VN', { notation: "compact", compactDisplay: "short" }).format(val)}
+                    />
+                    <Tooltip 
+                      cursor={{fill: 'rgba(16, 185, 129, 0.1)'}}
+                      formatter={(value) => [new Intl.NumberFormat('vi-VN').format(value) + ' đ', 'Doanh thu']}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: '#fff' }} 
+                      itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
+                      labelStyle={{ color: '#475569', fontWeight: 'bold', marginBottom: '4px' }}
+                    />
+                    <Bar 
+                      dataKey="revenue" 
+                      name="Doanh thu" 
+                      fill="url(#colorAdminRevenue)" 
+                      radius={[4, 4, 0, 0]}
+                      barSize={40}
+                      isAnimationActive={mounted} 
+                      animationDuration={1500} 
+                      animationEasing="ease-in-out" 
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>

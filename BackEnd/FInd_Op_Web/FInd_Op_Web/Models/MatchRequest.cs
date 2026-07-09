@@ -9,10 +9,14 @@ namespace FInd_Op_Web.Models
         public int RequestId { get; set; }
         
         public int MatchId { get; set; }
-        public int RequestingTeamId { get; set; }
+        public int? RequestingTeamId { get; set; }
+        public int? RequestingPlayerId { get; set; }
         
         [MaxLength(50)]
         public string Status { get; set; } = "Pending"; // Pending, Accepted, Rejected
+        
+        public bool IsInvite { get; set; } = false; // True if Captain invited this team
+
         
         [MaxLength(500)]
         public string? Message { get; set; }
@@ -21,5 +25,6 @@ namespace FInd_Op_Web.Models
 
         public virtual Match? Match { get; set; }
         public virtual Team? RequestingTeam { get; set; }
+        public virtual User? RequestingPlayer { get; set; }
     }
 }

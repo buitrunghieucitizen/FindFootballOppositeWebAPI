@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { publicService } from '../../services/publicService';
 import { captainService } from '../../services/captainService';
 import { useAuth } from '../../contexts/AuthContext';
-import { FiCalendar, FiMapPin, FiClock, FiShield, FiArrowLeft, FiX, FiMessageSquare } from 'react-icons/fi';
+import { FiCalendar, FiMapPin, FiClock, FiShield, FiArrowLeft, FiX, FiMessageSquare, FiSearch } from 'react-icons/fi';
 import { Link, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { PublicHeader } from '../../components/portal-ui';
@@ -151,9 +151,9 @@ export default function PublicMatches() {
           </select>
           <button
             onClick={() => fetchMatches()}
-            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors"
+            className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl flex items-center justify-center gap-2 transition-colors"
           >
-            Tìm kiếm
+            <FiSearch /> Tìm kiếm
           </button>
         </div>
 
@@ -206,7 +206,13 @@ export default function PublicMatches() {
                         <FiShield className="text-2xl text-slate-400" />
                       )}
                     </div>
-                    <span className="font-bold text-slate-900 dark:text-white line-clamp-1">{match.homeTeamName || 'Đội nhà'}</span>
+                    {match.homeTeamId ? (
+                      <Link to={`/teams/${match.homeTeamId}`} className="font-bold text-slate-900 dark:text-white line-clamp-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                        {match.homeTeamName || 'Đội nhà'}
+                      </Link>
+                    ) : (
+                      <span className="font-bold text-slate-900 dark:text-white line-clamp-1">{match.homeTeamName || 'Đội nhà'}</span>
+                    )}
                   </div>
                   
                   <div className="px-4 text-center">
@@ -222,7 +228,13 @@ export default function PublicMatches() {
                     <div className="w-16 h-16 mx-auto bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl flex items-center justify-center mb-2 shadow-inner border border-slate-200 dark:border-slate-700 group-hover:scale-110 transition-transform">
                       <FiShield className="text-2xl text-slate-400" />
                     </div>
-                    <span className="font-bold text-slate-900 dark:text-white line-clamp-1">{match.awayTeamName || 'Đội khách'}</span>
+                    {match.awayTeamId ? (
+                      <Link to={`/teams/${match.awayTeamId}`} className="font-bold text-slate-900 dark:text-white line-clamp-1 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                        {match.awayTeamName || 'Đội khách'}
+                      </Link>
+                    ) : (
+                      <span className="font-bold text-slate-900 dark:text-white line-clamp-1">{match.awayTeamName || 'Đội khách'}</span>
+                    )}
                   </div>
                 </div>
 
@@ -291,7 +303,7 @@ export default function PublicMatches() {
                         title: 'Thông tin người tạo',
                         html: `
                           <div class="flex flex-col items-center">
-                            <img src="${selectedMatch.homeTeamAvatar || 'https://via.placeholder.com/100'}" class="w-24 h-24 rounded-full mb-4 object-cover border-4 border-slate-100 shadow-sm" />
+                            <img src="${selectedMatch.homeTeamAvatar || 'https://placehold.co/100x100/slate/white?text=Avatar'}" class="w-24 h-24 rounded-full mb-4 object-cover border-4 border-slate-100 shadow-sm" />
                             <h3 class="font-bold text-xl mb-1">${selectedMatch.homeTeamName || 'Người chơi ẩn'}</h3>
                             <p class="text-slate-500 font-medium">SĐT: ${selectedMatch.homeTeamPhone || 'Không công khai'}</p>
                           </div>
@@ -310,7 +322,13 @@ export default function PublicMatches() {
                       <FiShield className="text-4xl text-blue-500" />
                     )}
                   </div>
-                  <span className="font-bold text-lg text-slate-900 dark:text-white">{selectedMatch.homeTeamName || 'Đội nhà'}</span>
+                  {selectedMatch.homeTeamId ? (
+                    <Link to={`/teams/${selectedMatch.homeTeamId}`} onClick={() => setSelectedMatch(null)} className="font-bold text-lg text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                      {selectedMatch.homeTeamName || 'Đội nhà'}
+                    </Link>
+                  ) : (
+                    <span className="font-bold text-lg text-slate-900 dark:text-white">{selectedMatch.homeTeamName || 'Đội nhà'}</span>
+                  )}
                 </div>
                 
                 <div className="px-6 text-center">
@@ -327,7 +345,13 @@ export default function PublicMatches() {
                   <div className="w-20 h-20 mx-auto bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center mb-3 shadow-sm border border-slate-200 dark:border-slate-700">
                     <FiShield className="text-4xl text-rose-500" />
                   </div>
-                  <span className="font-bold text-lg text-slate-900 dark:text-white">{selectedMatch.awayTeamName || 'Đội khách'}</span>
+                  {selectedMatch.awayTeamId ? (
+                    <Link to={`/teams/${selectedMatch.awayTeamId}`} onClick={() => setSelectedMatch(null)} className="font-bold text-lg text-slate-900 dark:text-white hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors">
+                      {selectedMatch.awayTeamName || 'Đội khách'}
+                    </Link>
+                  ) : (
+                    <span className="font-bold text-lg text-slate-900 dark:text-white">{selectedMatch.awayTeamName || 'Đội khách'}</span>
+                  )}
                 </div>
               </div>
 

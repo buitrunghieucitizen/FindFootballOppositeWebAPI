@@ -18,6 +18,8 @@ import CreateChallenge_Captain from './pages/captain/CreateChallenge_Captain';
 import EditMatch_Captain from './pages/captain/EditMatch_Captain';
 import CreateTournament_Captain from './pages/captain/CreateTournament_Captain';
 import ManageTournament_Captain from './pages/captain/ManageTournament_Captain';
+import BookStadium_Captain from './pages/captain/BookStadium_Captain';
+import InviteOpponent_Captain from './pages/captain/InviteOpponent_Captain';
 import ManageTournament_Owner from './pages/owner/ManageTournament_Owner';
 import CreateTournament_Owner from './pages/owner/CreateTournament_Owner';
 import EditTeam_Captain from './pages/captain/EditTeam_Captain';
@@ -25,6 +27,7 @@ import StadiumOwnerHome from './pages/StadiumOwnerDashboard';
 import PlayerHome from './pages/PlayerDashboard';
 import PaymentSuccess from './pages/common/PaymentSuccess';
 import PublicTeams from './pages/common/PublicTeams';
+import TeamDetail from './pages/common/TeamDetail';
 import PublicStadiums from './pages/common/PublicStadiums';
 import PublicMatches from './pages/common/PublicMatches';
 import MatchDetail from './pages/common/MatchDetail';
@@ -45,6 +48,7 @@ function App() {
             {/* Modern Routes */}
             <Route path="/" element={<HomePage />} />
             <Route path="/teams" element={<PublicTeams />} />
+            <Route path="/teams/:id" element={<TeamDetail />} />
             <Route path="/stadiums" element={<PublicStadiums />} />
             <Route path="/matches" element={<PublicMatches />} />
             <Route path="/matches/:id" element={<MatchDetail />} />
@@ -109,6 +113,22 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="Captain">
                   <RateMatch_Captain />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/captain/match/book-stadium"
+              element={
+                <ProtectedRoute requiredRole="Captain">
+                  <BookStadium_Captain />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/captain/match/invite"
+              element={
+                <ProtectedRoute requiredRole="Captain">
+                  <InviteOpponent_Captain />
                 </ProtectedRoute>
               }
             />

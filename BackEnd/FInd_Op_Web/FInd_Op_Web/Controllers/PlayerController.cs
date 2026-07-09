@@ -960,26 +960,39 @@ namespace FInd_Op_Web.Controllers
         }
 
         // 12. POST api/Player/CreateIndividualMatch
-        [HttpGet("MyPickupMatches")]
-        public async Task<IActionResult> GetMyPickupMatches()
+        // 12. GET api/Player/IndividualMatches
+        [HttpGet("IndividualMatches")]
+        public async Task<IActionResult> GetIndividualMatches()
         {
             var userId = GetUserId();
             var matches = await _context.Matches
-                .Where(m => m.MatchType == "PickUp" && m.CancelReason != null && m.CancelReason.Contains($"\"CreatorId\":{userId}"))
-                .OrderByDescending(m => m.ExpiresAt)
+                .Include(m => m.HomePlayer)
+                .Include(m => m.AwayPlayer)
+                .Include(m => m.Sport)
+                .Where(m => m.IsIndividualMatch && (m.HomePlayerId == userId || m.AwayPlayerId == userId))
+                .OrderByDescending(m => m.MatchDate)
                 .Select(m => new
                 {
                     m.MatchId,
+                    m.MatchDate,
+                    m.StartTime,
+                    m.Location,
                     m.MatchStatus,
+                    m.HomeScore,
+                    m.AwayScore,
                     m.CancelReason,
-                    m.ExpiresAt,
-                    m.SportId
+                    SportName = m.Sport != null ? m.Sport.SportName : null,
+                    HomePlayerName = m.HomePlayer != null ? m.HomePlayer.FullName : null,
+                    HomePlayerAvatar = m.HomePlayer != null ? m.HomePlayer.AvatarUrl : null,
+                    AwayPlayerName = m.AwayPlayer != null ? m.AwayPlayer.FullName : null,
+                    AwayPlayerAvatar = m.AwayPlayer != null ? m.AwayPlayer.AvatarUrl : null
                 })
                 .ToListAsync();
 
             return Ok(matches);
         }
 
+        // 13. POST api/Player/CreateIndividualMatch
         [HttpPost("CreateIndividualMatch")]
         public async Task<IActionResult> CreateIndividualMatch([FromBody] CreateIndividualMatchDto dto)
         {
@@ -989,10 +1002,10 @@ namespace FInd_Op_Web.Controllers
 
             // Count existing individual matches this month
             var currentMonthMatches = await _context.Matches
-                .Where(m => m.CancelReason != null && m.CancelReason.Contains($"\"CreatorId\":{userId}") 
-                         && m.ExpiresAt != null 
-                         && m.ExpiresAt.Value.Month == DateTime.Now.Month 
-                         && m.ExpiresAt.Value.Year == DateTime.Now.Year)
+                .Where(m => m.IsIndividualMatch && m.HomePlayerId == userId
+                         && m.MatchDate != null 
+                         && m.MatchDate.Value.Month == DateTime.Now.Month 
+                         && m.MatchDate.Value.Year == DateTime.Now.Year)
                 .CountAsync();
 
             if (!user.IsPremium && currentMonthMatches >= 3)
@@ -1003,44 +1016,38 @@ namespace FInd_Op_Web.Controllers
             var newMatch = new Match
             {
                 SportId = dto.SportId,
-                MatchType = "PickUp",
-                CancelReason = System.Text.Json.JsonSerializer.Serialize(new { CreatorId = userId, Location = dto.Location, QualityLevel = dto.QualityLevel, Description = dto.Description }),
+                MatchType = "Friendly", // Individual friendly
+                IsIndividualMatch = true,
+                HomePlayerId = userId,
                 MatchStatus = "Pending",
                 ResultVisibility = "Public",
-                ExpiresAt = dto.ExpiresAt != default ? dto.ExpiresAt : DateTime.Now.AddDays(7)
+                ExpiresAt = dto.ExpiresAt != default ? dto.ExpiresAt : DateTime.Now.AddDays(7),
+                Location = dto.Location,
+                MatchDate = dto.ExpiresAt != default ? dto.ExpiresAt.Date : DateTime.Now.Date,
+                Notes = dto.Description
             };
 
             _context.Matches.Add(newMatch);
             await _context.SaveChangesAsync();
 
-            // Add creator to match poll
-            var poll = new MatchPoll
-            {
-                MatchId = newMatch.MatchId,
-                PlayerId = userId,
-                IsAttending = true
-            };
-            _context.MatchPolls.Add(poll);
-            await _context.SaveChangesAsync();
-
             return Ok(new { message = "Tạo trận cá nhân thành công!", matchId = newMatch.MatchId });
         }
 
-        [HttpDelete("DeletePickupMatch/{id}")]
-        public async Task<IActionResult> DeletePickupMatch(int id)
+        [HttpDelete("DeleteIndividualMatch/{id}")]
+        public async Task<IActionResult> DeleteIndividualMatch(int id)
         {
             var userId = GetUserId();
             var match = await _context.Matches.FindAsync(id);
-            if (match == null || match.MatchType != "PickUp") return NotFound();
+            if (match == null || !match.IsIndividualMatch) return NotFound();
 
-            if (!match.CancelReason.Contains($"\"CreatorId\":{userId}"))
+            if (match.HomePlayerId != userId)
             {
                 return Forbid();
             }
 
-            // Remove related polls
-            var polls = await _context.MatchPolls.Where(p => p.MatchId == id).ToListAsync();
-            _context.MatchPolls.RemoveRange(polls);
+            // Remove related requests
+            var requests = await _context.MatchRequests.Where(r => r.MatchId == id).ToListAsync();
+            _context.MatchRequests.RemoveRange(requests);
             
             // Remove related posts
             var posts = await _context.Posts.Where(p => p.MatchId == id).ToListAsync();
@@ -1050,6 +1057,194 @@ namespace FInd_Op_Web.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Đã xóa kèo thành công!" });
+        }
+
+        [HttpPost("IndividualMatches/{id}/Request")]
+        public async Task<IActionResult> RequestIndividualMatch(int id, [FromBody] RequestMatchDto dto)
+        {
+            var userId = GetUserId();
+            var match = await _context.Matches.FindAsync(id);
+            
+            if (match == null || !match.IsIndividualMatch || match.MatchStatus != "Pending")
+                return BadRequest("Kèo không khả dụng.");
+
+            if (match.HomePlayerId == userId)
+                return BadRequest("Bạn không thể yêu cầu giao lưu với chính mình.");
+
+            var existingReq = await _context.MatchRequests
+                .FirstOrDefaultAsync(r => r.MatchId == id && r.RequestingPlayerId == userId);
+                
+            if (existingReq != null)
+                return BadRequest("Bạn đã gửi yêu cầu cho kèo này rồi.");
+
+            var request = new MatchRequest
+            {
+                MatchId = id,
+                RequestingPlayerId = userId,
+                Message = dto.Message,
+                Status = "Pending"
+            };
+
+            _context.MatchRequests.Add(request);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Gửi yêu cầu giao lưu thành công!" });
+        }
+
+        [HttpGet("IndividualMatchRequests")]
+        public async Task<IActionResult> GetIndividualMatchRequests()
+        {
+            var userId = GetUserId();
+            
+            var requests = await _context.MatchRequests
+                .Include(r => r.Match)
+                .Include(r => r.RequestingPlayer)
+                .Where(r => r.Match != null && r.Match.HomePlayerId == userId && r.Match.IsIndividualMatch && r.Status == "Pending")
+                .Select(r => new {
+                    r.RequestId,
+                    r.MatchId,
+                    r.Message,
+                    r.CreatedAt,
+                    RequestingPlayerId = r.RequestingPlayerId,
+                    RequestingPlayerName = r.RequestingPlayer != null ? r.RequestingPlayer.FullName : null,
+                    RequestingPlayerAvatar = r.RequestingPlayer != null ? r.RequestingPlayer.AvatarUrl : null,
+                    RequestingPlayerRanking = r.RequestingPlayer != null ? r.RequestingPlayer.RankingScore : 0
+                })
+                .ToListAsync();
+
+            return Ok(requests);
+        }
+
+        [HttpPost("IndividualMatchRequests/{id}/Accept")]
+        public async Task<IActionResult> AcceptIndividualMatchRequest(int id)
+        {
+            var userId = GetUserId();
+            var request = await _context.MatchRequests
+                .Include(r => r.Match)
+                .FirstOrDefaultAsync(r => r.RequestId == id);
+
+            if (request == null || request.Match == null || !request.Match.IsIndividualMatch)
+                return NotFound("Không tìm thấy yêu cầu.");
+
+            if (request.Match.HomePlayerId != userId)
+                return Forbid();
+
+            if (request.Status != "Pending")
+                return BadRequest("Yêu cầu này đã được xử lý.");
+
+            request.Status = "Accepted";
+            request.Match.MatchStatus = "Scheduled";
+            request.Match.AwayPlayerId = request.RequestingPlayerId;
+
+            // Reject all other requests for this match
+            var otherRequests = await _context.MatchRequests
+                .Where(r => r.MatchId == request.MatchId && r.RequestId != id && r.Status == "Pending")
+                .ToListAsync();
+
+            foreach (var req in otherRequests)
+            {
+                req.Status = "Rejected";
+            }
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã chấp nhận yêu cầu giao lưu!" });
+        }
+
+        [HttpPost("IndividualMatchRequests/{id}/Reject")]
+        public async Task<IActionResult> RejectIndividualMatchRequest(int id)
+        {
+            var userId = GetUserId();
+            var request = await _context.MatchRequests
+                .Include(r => r.Match)
+                .FirstOrDefaultAsync(r => r.RequestId == id);
+
+            if (request == null || request.Match == null || !request.Match.IsIndividualMatch)
+                return NotFound("Không tìm thấy yêu cầu.");
+
+            if (request.Match.HomePlayerId != userId)
+                return Forbid();
+
+            request.Status = "Rejected";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Đã từ chối yêu cầu giao lưu!" });
+        }
+
+        [HttpPut("IndividualMatches/{id}/Score")]
+        public async Task<IActionResult> UpdateIndividualMatchScore(int id, [FromBody] FInd_Op_Web.DTOs.UpdateScoreDto dto)
+        {
+            var userId = GetUserId();
+            var match = await _context.Matches.FindAsync(id);
+
+            if (match == null || !match.IsIndividualMatch)
+                return NotFound("Không tìm thấy trận đấu.");
+
+            if (match.HomePlayerId != userId && match.AwayPlayerId != userId)
+                return Forbid();
+
+            match.HomeScore = dto.HomeScore;
+            match.AwayScore = dto.AwayScore;
+            match.MatchStatus = "Completed";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Cập nhật tỉ số thành công!" });
+        }
+
+        [HttpPost("Matches/{id}/RateOpponent")]
+        public async Task<IActionResult> RateIndividualOpponent(int id, [FromBody] FInd_Op_Web.DTOs.RatePlayerDto dto)
+        {
+            var userId = GetUserId();
+            var match = await _context.Matches.FindAsync(id);
+
+            if (match == null || !match.IsIndividualMatch || match.MatchStatus != "Completed")
+                return BadRequest("Không thể đánh giá trận này.");
+
+            var opponentId = match.HomePlayerId == userId ? match.AwayPlayerId : match.HomePlayerId;
+
+            if (opponentId == null || opponentId == userId)
+                return BadRequest("Không tìm thấy đối thủ hợp lệ.");
+
+            var existing = await _context.PlayerRatings
+                .FirstOrDefaultAsync(r => r.MatchId == id && r.PlayerId == opponentId && r.RatedById == userId);
+            
+            if (existing != null)
+                return BadRequest("Bạn đã đánh giá đối thủ này rồi.");
+
+            var rating = new PlayerRating
+            {
+                PlayerId = opponentId.Value,
+                RatedById = userId,
+                MatchId = id,
+                Score = dto.Score,
+                Comment = dto.Comment,
+                Month = DateTime.Now.Month,
+                Year = DateTime.Now.Year
+            };
+
+            _context.PlayerRatings.Add(rating);
+            await _context.SaveChangesAsync();
+
+            // Calculate new fairplay score
+            var userToUpdate = await _context.Users.FindAsync(opponentId.Value);
+            if (userToUpdate != null)
+            {
+                // Simple logic: 5 star = +2, 4 = +1, 3 = 0, 2 = -1, 1 = -3
+                int diff = dto.Score switch
+                {
+                    5 => 2,
+                    4 => 1,
+                    3 => 0,
+                    2 => -1,
+                    1 => -3,
+                    _ => 0
+                };
+                userToUpdate.FairplayScore = Math.Max(0, Math.Min(100, userToUpdate.FairplayScore + diff));
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { message = "Đã gửi đánh giá thành công." });
         }
     }
 }

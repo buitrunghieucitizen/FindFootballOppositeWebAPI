@@ -41,6 +41,11 @@ public partial class User
     public string? IdCardBackUrl { get; set; }
     public string? KycStatus { get; set; } = "Pending";
 
+    // Player Ranking Fields
+    public int RankingScore { get; set; } = 0;
+    public int FairplayScore { get; set; } = 100;
+    public int FairplayWarnings { get; set; } = 0;
+
     public virtual ICollection<MatchPoll> MatchPolls { get; set; } = new List<MatchPoll>();
 
     public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();

@@ -1,4 +1,4 @@
-import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiChevronsLeft, FiChevronsRight } from 'react-icons/fi';
 
 export default function Pagination({ currentPage, totalPages, onPageChange }) {
   if (totalPages <= 1) return null;
@@ -45,55 +45,75 @@ export default function Pagination({ currentPage, totalPages, onPageChange }) {
 
   const pageNumbers = getPageNumbers();
 
+  const btnClass = (disabled) => `flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-bold transition-all duration-200 ${
+    disabled 
+    ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800' 
+    : 'text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white hover:shadow-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 active:scale-95'
+  }`;
+
   return (
-    <div className="flex items-center justify-center gap-1.5 mt-6">
+    <div className="flex flex-wrap items-center justify-center gap-2 mt-8 mb-4">
+      {/* First Button */}
+      <button
+        onClick={() => onPageChange(1)}
+        disabled={currentPage === 1}
+        title="Trang đầu"
+        className={btnClass(currentPage === 1)}
+      >
+        <FiChevronsLeft className="text-base" />
+      </button>
+
       {/* Previous Button */}
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition-all duration-200
- ${currentPage === 1
- ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed bg-slate-50 dark:bg-slate-800'
- : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white active:scale-95'
- }`}
+        className={btnClass(currentPage === 1)}
       >
         <FiChevronLeft className="text-base" />
-        <span>Trước</span>
+        <span className="hidden sm:inline">Trước</span>
       </button>
 
       {/* Page Numbers */}
-      {pageNumbers.map((page, index) =>
-        page === '...' ? (
-          <span key={`ellipsis-${index}`} className="px-2 py-2 text-slate-400 dark:text-slate-500 text-sm font-bold select-none">
-            ···
-          </span>
-        ) : (
-          <button
-            key={page}
-            onClick={() => onPageChange(page)}
-            className={`min-w-[40px] h-10 rounded-xl text-sm font-bold transition-all duration-200
- ${currentPage === page
- ? 'bg-gradient-to-r from-emerald-500 to-emerald-500 text-white shadow-lg shadow-emerald-500/25 scale-105'
- : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white active:scale-95'
- }`}
-          >
-            {page}
-          </button>
-        )
-      )}
+      <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        {pageNumbers.map((page, index) =>
+          page === '...' ? (
+            <span key={`ellipsis-${index}`} className="px-2 py-1 text-slate-400 dark:text-slate-500 text-sm font-bold select-none">
+              ···
+            </span>
+          ) : (
+            <button
+              key={page}
+              onClick={() => onPageChange(page)}
+              className={`min-w-[36px] h-9 rounded-lg text-sm font-bold transition-all duration-200
+  ${currentPage === page
+  ? 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30'
+  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
+  }`}
+            >
+              {page}
+            </button>
+          )
+        )}
+      </div>
 
       {/* Next Button */}
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-bold transition-all duration-200
- ${currentPage === totalPages
- ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed bg-slate-50 dark:bg-slate-800'
- : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-800 dark:hover:text-white active:scale-95'
- }`}
+        className={btnClass(currentPage === totalPages)}
       >
-        <span>Sau</span>
+        <span className="hidden sm:inline">Sau</span>
         <FiChevronRight className="text-base" />
+      </button>
+
+      {/* Last Button */}
+      <button
+        onClick={() => onPageChange(totalPages)}
+        disabled={currentPage === totalPages}
+        title="Trang cuối"
+        className={btnClass(currentPage === totalPages)}
+      >
+        <FiChevronsRight className="text-base" />
       </button>
     </div>
   );

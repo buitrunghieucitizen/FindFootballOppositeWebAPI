@@ -242,7 +242,7 @@ export default function StadiumsTab() {
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="block font-bold text-emerald-600">{pitch.pricePerHour?.toLocaleString()} VNĐ/h</span>
+                          <span className="block font-bold text-emerald-600">{(pitch.pricePerHour || 0).toLocaleString()} VNĐ/1 ca</span>
                           <button 
                             onClick={() => setShowBookingForm(pitch.pitchId || pitch.id)}
                             className="text-xs text-white bg-emerald-500 hover:bg-emerald-600 px-3 py-1.5 rounded-lg mt-2 font-bold shadow-sm"

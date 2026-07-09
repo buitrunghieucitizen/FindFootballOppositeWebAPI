@@ -34,5 +34,15 @@ namespace FInd_Op_Web.DTOs
             public string? Description { get; set; }
         }
     
+        public class RequestMatchDto
+        {
+            public string? Message { get; set; }
+        }
+
+        public class UpdateScoreDto
+        {
+            public int HomeScore { get; set; }
+            public int AwayScore { get; set; }
+        }
 }
 

@@ -15,6 +15,7 @@ namespace FInd_Op_Web.Data
                 new Sport { SportName = "Bóng bàn", Icon = "🏓", ScoringFormat = "Sets" },
                 new Sport { SportName = "Pickleball", Icon = "🏓", ScoringFormat = "Sets" },
                 new Sport { SportName = "Tennis", Icon = "🎾", ScoringFormat = "Sets" },
+                new Sport { SportName = "Bóng chuyền", Icon = "🏐", ScoringFormat = "Sets" },
                 new Sport { SportName = "Khác", Icon = "🏆", ScoringFormat = "Goals" }
             };
 

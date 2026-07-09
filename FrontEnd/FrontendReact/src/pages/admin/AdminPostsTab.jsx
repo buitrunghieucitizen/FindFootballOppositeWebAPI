@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminService } from '../../services/adminService';
+import Pagination from '../../components/Pagination';
 import { FiCheck, FiX, FiClock } from 'react-icons/fi';
 import { Table, Loading, Button } from '../../components';
 
@@ -127,10 +128,8 @@ export default function AdminPostsTab() {
           />
           
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
-              <button disabled={page === 1} onClick={() => setPage(p => Math.max(1, p - 1))} className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50">Trước</button>
-              <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">Trang {page} / {totalPages}</span>
-              <button disabled={page === totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50">Sau</button>
+            <div className="mt-6">
+              <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
             </div>
           )}
         </div>

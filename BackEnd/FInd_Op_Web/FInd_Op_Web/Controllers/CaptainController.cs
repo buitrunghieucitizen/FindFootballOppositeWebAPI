@@ -981,6 +981,17 @@ public class CaptainController : ControllerBase
 			}
 			match.AwayTeamId = team.TeamId;
 			match.MatchStatus = "Accepted";
+
+            var request = await _context.MatchRequests.FirstOrDefaultAsync(r => r.MatchId == matchId && r.RequestingTeamId == team.TeamId && r.Status == "Pending");
+            if (request != null) {
+                request.Status = "Accepted";
+            }
+            
+            var otherRequests = await _context.MatchRequests.Where(r => r.MatchId == matchId && r.Status == "Pending").ToListAsync();
+            foreach (var r in otherRequests) {
+                r.Status = "Rejected";
+            }
+
 			await _context.SaveChangesAsync();
 			if (match.HomeTeamId.HasValue)
 			{
@@ -2678,7 +2689,11 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound();
 		}
-		if (req.Match.HomeTeamId != team.TeamId)
+		if (!req.IsInvite && req.Match.HomeTeamId != team.TeamId)
+		{
+			return Unauthorized();
+		}
+		if (req.IsInvite && req.RequestingTeamId != team.TeamId)
 		{
 			return Unauthorized();
 		}
@@ -2716,7 +2731,11 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound();
 		}
-		if (req.Match.HomeTeamId != team.TeamId)
+		if (!req.IsInvite && req.Match.HomeTeamId != team.TeamId)
+		{
+			return Unauthorized();
+		}
+		if (req.IsInvite && req.RequestingTeamId != team.TeamId)
 		{
 			return Unauthorized();
 		}
@@ -2878,4 +2897,73 @@ public class CaptainController : ControllerBase
 			}
 		}
 	}
+
+    [HttpPost("Matches/{matchId}/InviteTeam/{targetTeamId}")]
+    public async Task<IActionResult> InviteTeamToMatch(int matchId, int targetTeamId)
+    {
+        try
+        {
+            Team myTeam = await GetMyTeamAsync();
+            if (myTeam == null) return NotFound(new { message = "Team not found." });
+
+            Match match = await _context.Matches.FindAsync(matchId);
+            if (match == null || match.HomeTeamId != myTeam.TeamId) return BadRequest(new { message = "Invalid match." });
+
+            Team targetTeam = await _context.Teams.FindAsync(targetTeamId);
+            if (targetTeam == null) return NotFound(new { message = "Target team not found." });
+
+            bool exists = await _context.MatchRequests.AnyAsync(r => r.MatchId == matchId && r.RequestingTeamId == targetTeamId);
+            if (exists) return BadRequest(new { message = "Đã có yêu cầu hoặc lời mời đối với đội này." });
+
+            MatchRequest req = new MatchRequest
+            {
+                MatchId = matchId,
+                RequestingTeamId = targetTeamId,
+                Status = "Pending",
+                IsInvite = true,
+                Message = $"Đội {myTeam.TeamName} đã mời bạn tham gia trận đấu giao hữu."
+            };
+            _context.MatchRequests.Add(req);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Gửi lời mời thành công!" });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+
+    [HttpGet("Matches/ReceivedInvites")]
+    public async Task<IActionResult> GetReceivedInvites()
+    {
+        try
+        {
+            Team myTeam = await GetMyTeamAsync();
+            if (myTeam == null) return NotFound(new { message = "Team not found." });
+
+            var invites = await _context.MatchRequests
+                .Include(r => r.Match)
+                .ThenInclude(m => m.HomeTeam)
+                .Where(r => r.RequestingTeamId == myTeam.TeamId && r.IsInvite && r.Status == "Pending")
+                .Select(r => new
+                {
+                    RequestId = r.RequestId,
+                    MatchId = r.MatchId,
+                    MatchDate = r.Match.MatchDate,
+                    StartTime = r.Match.StartTime,
+                    Location = r.Match.Location,
+                    HomeTeamName = r.Match.HomeTeam != null ? r.Match.HomeTeam.TeamName : "Không xác định",
+                    HomeTeamAvatar = r.Match.HomeTeam != null ? r.Match.HomeTeam.LogoUrl : null,
+                    Message = r.Message,
+                    CreatedAt = r.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(invites);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
 }

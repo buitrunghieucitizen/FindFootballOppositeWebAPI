@@ -4,6 +4,7 @@ import postService from '../services/postService';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { PublicLayout } from '../components/portal-ui';
+import Pagination from '../components/Pagination';
 
 export default function CommunityFeed() {
   const { user } = useAuth();
@@ -180,11 +181,7 @@ export default function CommunityFeed() {
           )}
 
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-8">
-              <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl disabled:opacity-50">Trước</button>
-              <span className="px-4 py-2 bg-slate-50 dark:bg-slate-900 rounded-xl">Trang {page} / {totalPages}</span>
-              <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl disabled:opacity-50">Sau</button>
-            </div>
+            <Pagination currentPage={page} totalPages={totalPages} onPageChange={setPage} />
           )}
         </div>
       </div>

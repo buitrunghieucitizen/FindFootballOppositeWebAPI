@@ -34,6 +34,8 @@ namespace FInd_Op_Web.DTOs
                 public string? History { get; set; }
                 public bool? LookingForOpponent { get; set; }
                 public int? SportId { get; set; }
+                public int RankingScore { get; set; } = 0;
+                public DateTime? FoundedDate { get; set; }
             }
     
             public class UpdateTeamDto
@@ -44,6 +46,8 @@ namespace FInd_Op_Web.DTOs
                 public string? History { get; set; }
                 public bool? LookingForOpponent { get; set; }
                 public int? SportId { get; set; }
+                public int RankingScore { get; set; } = 0;
+                public DateTime? FoundedDate { get; set; }
             }
     
             public class CreateStadiumDto

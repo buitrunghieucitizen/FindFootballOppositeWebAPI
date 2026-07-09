@@ -21,6 +21,7 @@ import DirectMessagesTab from './common/DirectMessagesTab';
 import ProfileTab from './common/ProfileTab';
 import StadiumsTab from './captain/StadiumsTab';
 import PlayerOverviewTab from './player/PlayerOverviewTab';
+import IndividualMatchesTab from './player/IndividualMatchesTab';
 
 const initials = (name = '') => name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase()).join('');
 
@@ -76,8 +77,9 @@ export default function PlayerDashboard() {
     { id: 'overview', label: 'Tổng Quan', icon: FiUser },
     { id: 'tournaments', label: 'Giải Đấu', icon: FiAward },
     { id: 'team', label: 'Đội Của Tôi', icon: FiShield },
-    { id: 'matches', label: 'Lịch Thi Đấu', icon: FiCalendar },
-    { id: 'pickup', label: 'Gạ Kèo / Bắt Đối', icon: FiActivity },
+    { id: 'matches', label: 'Lịch Thi Đấu Đội', icon: FiCalendar },
+    { id: 'individual-matches', label: 'Kèo Cá Nhân', icon: FiActivity },
+    { id: 'pickup', label: 'Gạ Kèo / Bắt Đối (Đội)', icon: FiActivity },
     { id: 'stadiums', label: 'Tìm Sân', icon: FiMapPin },
     { id: 'community', label: 'Cộng Đồng', icon: FiUsers },
     { id: 'rankings', label: 'Bảng Xếp Hạng', icon: FiAward },
@@ -360,6 +362,7 @@ export default function PlayerDashboard() {
         {activeTab === 'stadiums' && <StadiumsTab />}
         {activeTab === 'my-teams' && <MyTeamsListTab setActiveTab={setActiveTab} />}
         {activeTab === 'matches' && <MatchHistoryTab />}
+        {activeTab === 'individual-matches' && <IndividualMatchesTab />}
         {activeTab === 'rating' && <PlayerRatingTab />}
         {activeTab === 'pickup' && <PlayerPickUpTab />}
         {activeTab === 'messages' && <DirectMessagesTab currentUserId={user?.id} currentUserName={user?.username} />}

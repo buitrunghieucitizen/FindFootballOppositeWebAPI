@@ -16,6 +16,7 @@ import DirectMessagesTab from './common/DirectMessagesTab';
 import { DashboardLayout, DashboardSidebar } from '../components/portal-ui';
 import NotificationBell from '../components/NotificationBell';
 import MessageBell from '../components/MessageBell';
+import Pagination from '../components/Pagination';
 
 export default function AdminDashboard() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -270,9 +271,10 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-500 dark:text-slate-400">Danh sách tài khoản hệ thống</p>
                   </div>
                   <div className="flex gap-3">
-                    <div className="relative">
-                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="text" placeholder="Tìm kiếm..." className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-56 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <div className="flex relative items-center">
+                      <FiSearch className="absolute left-3 text-slate-400" />
+                      <input type="text" placeholder="Tìm kiếm..." className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-l-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-56 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadData()} />
+                      <button onClick={loadData} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-r-lg font-medium text-sm transition-colors border border-emerald-600">Tìm</button>
                     </div>
                     <Button variant="primary" onClick={() => handleOpenCreate('users')} className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2"><FiPlus /> Thêm Mới</Button>
                   </div>
@@ -305,24 +307,8 @@ export default function AdminDashboard() {
                     ]}
                   />
                   {userTotalPages > 1 && (
-                    <div className="flex justify-center items-center gap-2 mt-6">
-                      <button 
-                        disabled={userPage === 1} 
-                        onClick={() => setUserPage(p => Math.max(1, p - 1))}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                      >
-                        Trước
-                      </button>
-                      <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                        Trang {userPage} / {userTotalPages}
-                      </span>
-                      <button 
-                        disabled={userPage === userTotalPages} 
-                        onClick={() => setUserPage(p => Math.min(userTotalPages, p + 1))}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                      >
-                        Sau
-                      </button>
+                    <div className="mt-6">
+                      <Pagination currentPage={userPage} totalPages={userTotalPages} onPageChange={setUserPage} />
                     </div>
                   )}
                 </div>
@@ -337,9 +323,10 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-500 dark:text-slate-400">Danh sách các đội tham gia</p>
                   </div>
                   <div className="flex gap-3">
-                    <div className="relative">
-                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="text" placeholder="Tìm kiếm đội..." className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-56 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <div className="flex relative items-center">
+                      <FiSearch className="absolute left-3 text-slate-400" />
+                      <input type="text" placeholder="Tìm kiếm đội..." className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-l-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-56 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadData()} />
+                      <button onClick={loadData} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-r-lg font-medium text-sm transition-colors border border-emerald-600">Tìm</button>
                     </div>
                     <button onClick={() => handleOpenCreate('teams')} className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 font-medium"><FiPlus /> Thêm Đội Mới</button>
                   </div>
@@ -348,10 +335,13 @@ export default function AdminDashboard() {
                   <Table
                     columns={[
                       { key: 'teamName', label: 'Tên đội', render: (name) => <span className="font-bold text-emerald-700">{name}</span> },
-                      { key: 'city', label: 'Thành phố' },
-                      { key: 'foundedYear', label: 'Năm thành lập' },
-                      { key: 'qualityLevel', label: 'Trình độ', render: (level) => (
-                        <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-md text-xs font-semibold">{level || 'N/A'}</span>
+                      { key: 'homeArea', label: 'Nơi hoạt động' },
+                      { key: 'foundedDate', label: 'Năm thành lập', render: (date, row) => {
+                        const d = date || row.createdAt;
+                        return d ? new Date(d).getFullYear() : 'N/A';
+                      } },
+                      { key: 'rankingScore', label: 'Điểm Ranking', render: (score) => (
+                        <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 rounded-md text-xs font-semibold">{score || 0}</span>
                       )},
                     ]}
                     data={teams}
@@ -361,24 +351,8 @@ export default function AdminDashboard() {
                     ]}
                   />
                   {teamTotalPages > 1 && (
-                    <div className="flex justify-center items-center gap-2 mt-6">
-                      <button 
-                        disabled={teamPage === 1} 
-                        onClick={() => setTeamPage(p => Math.max(1, p - 1))}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                      >
-                        Trước
-                      </button>
-                      <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                        Trang {teamPage} / {teamTotalPages}
-                      </span>
-                      <button 
-                        disabled={teamPage === teamTotalPages} 
-                        onClick={() => setTeamPage(p => Math.min(teamTotalPages, p + 1))}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                      >
-                        Sau
-                      </button>
+                    <div className="mt-6">
+                      <Pagination currentPage={teamPage} totalPages={teamTotalPages} onPageChange={setTeamPage} />
                     </div>
                   )}
                 </div>
@@ -413,9 +387,10 @@ export default function AdminDashboard() {
                         ))}
                       </select>
                     </div>
-                    <div className="relative">
-                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="text" placeholder="Tìm kiếm sân bóng..." className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-56 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <div className="flex relative items-center">
+                      <FiSearch className="absolute left-3 text-slate-400" />
+                      <input type="text" placeholder="Tìm kiếm sân bóng..." className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-l-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-56 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadData()} />
+                      <button onClick={loadData} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-r-lg font-medium text-sm transition-colors border border-emerald-600">Tìm</button>
                     </div>
                     <button onClick={() => handleOpenCreate('stadiums')} className="flex items-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 font-medium"><FiPlus /> Thêm Sân Mới</button>
                   </div>
@@ -436,24 +411,8 @@ export default function AdminDashboard() {
                     ]}
                   />
                   {stadiumTotalPages > 1 && (
-                    <div className="flex justify-center items-center gap-2 mt-6">
-                      <button 
-                        disabled={stadiumPage === 1} 
-                        onClick={() => setStadiumPage(p => Math.max(1, p - 1))}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                      >
-                        Trước
-                      </button>
-                      <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                        Trang {stadiumPage} / {stadiumTotalPages}
-                      </span>
-                      <button 
-                        disabled={stadiumPage === stadiumTotalPages} 
-                        onClick={() => setStadiumPage(p => Math.min(stadiumTotalPages, p + 1))}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                      >
-                        Sau
-                      </button>
+                    <div className="mt-6">
+                      <Pagination currentPage={stadiumPage} totalPages={stadiumTotalPages} onPageChange={setStadiumPage} />
                     </div>
                   )}
                 </div>
@@ -468,9 +427,10 @@ export default function AdminDashboard() {
                     <p className="text-sm text-slate-500 dark:text-slate-400">Lịch thi đấu và kết quả</p>
                   </div>
                   <div className="flex gap-3">
-                    <div className="relative">
-                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="text" placeholder="Tìm kiếm đội, trạng thái..." className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-56 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    <div className="flex relative items-center">
+                      <FiSearch className="absolute left-3 text-slate-400" />
+                      <input type="text" placeholder="Tìm kiếm đội, trạng thái..." className="pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-l-lg text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none w-full sm:w-56 transition-all dark:text-white dark:placeholder-slate-500" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && loadData()} />
+                      <button onClick={loadData} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-r-lg font-medium text-sm transition-colors border border-emerald-600">Tìm</button>
                     </div>
                   </div>
                 </div>
@@ -494,24 +454,8 @@ export default function AdminDashboard() {
                     ]}
                   />
                   {matchTotalPages > 1 && (
-                    <div className="flex justify-center items-center gap-2 mt-6">
-                      <button 
-                        disabled={matchPage === 1} 
-                        onClick={() => setMatchPage(p => Math.max(1, p - 1))}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                      >
-                        Trước
-                      </button>
-                      <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">
-                        Trang {matchPage} / {matchTotalPages}
-                      </span>
-                      <button 
-                        disabled={matchPage === matchTotalPages} 
-                        onClick={() => setMatchPage(p => Math.min(matchTotalPages, p + 1))}
-                        className="px-3 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-600 disabled:opacity-50"
-                      >
-                        Sau
-                      </button>
+                    <div className="mt-6">
+                      <Pagination currentPage={matchPage} totalPages={matchTotalPages} onPageChange={setMatchPage} />
                     </div>
                   )}
                 </div>
@@ -556,7 +500,9 @@ export default function AdminDashboard() {
               {createType === 'teams' && (
                 <>
                   <input type="text" placeholder="Tên đội bóng" required className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.teamName || ''} onChange={e => setFormData({...formData, teamName: e.target.value})} />
-                  <input type="text" placeholder="Trình độ (VD: Trung bình)" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.qualityLevel || ''} onChange={e => setFormData({...formData, qualityLevel: e.target.value})} />
+                  <input type="number" placeholder="Điểm ranking (Mặc định 0)" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.rankingScore || ''} onChange={e => setFormData({...formData, rankingScore: e.target.value})} />
+                  <input type="text" placeholder="Nơi hoạt động" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.homeArea || ''} onChange={e => setFormData({...formData, homeArea: e.target.value})} />
+                  <input type="date" placeholder="Năm thành lập" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.foundedDate ? new Date(formData.foundedDate).toISOString().split('T')[0] : ''} onChange={e => setFormData({...formData, foundedDate: e.target.value})} />
                   {!editData && <input type="number" placeholder="ID Đội trưởng (Mặc định: Bạn)" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.captainId || ''} onChange={e => setFormData({...formData, captainId: e.target.value})} />}
                 </>
               )}

@@ -240,6 +240,9 @@ namespace FInd_Op_Web.Migrations
                     b.Property<bool?>("AwayConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("AwayPlayerId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("AwayScore")
                         .HasColumnType("int");
 
@@ -272,12 +275,18 @@ namespace FInd_Op_Web.Migrations
                     b.Property<bool?>("HomeConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("HomePlayerId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("HomeScore")
                         .HasColumnType("int");
 
                     b.Property<int?>("HomeTeamId")
                         .HasColumnType("int")
                         .HasColumnName("HomeTeamID");
+
+                    b.Property<bool>("IsIndividualMatch")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Location")
                         .HasColumnType("nvarchar(max)");
@@ -331,9 +340,13 @@ namespace FInd_Op_Web.Migrations
                     b.HasKey("MatchId")
                         .HasName("PK__Matches__4218C8373268C8E4");
 
+                    b.HasIndex("AwayPlayerId");
+
                     b.HasIndex("AwayTeamId");
 
                     b.HasIndex("CancelRequestedBy");
+
+                    b.HasIndex("HomePlayerId");
 
                     b.HasIndex("HomeTeamId");
 
@@ -408,6 +421,9 @@ namespace FInd_Op_Web.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("IsInvite")
+                        .HasColumnType("bit");
+
                     b.Property<int>("MatchId")
                         .HasColumnType("int");
 
@@ -415,7 +431,10 @@ namespace FInd_Op_Web.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<int>("RequestingTeamId")
+                    b.Property<int?>("RequestingPlayerId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RequestingTeamId")
                         .HasColumnType("int");
 
                     b.Property<string>("Status")
@@ -426,6 +445,8 @@ namespace FInd_Op_Web.Migrations
                     b.HasKey("RequestId");
 
                     b.HasIndex("MatchId");
+
+                    b.HasIndex("RequestingPlayerId");
 
                     b.HasIndex("RequestingTeamId");
 
@@ -671,6 +692,9 @@ namespace FInd_Op_Web.Migrations
                     b.Property<string>("Comment")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("MatchId")
+                        .HasColumnType("int");
+
                     b.Property<int>("Month")
                         .HasColumnType("int");
 
@@ -683,13 +707,15 @@ namespace FInd_Op_Web.Migrations
                     b.Property<int>("Score")
                         .HasColumnType("int");
 
-                    b.Property<int>("TeamId")
+                    b.Property<int?>("TeamId")
                         .HasColumnType("int");
 
                     b.Property<int>("Year")
                         .HasColumnType("int");
 
                     b.HasKey("RatingId");
+
+                    b.HasIndex("MatchId");
 
                     b.HasIndex("PlayerId");
 
@@ -1588,6 +1614,12 @@ namespace FInd_Op_Web.Migrations
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("FairplayScore")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FairplayWarnings")
+                        .HasColumnType("int");
+
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -1627,6 +1659,9 @@ namespace FInd_Op_Web.Migrations
 
                     b.Property<string>("PublicKey")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("RankingScore")
+                        .HasColumnType("int");
 
                     b.Property<int?>("Tokens")
                         .HasColumnType("int");
@@ -1795,6 +1830,11 @@ namespace FInd_Op_Web.Migrations
 
             modelBuilder.Entity("FInd_Op_Web.Models.Match", b =>
                 {
+                    b.HasOne("FInd_Op_Web.Models.User", "AwayPlayer")
+                        .WithMany()
+                        .HasForeignKey("AwayPlayerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("FInd_Op_Web.Models.Team", "AwayTeam")
                         .WithMany("MatchAwayTeams")
                         .HasForeignKey("AwayTeamId")
@@ -1804,6 +1844,11 @@ namespace FInd_Op_Web.Migrations
                         .WithMany("MatchCancelRequestedByNavigations")
                         .HasForeignKey("CancelRequestedBy")
                         .HasConstraintName("FK__Matches__CancelR__656C112C");
+
+                    b.HasOne("FInd_Op_Web.Models.User", "HomePlayer")
+                        .WithMany()
+                        .HasForeignKey("HomePlayerId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("FInd_Op_Web.Models.Team", "HomeTeam")
                         .WithMany("MatchHomeTeams")
@@ -1824,9 +1869,13 @@ namespace FInd_Op_Web.Migrations
                         .HasForeignKey("TournamentId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.Navigation("AwayPlayer");
+
                     b.Navigation("AwayTeam");
 
                     b.Navigation("CancelRequestedByNavigation");
+
+                    b.Navigation("HomePlayer");
 
                     b.Navigation("HomeTeam");
 
@@ -1881,13 +1930,17 @@ namespace FInd_Op_Web.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("FInd_Op_Web.Models.User", "RequestingPlayer")
+                        .WithMany()
+                        .HasForeignKey("RequestingPlayerId");
+
                     b.HasOne("FInd_Op_Web.Models.Team", "RequestingTeam")
                         .WithMany()
-                        .HasForeignKey("RequestingTeamId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("RequestingTeamId");
 
                     b.Navigation("Match");
+
+                    b.Navigation("RequestingPlayer");
 
                     b.Navigation("RequestingTeam");
                 });
@@ -1955,6 +2008,10 @@ namespace FInd_Op_Web.Migrations
 
             modelBuilder.Entity("FInd_Op_Web.Models.PlayerRating", b =>
                 {
+                    b.HasOne("FInd_Op_Web.Models.Match", "Match")
+                        .WithMany()
+                        .HasForeignKey("MatchId");
+
                     b.HasOne("FInd_Op_Web.Models.User", "Player")
                         .WithMany()
                         .HasForeignKey("PlayerId")
@@ -1970,8 +2027,9 @@ namespace FInd_Op_Web.Migrations
                     b.HasOne("FInd_Op_Web.Models.Team", "Team")
                         .WithMany()
                         .HasForeignKey("TeamId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Match");
 
                     b.Navigation("Player");
 

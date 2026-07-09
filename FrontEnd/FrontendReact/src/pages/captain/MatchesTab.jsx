@@ -6,7 +6,7 @@ import { directMessageService } from '../../services/directMessageService';
 import playerService from '../../services/playerService';
 import { publicService } from '../../services/publicService';
 import Swal from 'sweetalert2';
-import { FiCalendar, FiClock, FiMapPin, FiStar, FiCheck, FiX, FiPlus, FiMessageSquare, FiInfo, FiUsers, FiMessageCircle, FiCheckSquare } from 'react-icons/fi';
+import { FiCalendar, FiClock, FiMapPin, FiStar, FiCheck, FiX, FiPlus, FiMessageSquare, FiInfo, FiUsers, FiMessageCircle, FiCheckSquare, FiCheckCircle } from 'react-icons/fi';
 import MatchChatModal from './MatchChatModal';
 
 export default function MatchesTab({ setActiveTab: setDashboardTab }) {
@@ -14,6 +14,7 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
   const [activeTab, setActiveTab] = useState('matches');
   const [matches, setMatches] = useState([]);
   const [requests, setRequests] = useState([]);
+  const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -112,8 +113,12 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
         const data = await captainService.getMatches();
         setMatches(data || []);
       } else if (activeTab === 'requests') {
-        const data = await captainService.getMatchRequests();
-        setRequests(data || []);
+        const [reqData, inviteData] = await Promise.all([
+          captainService.getMatchRequests(),
+          captainService.getReceivedInvites()
+        ]);
+        setRequests(reqData || []);
+        setInvites(inviteData || []);
       }
     } catch (err) {
       console.error(err);
@@ -340,13 +345,25 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
       {error && <div className="p-8 text-center text-red-500 bg-red-50 dark:bg-red-900/20 rounded-xl">{error}</div>}
 
       {!loading && !error && activeTab === 'matches' && (
-        matches.length === 0 ? (
-          <div className="tour-step-match-item bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700 shadow-sm">
-            <FiCalendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <p className="text-slate-500 dark:text-slate-400">Đội của bạn hiện chưa có trận đấu nào.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-4">
+          <button 
+            onClick={() => {
+              navigate('/captain/matches/create');
+              if (runTour && stepIndex === 1) {
+                setTimeout(() => setStepIndex(2), 300);
+              }
+            }}
+            className="tour-step-create-challenge flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5"
+          >
+            <FiPlus /> Tạo kèo giao hữu mới
+          </button>
+          {matches.length === 0 ? (
+            <div className="tour-step-match-item bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700 shadow-sm">
+              <FiCalendar className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+              <p className="text-slate-500 dark:text-slate-400">Đội của bạn hiện chưa có trận đấu nào.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {matches.map((match, idx) => (
               <div key={match.matchId || match.id} className={`bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-shadow ${idx === 0 ? 'tour-step-match-item' : ''}`}>
                 <div className="flex justify-between items-start mb-4">
@@ -507,70 +524,121 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
               </div>
             ))}
           </div>
-        )
+          )}
+        </div>
       )}
 
       {!loading && !error && activeTab === 'requests' && (
         <div className="space-y-4">
-          <button 
-            onClick={() => {
-              navigate('/captain/matches/create');
-              if (runTour && stepIndex === 1) {
-                setTimeout(() => setStepIndex(2), 300);
-              }
-            }}
-            className="tour-step-create-challenge flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-5 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5"
-          >
-            <FiPlus /> Tạo kèo giao hữu mới
-          </button>
-          {requests.length === 0 ? (
+          {requests.length === 0 && invites.length === 0 ? (
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center border border-slate-200 dark:border-slate-700 shadow-sm">
               <p className="text-slate-500 dark:text-slate-400">Hiện tại không có kèo giao hữu nào đang chờ.</p>
             </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {requests.map((req) => (
-              <div key={req.requestId} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    {req.team.logoUrl ? (
-                      <img src={req.team.logoUrl} alt="Logo" className="w-12 h-12 rounded-full border border-slate-200" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500">
-                        {req.team.teamName.charAt(0)}
+          ) : (
+            <div className="space-y-8">
+              {requests.length > 0 && (
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <FiUsers className="text-indigo-500" />
+                    Có {requests.length} đội xin đá giao hữu với bạn:
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {requests.map((req) => (
+                      <div key={req.requestId} className="bg-white dark:bg-slate-800 p-5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col hover:shadow-md transition-shadow">
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            {req.team?.logoUrl ? (
+                              <img src={req.team.logoUrl} alt="Logo" className="w-12 h-12 rounded-full border border-slate-200" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500">
+                                {req.team?.teamName?.charAt(0) || '?'}
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-bold text-lg text-slate-800 dark:text-white">{req.team?.teamName || 'Đội khách'}</p>
+                              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1"><FiCalendar className="inline" /> {req.matchDate ? new Date(req.matchDate).toLocaleDateString('vi-VN') : 'Chưa có ngày'}</p>
+                            </div>
+                          </div>
+                        </div>
+                        {req.message && (
+                          <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg text-sm text-slate-600 dark:text-slate-400 italic border border-slate-100 dark:border-slate-800">
+                            "{req.message}"
+                          </div>
+                        )}
+                        <div className="mt-4 flex flex-wrap gap-2 w-full">
+                          <button onClick={() => setSelectedRequestInfo(req.team)} className="flex-1 flex items-center justify-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg font-semibold transition-colors text-sm">
+                            <FiUsers /> Xem Info
+                          </button>
+                          <button onClick={() => handleMessageOpponent(req.team?.captainId, req.team?.teamName)} className="flex-1 flex items-center justify-center gap-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-2 rounded-lg font-semibold transition-colors text-sm">
+                            <FiMessageCircle /> Nhắn tin
+                          </button>
+                        </div>
+                        <div className="mt-2 flex gap-2 w-full">
+                          <button onClick={() => handleAcceptMatchRequest(req.requestId)} className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-md shadow-emerald-500/20 text-sm">
+                            <FiCheck /> Nhận kèo
+                          </button>
+                          <button onClick={() => handleRejectMatchRequest(req.requestId)} className="flex items-center justify-center gap-2 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 px-4 py-2 rounded-lg font-semibold transition-colors text-sm">
+                            <FiX /> Từ chối
+                          </button>
+                        </div>
                       </div>
-                    )}
-                    <div>
-                      <p className="font-bold text-lg text-slate-800 dark:text-white">{req.team.teamName}</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1"><FiCalendar className="inline" /> {new Date(req.matchDate).toLocaleDateString('vi-VN')}</p>
-                    </div>
+                    ))}
                   </div>
                 </div>
-                {req.message && (
-                  <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-900 rounded-lg text-sm text-slate-600 dark:text-slate-400 italic">
-                    "{req.message}"
+              )}
+
+              {invites.length > 0 && (
+                <div>
+                  <h3 className="font-bold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                    <FiStar className="text-amber-500" />
+                    Có {invites.length} lời mời đội bạn tham gia giao hữu:
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {invites.map((inv) => (
+                      <div key={inv.requestId} className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/30 dark:to-purple-950/30 p-5 rounded-xl border border-indigo-100 dark:border-indigo-900/50 shadow-sm flex flex-col hover:shadow-md transition-shadow relative overflow-hidden">
+                        <div className="absolute -right-6 -top-6 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                        
+                        <div className="flex justify-between items-start relative z-10">
+                          <div className="flex items-center gap-3">
+                            {inv.homeTeamAvatar ? (
+                              <img src={inv.homeTeamAvatar} alt="Logo" className="w-12 h-12 rounded-full border-2 border-indigo-200 dark:border-indigo-800 shadow-sm" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-indigo-200 dark:bg-indigo-800 flex items-center justify-center font-bold text-indigo-700 dark:text-indigo-300 shadow-sm">
+                                {inv.homeTeamName?.charAt(0) || '?'}
+                              </div>
+                            )}
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-bold text-lg text-indigo-900 dark:text-indigo-100">{inv.homeTeamName || 'Đội nhà'}</p>
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase tracking-wider">Lời mời</span>
+                              </div>
+                              <div className="text-sm text-indigo-600/80 dark:text-indigo-400/80 mt-1 flex flex-col gap-0.5">
+                                <span className="flex items-center gap-1"><FiCalendar className="inline" /> {inv.matchDate ? new Date(inv.matchDate).toLocaleDateString('vi-VN') : 'Chưa có ngày'} {inv.startTime ? `(${inv.startTime})` : ''}</span>
+                                <span className="flex items-center gap-1"><FiMapPin className="inline" /> {inv.location || 'Chưa cập nhật sân'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        {inv.message && (
+                          <div className="mt-4 p-3 bg-white/60 dark:bg-slate-900/60 rounded-lg text-sm text-indigo-800 dark:text-indigo-300 italic border border-white/40 dark:border-slate-700/40 relative z-10 shadow-inner">
+                            "{inv.message}"
+                          </div>
+                        )}
+                        <div className="mt-4 flex gap-2 w-full relative z-10">
+                          <button onClick={() => handleAcceptMatchRequest(inv.requestId)} className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-md shadow-indigo-500/30 text-sm hover:-translate-y-0.5">
+                            <FiCheckCircle /> Tham gia ngay
+                          </button>
+                          <button onClick={() => handleRejectMatchRequest(inv.requestId)} className="flex items-center justify-center gap-2 bg-white/80 dark:bg-slate-800/80 hover:bg-white dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 px-4 py-2.5 rounded-xl font-semibold transition-all border border-slate-200 dark:border-slate-700 text-sm">
+                            <FiX /> Từ chối
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-                <div className="mt-4 flex flex-wrap gap-2 w-full">
-                  <button onClick={() => setSelectedRequestInfo(req.team)} className="flex-1 flex items-center justify-center gap-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-lg font-semibold transition-colors text-sm">
-                    <FiUsers /> Xem Info
-                  </button>
-                  <button onClick={() => handleMessageOpponent(req.team.captainId, req.team.teamName)} className="flex-1 flex items-center justify-center gap-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-3 py-2 rounded-lg font-semibold transition-colors text-sm">
-                    <FiMessageCircle /> Nhắn tin
-                  </button>
                 </div>
-                <div className="mt-2 flex gap-2 w-full">
-                  <button onClick={() => handleAcceptMatchRequest(req.requestId)} className="flex-1 flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-semibold transition-colors shadow-md shadow-emerald-500/20 text-sm">
-                    <FiCheck /> Nhận kèo
-                  </button>
-                  <button onClick={() => handleRejectMatchRequest(req.requestId)} className="flex items-center justify-center gap-2 bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 hover:bg-rose-200 dark:hover:bg-rose-900/50 px-4 py-2 rounded-lg font-semibold transition-colors text-sm">
-                    <FiX /> Từ chối
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+              )}
+            </div>
+          )}
         </div>
       )}
 

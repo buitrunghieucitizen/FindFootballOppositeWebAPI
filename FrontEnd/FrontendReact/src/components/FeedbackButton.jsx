@@ -10,6 +10,9 @@ export default function FeedbackButton() {
   const [submitted, setSubmitted] = useState(false);
   const { user } = useAuth();
 
+  const isAdmin = Array.isArray(user?.role) ? user.role.includes('Admin') : user?.role === 'Admin';
+  if (isAdmin) return null;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!message.trim()) return;
