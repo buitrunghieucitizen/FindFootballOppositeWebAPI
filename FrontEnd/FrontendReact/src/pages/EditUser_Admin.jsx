@@ -8,7 +8,7 @@ function EditUserAdmin() {
     <CrudPage
       title={`Sửa người dùng #${user.id}`}
       subtitle="Mẫu cập nhật tài khoản đã được chuyển sang JSX sạch."
-      secondaryTo="/admin/users"
+      secondaryTo="/admin-dashboard"
       primaryLabel="Lưu thay đổi"
       fields={[
         { label: 'Họ và tên', defaultValue: user.fullName },

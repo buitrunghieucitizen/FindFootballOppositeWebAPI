@@ -75,7 +75,7 @@ public sealed class PitchCardViewModel
     public int PitchId { get; init; }
     public string PitchName { get; init; } = string.Empty;
     public int PitchSize { get; init; }
-    public decimal PricePerHour { get; init; }
+    public decimal PricePerSlot { get; init; }
     public string AvailabilityLabel { get; init; } = string.Empty;
 }
 

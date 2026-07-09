@@ -10,7 +10,7 @@ import { stadiums } from '../data/portalMockData';
 function StadiumsAdmin() {
   return (
     <AdminLayout
-      title="Quản lý sân bóng"
+      title="Quản lý sân thể thao"
       subtitle="Mỗi cụm sân được render thành card quản trị rõ ràng, thay thế table Razor lẫn link `Url.Action` cũ."
       actions={
         <>

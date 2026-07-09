@@ -5,7 +5,7 @@ function CreateStadiumAdmin() {
     <CrudPage
       title="Thêm cụm sân"
       subtitle="Mẫu tạo sân mới theo cấu trúc frontend React."
-      secondaryTo="/admin/stadiums"
+      secondaryTo="/admin-dashboard"
       fields={[
         { label: 'Tên cụm sân', placeholder: 'Sân Đông Dương' },
         { label: 'Chủ sân', placeholder: 'Nguyễn Hải Nam' },

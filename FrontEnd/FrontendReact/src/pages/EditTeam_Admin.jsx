@@ -6,10 +6,10 @@ function EditTeamAdmin() {
 
   return (
     <CrudPage
-      title={`Sửa đội bóng #${team.id}`}
+      title={`Sửa đội thể thao #${team.id}`}
       subtitle="Mẫu chỉnh sửa đội đã được chuyển sang React hoàn chỉnh."
-      secondaryTo="/admin/teams"
-      primaryLabel="Lưu đội bóng"
+      secondaryTo="/admin-dashboard"
+      primaryLabel="Lưu đội thể thao"
       fields={[
         { label: 'Tên đội', defaultValue: team.name },
         { label: 'Captain phụ trách', defaultValue: team.captain },

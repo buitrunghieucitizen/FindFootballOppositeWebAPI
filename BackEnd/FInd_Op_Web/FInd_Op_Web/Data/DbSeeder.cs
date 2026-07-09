@@ -7,6 +7,32 @@ namespace FInd_Op_Web.Data
     {
         public static void Seed(ApplicationDbContext context)
         {
+            // Add Sports if not exist
+            var defaultSports = new[] {
+                new Sport { SportName = "Bóng đá", Icon = "⚽", ScoringFormat = "Goals" },
+                new Sport { SportName = "Bóng rổ", Icon = "🏀", ScoringFormat = "Goals" },
+                new Sport { SportName = "Cầu lông", Icon = "🏸", ScoringFormat = "Sets" },
+                new Sport { SportName = "Bóng bàn", Icon = "🏓", ScoringFormat = "Sets" },
+                new Sport { SportName = "Pickleball", Icon = "🏓", ScoringFormat = "Sets" },
+                new Sport { SportName = "Tennis", Icon = "🎾", ScoringFormat = "Sets" },
+                new Sport { SportName = "Khác", Icon = "🏆", ScoringFormat = "Goals" }
+            };
+
+            foreach (var sport in defaultSports)
+            {
+                var existing = context.Sports.FirstOrDefault(s => s.SportName == sport.SportName);
+                if (existing == null)
+                {
+                    context.Sports.Add(sport);
+                }
+                else
+                {
+                    existing.ScoringFormat = sport.ScoringFormat;
+                    existing.Icon = sport.Icon;
+                }
+            }
+            context.SaveChanges();
+
             // Add roles if not exist
             string[] roles = { "Admin", "StadiumOwner", "Captain", "Player" };
             foreach (var role in roles)

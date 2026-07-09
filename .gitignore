@@ -9,3 +9,8 @@ build/
 
 # env
 .env
+
+# Secrets
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json

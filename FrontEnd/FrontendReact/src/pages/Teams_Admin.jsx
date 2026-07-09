@@ -5,7 +5,7 @@ import { teams } from '../data/portalMockData';
 function TeamsAdmin() {
   return (
     <AdminLayout
-      title="Quản lý đội bóng"
+      title="Quản lý đội thể thao"
       subtitle="Thay cho bảng Razor cũ bằng card React tập trung vào captain, khu vực và trạng thái tìm đối."
       actions={
         <>

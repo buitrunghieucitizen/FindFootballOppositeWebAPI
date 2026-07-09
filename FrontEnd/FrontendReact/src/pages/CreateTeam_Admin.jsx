@@ -3,9 +3,9 @@ import { CrudPage } from '../components/portal-ui';
 function CreateTeamAdmin() {
   return (
     <CrudPage
-      title="Thêm đội bóng"
-      subtitle="Khung form mới cho module đội bóng sau khi bỏ Razor syntax."
-      secondaryTo="/admin/teams"
+      title="Thêm đội thể thao"
+      subtitle="Khung form mới cho module đội thể thao sau khi bỏ Razor syntax."
+      secondaryTo="/admin-dashboard"
       fields={[
         { label: 'Tên đội', placeholder: 'FC Sunset' },
         { label: 'Captain phụ trách', placeholder: 'Nguyễn Văn B' },
