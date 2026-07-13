@@ -146,9 +146,23 @@ export default function BookingManagementTab() {
  booking.status === 'Confirmed' ? 'text-green-600 dark:text-green-400' : 'text-slate-500 dark:text-slate-400'
  }`}>{(booking.status === 'Pending' || booking.status === 'Booked') ? 'Chờ duyệt' : booking.status === 'Confirmed' ? 'Đã duyệt' : booking.status}</span>
                             
-                            {(booking.status === 'Pending' || booking.status === 'Booked') && (
+                            {booking.status === 'PendingPayment' && (
+                              <div className="mt-2 text-xs text-slate-600 dark:text-slate-300 bg-emerald-50 dark:bg-emerald-900/20 p-2 rounded border border-emerald-100 dark:border-emerald-800/30">
+                                <strong>Khách cọc 30%</strong>
+                                {booking.senderBankAccountNumber && (
+                                  <div className="mt-1">
+                                    <p>STK: <span className="font-medium text-emerald-700 dark:text-emerald-400">{booking.senderBankAccountNumber}</span></p>
+                                    <p>Tên: <span className="font-medium text-emerald-700 dark:text-emerald-400">{booking.senderBankAccountName}</span></p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                            
+                            {(booking.status === 'Pending' || booking.status === 'Booked' || booking.status === 'PendingPayment') && (
                               <div className="flex gap-1 mt-2 pt-2 border-t border-slate-200 dark:border-slate-600">
-                                <button onClick={() => handleConfirm(booking.id)} className="flex-1 bg-green-500 text-white text-xs py-1 rounded hover:bg-green-600 flex justify-center"><FiCheck /></button>
+                                <button onClick={() => handleConfirm(booking.id)} className="flex-1 bg-green-500 text-white text-xs py-1 rounded hover:bg-green-600 flex justify-center">
+                                  {booking.status === 'PendingPayment' ? 'Đã nhận cọc' : <FiCheck />}
+                                </button>
                                 <button onClick={() => handleReject(booking.id)} className="flex-1 bg-red-500 text-white text-xs py-1 rounded hover:bg-red-600 flex justify-center"><FiX /></button>
                               </div>
                             )}
@@ -176,11 +190,13 @@ export default function BookingManagementTab() {
                     <h3 className="text-lg font-semibold text-slate-800 dark:text-white">{booking.pitchName || 'Tên sân'}</h3>
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
  (booking.status === 'Pending' || booking.status === 'Booked') ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+ booking.status === 'PendingPayment' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' :
  booking.status === 'Confirmed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
  booking.status === 'Rejected' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
  'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
  }`}>
                       {(booking.status === 'Pending' || booking.status === 'Booked') ? 'Chờ duyệt' :
+                       booking.status === 'PendingPayment' ? 'Chờ nhận cọc' :
                        booking.status === 'Confirmed' ? 'Đã duyệt' :
                        booking.status === 'Rejected' ? 'Từ chối' : booking.status}
                     </span>
@@ -192,19 +208,36 @@ export default function BookingManagementTab() {
                     <p className="flex items-center gap-2"><FiClock className="text-slate-400" /> Giờ: <span className="font-medium text-blue-600 dark:text-blue-400">{booking.startTime} - {booking.endTime}</span></p>
                     <p className="flex items-center gap-2">Người đặt: <span className="font-medium text-blue-600 dark:text-blue-400">{booking.userName || 'Ẩn danh'}</span></p>
                   </div>
+                  {booking.status === 'PendingPayment' && (
+                    <div className="mt-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-100 dark:border-orange-800/30 rounded-lg p-3">
+                      <p className="text-sm font-semibold text-orange-700 dark:text-orange-400 mb-1 flex items-center gap-2">
+                        <FiClock /> Khách đang đặt cọc 30%
+                      </p>
+                      {booking.senderBankAccountNumber ? (
+                        <div className="text-sm text-slate-600 dark:text-slate-300">
+                          <p>STK gửi: <strong className="text-slate-800 dark:text-white">{booking.senderBankAccountNumber}</strong></p>
+                          <p>Người gửi: <strong className="text-slate-800 dark:text-white">{booking.senderBankAccountName}</strong></p>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500">Khách chưa điền thông tin chuyển khoản.</p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
-                {(booking.status === 'Pending' || booking.status === 'Booked') && (
+                {(booking.status === 'Pending' || booking.status === 'Booked' || booking.status === 'PendingPayment') && (
                   <div className="flex gap-2 shrink-0 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-700/50 pt-4 md:pt-0 md:pl-4 mt-2 md:mt-0">
                     <button
                       onClick={() => handleConfirm(booking.id)}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm shadow-green-500/20"
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
                     >
-                      <FiCheck /> Duyệt
+                      {booking.status === 'PendingPayment' ? 'Đã nhận cọc' : (
+                        <><FiCheck /> Duyệt</>
+                      )}
                     </button>
                     <button
                       onClick={() => handleReject(booking.id)}
-                      className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm font-medium shadow-sm shadow-red-500/20"
+                      className="px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white text-sm font-medium rounded-lg flex items-center gap-2 transition-colors"
                     >
                       <FiX /> Từ chối
                     </button>

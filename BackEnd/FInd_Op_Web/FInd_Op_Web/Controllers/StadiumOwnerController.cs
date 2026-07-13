@@ -106,11 +106,45 @@ namespace FInd_Op_Web.Controllers
                     s.Hotline,
                     s.Description,
                     s.CreatedAt,
+                    s.QrCodeUrl,
+                    s.BankAccountNumber,
+                    s.BankName,
+                    s.BankAccountName,
                     Pitches = s.Pitches.Select(p => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot, p.GrassType })
                 })
                 .ToListAsync();
 
             return Ok(stadiums);
+        }
+
+        [HttpPut("Stadiums/{id}/PaymentInfo")]
+        public async Task<IActionResult> UpdateStadiumPaymentInfo(int id, [FromForm] OwnerUpdateStadiumPaymentDto dto)
+        {
+            var userId = GetUserId();
+            var stadium = await _context.Stadiums.FirstOrDefaultAsync(s => s.StadiumId == id && s.OwnerId == userId);
+            
+            if (stadium == null) return NotFound(new { message = "Không tìm thấy sân bóng hoặc bạn không có quyền sửa." });
+
+            if (dto.BankAccountNumber != null) stadium.BankAccountNumber = dto.BankAccountNumber;
+            if (dto.BankName != null) stadium.BankName = dto.BankName;
+            if (dto.BankAccountName != null) stadium.BankAccountName = dto.BankAccountName;
+
+            if (dto.QrCodeImage != null && dto.QrCodeImage.Length > 0)
+            {
+                if (_cloudinary == null) return StatusCode(500, "Cloudinary is not configured");
+                using var stream = dto.QrCodeImage.OpenReadStream();
+                var uploadParams = new CloudinaryDotNet.Actions.ImageUploadParams()
+                {
+                    File = new CloudinaryDotNet.FileDescription(dto.QrCodeImage.FileName, stream),
+                    Folder = "stadiums_qr"
+                };
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                if (uploadResult.Error != null) return BadRequest(new { message = uploadResult.Error.Message });
+                stadium.QrCodeUrl = uploadResult.SecureUrl.ToString();
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "Cập nhật thông tin thanh toán thành công.", QrCodeUrl = stadium.QrCodeUrl });
         }
 
         // 2. POST api/StadiumOwner/Stadiums
@@ -241,7 +275,9 @@ namespace FInd_Op_Web.Controllers
                 startTime = ps.StartTime.ToString("HH:mm"),
                 endTime = ps.EndTime.ToString("HH:mm"),
                 status = ps.ScheduleStatus,
-                userName = ps.BookedBy != null ? (ps.BookedBy.FullName ?? ps.BookedBy.Username) : "Ẩn danh"
+                userName = ps.BookedBy != null ? (ps.BookedBy.FullName ?? ps.BookedBy.Username) : "Ẩn danh",
+                senderBankAccountNumber = ps.SenderBankAccountNumber,
+                senderBankAccountName = ps.SenderBankAccountName
             });
 
             return Ok(result);

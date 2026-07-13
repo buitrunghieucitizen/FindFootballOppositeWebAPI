@@ -59,7 +59,10 @@ export default function MyStadiumsTab() {
 
   // Forms states
   const [showStadiumForm, setShowStadiumForm] = useState(false);
-  const [showPitchForm, setShowPitchForm] = useState(null); // stadium ID
+  const [showPitchForm, setShowPitchForm] = useState(null); // ID of stadium
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedStadiumForPayment, setSelectedStadiumForPayment] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ bankAccountNumber: '', bankName: '', bankAccountName: '', qrCodeImage: null });
   const [showRecurringForm, setShowRecurringForm] = useState(null); // pitch ID
   const [sports, setSports] = useState([]);
 
@@ -149,6 +152,28 @@ export default function MyStadiumsTab() {
         }
         alert('Lỗi: ' + errorMsg);
       }
+    }
+  };
+
+  const handleUpdatePayment = async (e) => {
+    e.preventDefault();
+    if (!selectedStadiumForPayment) return;
+    try {
+      const formData = new FormData();
+      formData.append('BankAccountNumber', paymentForm.bankAccountNumber || '');
+      formData.append('BankName', paymentForm.bankName || '');
+      formData.append('BankAccountName', paymentForm.bankAccountName || '');
+      if (paymentForm.qrCodeImage) {
+          formData.append('QrCodeImage', paymentForm.qrCodeImage);
+      }
+      await stadiumOwnerService.updateStadiumPaymentInfo(selectedStadiumForPayment.stadiumId, formData);
+      alert('Cập nhật thông tin thanh toán thành công!');
+      setShowPaymentModal(false);
+      setPaymentForm({ bankAccountNumber: '', bankName: '', bankAccountName: '', qrCodeImage: null });
+      fetchStadiums();
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi cập nhật thông tin thanh toán.');
     }
   };
 
@@ -379,12 +404,29 @@ export default function MyStadiumsTab() {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowPitchForm(showPitchForm === stadium.stadiumId ? null : stadium.stadiumId)}
-                  className="text-sm px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
-                >
-                  + Thêm sân nhỏ
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                        setSelectedStadiumForPayment(stadium);
+                        setPaymentForm({
+                            bankAccountNumber: stadium.bankAccountNumber || '',
+                            bankName: stadium.bankName || '',
+                            bankAccountName: stadium.bankAccountName || '',
+                            qrCodeImage: null
+                        });
+                        setShowPaymentModal(true);
+                    }}
+                    className="text-sm px-3 py-1.5 bg-green-50 dark:bg-green-900/20 text-green-600 rounded-lg hover:bg-green-100 transition-colors"
+                  >
+                    Cài đặt thanh toán
+                  </button>
+                  <button
+                    onClick={() => setShowPitchForm(showPitchForm === stadium.stadiumId ? null : stadium.stadiumId)}
+                    className="text-sm px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors"
+                  >
+                    + Thêm sân nhỏ
+                  </button>
+                </div>
               </div>
 
               {showPitchForm === stadium.stadiumId && (
@@ -402,18 +444,20 @@ export default function MyStadiumsTab() {
                         placeholder="VD: Sân"
                       />
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-700 dark:text-slate-200 mb-1">Loại sân</label>
-                      <select
-                        value={newPitch.type}
-                        onChange={(e) => setNewPitch({ ...newPitch, type: e.target.value })}
-                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
-                      >
-                        <option value="5">Sân 5 người</option>
-                        <option value="7">Sân 7 người</option>
-                        <option value="11">Sân 11 người</option>
-                      </select>
-                    </div>
+                    {sports.find(s => s.sportId === newPitch.sportId)?.sportName === 'Bóng đá' && (
+                      <div>
+                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-200 mb-1">Loại sân</label>
+                        <select
+                          value={newPitch.type}
+                          onChange={(e) => setNewPitch({ ...newPitch, type: e.target.value })}
+                          className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-600 rounded-lg text-sm"
+                        >
+                          <option value="5">Sân 5 người</option>
+                          <option value="7">Sân 7 người</option>
+                          <option value="11">Sân 11 người</option>
+                        </select>
+                      </div>
+                    )}
                     <div>
                       <label className="block text-xs font-medium text-slate-700 dark:text-slate-200 mb-1">Môn thể thao</label>
                       <select
@@ -531,6 +575,52 @@ export default function MyStadiumsTab() {
           ))}
         </div>
       )}
+    {showPaymentModal && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+          <h3 className="text-xl font-bold mb-4 text-slate-800 dark:text-white">Cài đặt Thanh toán</h3>
+          <p className="text-sm text-slate-500 mb-6">Cập nhật mã QR và thông tin tài khoản để người chơi chuyển khoản khi đặt sân.</p>
+          <form onSubmit={handleUpdatePayment} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Ảnh QR Code</label>
+              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-300 dark:border-slate-600 border-dashed rounded-lg hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors">
+                <div className="space-y-1 text-center">
+                  {paymentForm.qrCodeImage ? (
+                    <div className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">Đã chọn ảnh mới</div>
+                  ) : selectedStadiumForPayment?.qrCodeUrl ? (
+                    <img src={selectedStadiumForPayment.qrCodeUrl} alt="QR Code" className="mx-auto h-32 w-auto object-contain rounded" />
+                  ) : (
+                    <div className="text-slate-400 mb-2">Chưa có mã QR</div>
+                  )}
+                  <div className="flex text-sm text-slate-600 dark:text-slate-400 justify-center">
+                    <label className="relative cursor-pointer bg-white dark:bg-slate-700 rounded-md font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 focus-within:outline-none px-2 py-1">
+                      <span>Tải ảnh lên</span>
+                      <input type="file" className="sr-only" accept="image/*" onChange={(e) => setPaymentForm({...paymentForm, qrCodeImage: e.target.files[0]})} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tên Ngân hàng</label>
+              <input type="text" value={paymentForm.bankName} onChange={e => setPaymentForm({...paymentForm, bankName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white" placeholder="VD: MBBank, Vietcombank..." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Số Tài Khoản</label>
+              <input type="text" value={paymentForm.bankAccountNumber} onChange={e => setPaymentForm({...paymentForm, bankAccountNumber: e.target.value})} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white" placeholder="VD: 1903..." />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tên Chủ Tài Khoản</label>
+              <input type="text" value={paymentForm.bankAccountName} onChange={e => setPaymentForm({...paymentForm, bankAccountName: e.target.value})} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg dark:bg-slate-700 dark:text-white" placeholder="VD: NGUYEN VAN A" />
+            </div>
+            <div className="flex gap-3 justify-end mt-6">
+              <button type="button" onClick={() => setShowPaymentModal(false)} className="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 rounded-lg">Hủy</button>
+              <button type="submit" className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg">Cập nhật</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

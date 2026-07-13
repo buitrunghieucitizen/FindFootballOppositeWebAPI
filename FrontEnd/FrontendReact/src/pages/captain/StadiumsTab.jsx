@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { captainService } from '../../services/captainService';
 import playerService from '../../services/playerService';
-import { FiMapPin, FiStar, FiPhone, FiClock } from 'react-icons/fi';
+import { FiMapPin, FiStar, FiPhone, FiClock, FiCalendar } from 'react-icons/fi';
 import PitchCalendar from '../../components/PitchCalendar';
 
 export default function StadiumsTab() {
@@ -20,6 +20,8 @@ export default function StadiumsTab() {
   const [bookingData, setBookingData] = useState({ date: '', startTime: '', endTime: '', dayOfWeek: 0, fromDate: '', toDate: '' });
   const [paymentOption, setPaymentOption] = useState('pay_later');
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [senderBankAccountNumber, setSenderBankAccountNumber] = useState('');
+  const [senderBankAccountName, setSenderBankAccountName] = useState('');
 
   useEffect(() => {
     fetchStadiums();
@@ -67,7 +69,10 @@ export default function StadiumsTab() {
           StartTime: startDateTime,
           EndTime: endDateTime,
           MatchId: bookingMatchId ? parseInt(bookingMatchId) : null,
-          BookingType: paymentOption
+          MatchId: bookingMatchId ? parseInt(bookingMatchId) : null,
+          BookingType: paymentOption,
+          SenderBankAccountNumber: paymentOption === 'deposit_30' ? senderBankAccountNumber : null,
+          SenderBankAccountName: paymentOption === 'deposit_30' ? senderBankAccountName : null
         });
 
         localStorage.removeItem('bookingMatchId');
@@ -79,7 +84,12 @@ export default function StadiumsTab() {
           StartTime: `${bookingData.startTime}:00`,
           EndTime: `${bookingData.endTime}:00`,
           FromDate: bookingData.fromDate,
-          ToDate: bookingData.toDate
+          EndTime: `${bookingData.endTime}:00`,
+          FromDate: bookingData.fromDate,
+          ToDate: bookingData.toDate,
+          BookingType: paymentOption,
+          SenderBankAccountNumber: paymentOption === 'deposit_30' ? senderBankAccountNumber : null,
+          SenderBankAccountName: paymentOption === 'deposit_30' ? senderBankAccountName : null
         });
         alert('Đã gửi yêu cầu đặt lịch cố định. Vui lòng chờ chủ sân xác nhận.');
       }
@@ -395,15 +405,43 @@ export default function StadiumsTab() {
                                   <span>Cọc 30% qua chuyển khoản</span>
                                 </label>
                                 {paymentOption === 'deposit_30' && (
-                                  <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg flex flex-col items-center">
-                                    <p className="text-xs text-slate-500 mb-2">Vui lòng quét mã QR dưới đây để chuyển tiền cọc cho chủ sân.</p>
-                                    {selectedStadium?.qrCodeUrl ? (
-                                      <img src={selectedStadium.qrCodeUrl} alt="QR Code" className="w-40 h-40 object-cover rounded border border-slate-200 shadow-sm" />
-                                    ) : (
-                                      <div className="w-40 h-40 bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs text-slate-500 rounded text-center p-4">
-                                        Chủ sân chưa cập nhật QR Code.
+                                  <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg flex flex-col gap-4">
+                                    <div className="flex flex-col items-center">
+                                      <p className="text-xs text-slate-500 mb-2">Vui lòng quét mã QR dưới đây để chuyển tiền cọc cho chủ sân.</p>
+                                      <div className="text-emerald-600 font-bold mb-2">
+                                        Số tiền cần cọc: {pitch.pricePerHour ? (pitch.pricePerHour * 0.3).toLocaleString() : 0} VNĐ / ca
                                       </div>
-                                    )}
+                                      {selectedStadium?.qrCodeUrl ? (
+                                        <img src={selectedStadium.qrCodeUrl} alt="QR Code" className="w-40 h-40 object-cover rounded border border-slate-200 shadow-sm" />
+                                      ) : (
+                                        <div className="w-40 h-40 bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs text-slate-500 rounded text-center p-4">
+                                          Chủ sân chưa cập nhật QR Code.
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                                      <h6 className="font-semibold text-sm text-slate-800 dark:text-white">Xác nhận thông tin chuyển khoản của bạn:</h6>
+                                      <div>
+                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-200 mb-1">Số tài khoản người gửi <span className="text-red-500">*</span></label>
+                                        <input 
+                                          type="text" required={paymentOption === 'deposit_30'}
+                                          value={senderBankAccountNumber}
+                                          onChange={(e) => setSenderBankAccountNumber(e.target.value)}
+                                          placeholder="Nhập số tài khoản của bạn"
+                                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs font-medium text-slate-700 dark:text-slate-200 mb-1">Tên chủ tài khoản người gửi <span className="text-red-500">*</span></label>
+                                        <input 
+                                          type="text" required={paymentOption === 'deposit_30'}
+                                          value={senderBankAccountName}
+                                          onChange={(e) => setSenderBankAccountName(e.target.value)}
+                                          placeholder="Nhập tên chủ tài khoản"
+                                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                                        />
+                                      </div>
+                                    </div>
                                   </div>
                                 )}
                               </div>

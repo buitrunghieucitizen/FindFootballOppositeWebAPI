@@ -666,6 +666,12 @@ namespace FInd_Op_Web.Migrations
                         .HasColumnType("nvarchar(50)")
                         .HasDefaultValue("Confirmed");
 
+                    b.Property<string>("SenderBankAccountName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SenderBankAccountNumber")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("StartTime")
                         .HasColumnType("datetime");
 

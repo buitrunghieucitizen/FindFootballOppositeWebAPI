@@ -76,6 +76,16 @@ export const publicService = {
     const res = await apiClient.get(url);
     return res.data;
   },
+  getIndividualMatches: async (filters = {}) => {
+    let url = '/Public/IndividualMatches';
+    const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
+    if (filters.sportId) params.append('sportId', filters.sportId);
+    if (params.toString()) url += '?' + params.toString();
+    
+    const res = await apiClient.get(url);
+    return res.data;
+  },
   getTournaments: async (filters = {}) => {
     let url = '/Public/Tournaments';
     const params = new URLSearchParams();

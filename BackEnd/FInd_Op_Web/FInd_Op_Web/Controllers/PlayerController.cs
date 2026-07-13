@@ -176,6 +176,10 @@ namespace FInd_Op_Web.Controllers
                     s.Hotline,
                     s.Description,
                     s.OwnerId,
+                    s.QrCodeUrl,
+                    s.BankAccountNumber,
+                    s.BankName,
+                    s.BankAccountName,
                     Pitches = s.Pitches.Select(p => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot, p.GrassType })
                 })
                 .FirstOrDefaultAsync(s => s.StadiumId == id);
@@ -245,43 +249,61 @@ namespace FInd_Op_Web.Controllers
             using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
             try
             {
-                var overlapping = await _context.PitchSchedules
-                    .Where(ps => ps.PitchId == dto.PitchId 
-                              && ps.StartTime < dto.EndTime 
-                              && ps.EndTime > dto.StartTime
-                              && (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed" || (ps.LockedUntil != null && ps.LockedUntil > DateTime.Now)))
-                    .AnyAsync();
+                int weeks = dto.NumberOfWeeks ?? 1;
+                if (weeks < 1) weeks = 1;
+                if (weeks > 12) weeks = 12;
 
-                if (overlapping)
+                var newSchedules = new List<PitchSchedule>();
+
+                for (int i = 0; i < weeks; i++)
                 {
-                    return BadRequest(new { message = "Khung giờ này đã có người đặt hoặc đang trong quá trình thanh toán chờ." });
+                    DateTime weekStart = dto.StartTime.AddDays(i * 7);
+                    DateTime weekEnd = dto.EndTime.AddDays(i * 7);
+
+                    var overlapping = await _context.PitchSchedules
+                        .Where(ps => ps.PitchId == dto.PitchId 
+                                  && ps.StartTime < weekEnd 
+                                  && ps.EndTime > weekStart
+                                  && (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed" || (ps.LockedUntil != null && ps.LockedUntil > DateTime.Now)))
+                        .AnyAsync();
+
+                    if (overlapping)
+                    {
+                        return BadRequest(new { message = $"Khung giờ {weekStart:dd/MM/yyyy HH:mm} đã có người đặt hoặc đang trong quá trình thanh toán chờ." });
+                    }
+
+                    bool isPayLaterLoop = dto.BookingType == "pay_later";
+                    var ps = new PitchSchedule
+                    {
+                        PitchId = dto.PitchId,
+                        StartTime = weekStart,
+                        EndTime = weekEnd,
+                        ScheduleStatus = isPayLaterLoop ? "Booked" : "PendingPayment",
+                        LockedUntil = isPayLaterLoop ? null : DateTime.Now.AddMinutes(10),
+                        BookedById = userId,
+                        SenderBankAccountNumber = dto.SenderBankAccountNumber,
+                        SenderBankAccountName = dto.SenderBankAccountName
+                    };
+                    newSchedules.Add(ps);
+                    _context.PitchSchedules.Add(ps);
                 }
 
-                bool isPayLater = dto.BookingType == "pay_later";
-                var pitchSchedule = new PitchSchedule
-                {
-                    PitchId = dto.PitchId,
-                    StartTime = dto.StartTime,
-                    EndTime = dto.EndTime,
-                    ScheduleStatus = isPayLater ? "Booked" : "PendingPayment",
-                    LockedUntil = isPayLater ? null : DateTime.Now.AddMinutes(10),
-                    BookedById = userId
-                };
-
-                _context.PitchSchedules.Add(pitchSchedule);
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
                 // Gửi thông báo cho Chủ sân
                 var pitch = await _context.Pitches.Include(p => p.Stadium).FirstOrDefaultAsync(p => p.PitchId == dto.PitchId);
-                if (pitch != null && pitch.Stadium != null && isPayLater)
+                bool isPayLater = dto.BookingType == "pay_later";
+                if (pitch != null && pitch.Stadium != null)
                 {
                     int ownerId = pitch.Stadium.OwnerId ?? 0;
                     var notif = new Notification
                     {
                         UserId = ownerId,
-                        Title = "Có đội đặt sân mới",
-                        Message = $"Sân {pitch.PitchName} ({pitch.Stadium.StadiumName}) vừa được đặt vào lúc {dto.StartTime:HH:mm dd/MM/yyyy}. Thanh toán tại sân.",
+                        Title = isPayLater ? "Có đội đặt sân mới" : "Yêu cầu xác nhận thanh toán đặt sân",
+                        Message = isPayLater 
+                            ? $"Sân {pitch.PitchName} ({pitch.Stadium.StadiumName}) vừa được đặt {(weeks > 1 ? $"cố định {weeks} tuần" : "")} từ {dto.StartTime:HH:mm dd/MM/yyyy}. Thanh toán tại sân."
+                            : $"Người chơi vừa đặt sân {pitch.PitchName} {(weeks > 1 ? $"cố định {weeks} tuần" : "")} từ {dto.StartTime:HH:mm dd/MM/yyyy} qua hình thức CHUYỂN KHOẢN. Vui lòng kiểm tra tài khoản và xác nhận.",
                         CreatedAt = DateTime.Now,
                         IsRead = false
                     };
@@ -295,20 +317,30 @@ namespace FInd_Op_Web.Controllers
                     }
                 }
 
-                if (isPayLater)
+                if (dto.MatchId.HasValue && newSchedules.Any())
                 {
-                    return Ok(new { 
-                        message = "Đặt sân thành công (Thanh toán tại sân).", 
-                        scheduleId = pitchSchedule.ScheduleId,
-                        paymentRequired = false
-                    });
+                    var firstSchedule = newSchedules.First();
+                    Match match = await _context.Matches.FindAsync(dto.MatchId.Value);
+                    if (match != null && match.HomeTeamId == null) // Individual Match
+                    {
+                        match.ScheduleId = firstSchedule.ScheduleId;
+                        match.MatchStatus = "Scheduled";
+                        match.MatchDate = firstSchedule.StartTime.Date;
+                        match.StartTime = firstSchedule.StartTime.TimeOfDay;
+                        match.EndTime = firstSchedule.EndTime.TimeOfDay;
+                        if (pitch != null && pitch.Stadium != null)
+                        {
+                            match.Location = $"{pitch.Stadium.StadiumName} - {pitch.PitchName} (GPS: {pitch.Stadium.Latitude}, {pitch.Stadium.Longitude})";
+                        }
+                        await _context.SaveChangesAsync();
+                    }
                 }
 
                 return Ok(new { 
-                    message = "Pitch reserved. Please proceed to payment within 10 minutes.", 
-                    scheduleId = pitchSchedule.ScheduleId,
-                    paymentRequired = true,
-                    paymentType = "BookingDeposit"
+                    message = isPayLater ? "Đặt sân thành công (Thanh toán tại sân)." : "Đã đặt sân, vui lòng chờ chủ sân xác nhận chuyển khoản.", 
+                    scheduleId = newSchedules.FirstOrDefault()?.ScheduleId,
+                    paymentRequired = !isPayLater,
+                    paymentType = isPayLater ? "None" : "DirectTransfer"
                 });
             }
             catch (Exception ex)
@@ -965,29 +997,36 @@ namespace FInd_Op_Web.Controllers
         public async Task<IActionResult> GetIndividualMatches()
         {
             var userId = GetUserId();
-            var matches = await _context.Matches
+            var pendingMatchIds = await _context.MatchRequests
+                .Where(r => r.RequestingPlayerId == userId && r.Status == "Pending")
+                .Select(r => r.MatchId)
+                .ToListAsync();
+
+            var matchesData = await _context.Matches
                 .Include(m => m.HomePlayer)
                 .Include(m => m.AwayPlayer)
                 .Include(m => m.Sport)
-                .Where(m => m.IsIndividualMatch && (m.HomePlayerId == userId || m.AwayPlayerId == userId))
+                .Where(m => m.IsIndividualMatch && (m.HomePlayerId == userId || m.AwayPlayerId == userId || pendingMatchIds.Contains(m.MatchId)))
                 .OrderByDescending(m => m.MatchDate)
-                .Select(m => new
-                {
-                    m.MatchId,
-                    m.MatchDate,
-                    m.StartTime,
-                    m.Location,
-                    m.MatchStatus,
-                    m.HomeScore,
-                    m.AwayScore,
-                    m.CancelReason,
-                    SportName = m.Sport != null ? m.Sport.SportName : null,
-                    HomePlayerName = m.HomePlayer != null ? m.HomePlayer.FullName : null,
-                    HomePlayerAvatar = m.HomePlayer != null ? m.HomePlayer.AvatarUrl : null,
-                    AwayPlayerName = m.AwayPlayer != null ? m.AwayPlayer.FullName : null,
-                    AwayPlayerAvatar = m.AwayPlayer != null ? m.AwayPlayer.AvatarUrl : null
-                })
                 .ToListAsync();
+
+            var matches = matchesData.Select(m => new
+            {
+                m.MatchId,
+                m.MatchDate,
+                m.StartTime,
+                m.Location,
+                MatchStatus = (pendingMatchIds.Contains(m.MatchId) && m.HomePlayerId != userId && m.AwayPlayerId != userId) ? "PendingConfirmation" : m.MatchStatus,
+                m.HomeScore,
+                m.AwayScore,
+                m.SetScores,
+                m.CancelReason,
+                SportName = m.Sport != null ? m.Sport.SportName : null,
+                HomePlayerName = m.HomePlayer != null ? m.HomePlayer.FullName : null,
+                HomePlayerAvatar = m.HomePlayer != null ? m.HomePlayer.AvatarUrl : null,
+                AwayPlayerName = m.AwayPlayer != null ? m.AwayPlayer.FullName : null,
+                AwayPlayerAvatar = m.AwayPlayer != null ? m.AwayPlayer.AvatarUrl : null
+            }).ToList();
 
             return Ok(matches);
         }
@@ -1023,7 +1062,8 @@ namespace FInd_Op_Web.Controllers
                 ResultVisibility = "Public",
                 ExpiresAt = dto.ExpiresAt != default ? dto.ExpiresAt : DateTime.Now.AddDays(7),
                 Location = dto.Location,
-                MatchDate = dto.ExpiresAt != default ? dto.ExpiresAt.Date : DateTime.Now.Date,
+                MatchDate = dto.MatchDate ?? (dto.ExpiresAt != default ? dto.ExpiresAt.Date : DateTime.Now.Date),
+                StartTime = dto.StartTime,
                 Notes = dto.Description
             };
 
@@ -1065,17 +1105,17 @@ namespace FInd_Op_Web.Controllers
             var userId = GetUserId();
             var match = await _context.Matches.FindAsync(id);
             
-            if (match == null || !match.IsIndividualMatch || match.MatchStatus != "Pending")
-                return BadRequest("Kèo không khả dụng.");
+            if (match == null || !match.IsIndividualMatch || (match.MatchStatus != "Pending" && match.MatchStatus != "LookingForOpponent"))
+                return BadRequest(new { message = "Kèo không khả dụng." });
 
             if (match.HomePlayerId == userId)
-                return BadRequest("Bạn không thể yêu cầu giao lưu với chính mình.");
+                return BadRequest(new { message = "Bạn không thể yêu cầu giao lưu với chính mình." });
 
             var existingReq = await _context.MatchRequests
                 .FirstOrDefaultAsync(r => r.MatchId == id && r.RequestingPlayerId == userId);
                 
             if (existingReq != null)
-                return BadRequest("Bạn đã gửi yêu cầu cho kèo này rồi.");
+                return BadRequest(new { message = "Bạn đã gửi yêu cầu cho kèo này rồi." });
 
             var request = new MatchRequest
             {
@@ -1087,6 +1127,26 @@ namespace FInd_Op_Web.Controllers
 
             _context.MatchRequests.Add(request);
             await _context.SaveChangesAsync();
+
+            if (match.HomePlayerId.HasValue)
+            {
+                var reqPlayer = await _context.Users.FindAsync(userId);
+                var notif = new Notification
+                {
+                    UserId = match.HomePlayerId.Value,
+                    Title = "Yêu cầu giao lưu cá nhân",
+                    Message = $"Người chơi {reqPlayer?.FullName} muốn giao lưu với bạn!",
+                    IsRead = false,
+                    CreatedAt = DateTime.Now
+                };
+                _context.Notifications.Add(notif);
+                await _context.SaveChangesAsync();
+                string connId = FInd_Op_Web.Hubs.NotificationHub.GetConnectionIdForUser(match.HomePlayerId.Value.ToString());
+                if (!string.IsNullOrEmpty(connId))
+                {
+                    await _hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+                }
+            }
 
             return Ok(new { message = "Gửi yêu cầu giao lưu thành công!" });
         }
@@ -1130,7 +1190,7 @@ namespace FInd_Op_Web.Controllers
                 return Forbid();
 
             if (request.Status != "Pending")
-                return BadRequest("Yêu cầu này đã được xử lý.");
+                return BadRequest(new { message = "Yêu cầu này đã được xử lý." });
 
             request.Status = "Accepted";
             request.Match.MatchStatus = "Scheduled";
@@ -1147,6 +1207,26 @@ namespace FInd_Op_Web.Controllers
             }
 
             await _context.SaveChangesAsync();
+
+            if (request.RequestingPlayerId.HasValue)
+            {
+                var homePlayer = await _context.Users.FindAsync(userId);
+                var notif = new Notification
+                {
+                    UserId = request.RequestingPlayerId.Value,
+                    Title = "Yêu cầu giao lưu được chấp nhận",
+                    Message = $"Người chơi {homePlayer?.FullName} đã chấp nhận yêu cầu giao lưu của bạn!",
+                    IsRead = false,
+                    CreatedAt = DateTime.Now
+                };
+                _context.Notifications.Add(notif);
+                await _context.SaveChangesAsync();
+                string connId = FInd_Op_Web.Hubs.NotificationHub.GetConnectionIdForUser(request.RequestingPlayerId.Value.ToString());
+                if (!string.IsNullOrEmpty(connId))
+                {
+                    await _hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+                }
+            }
 
             return Ok(new { message = "Đã chấp nhận yêu cầu giao lưu!" });
         }
@@ -1185,6 +1265,7 @@ namespace FInd_Op_Web.Controllers
 
             match.HomeScore = dto.HomeScore;
             match.AwayScore = dto.AwayScore;
+            if (dto.SetScores != null) match.SetScores = dto.SetScores;
             match.MatchStatus = "Completed";
 
             await _context.SaveChangesAsync();
@@ -1199,18 +1280,18 @@ namespace FInd_Op_Web.Controllers
             var match = await _context.Matches.FindAsync(id);
 
             if (match == null || !match.IsIndividualMatch || match.MatchStatus != "Completed")
-                return BadRequest("Không thể đánh giá trận này.");
+                return BadRequest(new { message = "Không thể đánh giá trận này." });
 
             var opponentId = match.HomePlayerId == userId ? match.AwayPlayerId : match.HomePlayerId;
 
             if (opponentId == null || opponentId == userId)
-                return BadRequest("Không tìm thấy đối thủ hợp lệ.");
+                return BadRequest(new { message = "Không tìm thấy đối thủ hợp lệ." });
 
             var existing = await _context.PlayerRatings
                 .FirstOrDefaultAsync(r => r.MatchId == id && r.PlayerId == opponentId && r.RatedById == userId);
             
             if (existing != null)
-                return BadRequest("Bạn đã đánh giá đối thủ này rồi.");
+                return BadRequest(new { message = "Bạn đã đánh giá đối thủ này rồi." });
 
             var rating = new PlayerRating
             {

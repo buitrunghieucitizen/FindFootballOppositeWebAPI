@@ -4,7 +4,9 @@ import playerService from '../../services/playerService';
 import sportService from '../../services/sportService';
 import { publicService } from '../../services/publicService';
 import Swal from 'sweetalert2';
-import CreateIndividualMatch from './CreateIndividualMatch'; // We'll create this next
+import CreateIndividualMatch from './CreateIndividualMatch';
+import LocationDisplay from '../../components/LocationDisplay';
+import ScoreModal from '../../components/ScoreModal';
 
 export default function IndividualMatchesTab() {
   const [activeTab, setActiveTab] = useState('my-matches'); // 'my-matches', 'pickup', 'create'
@@ -19,6 +21,8 @@ export default function IndividualMatchesTab() {
 
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [scoreMatch, setScoreMatch] = useState(null);
 
   useEffect(() => {
     loadSports();
@@ -47,7 +51,7 @@ export default function IndividualMatchesTab() {
     try {
       setLoading(true);
       const res = await playerService.getIndividualMatches();
-      const matchData = res.data?.data || res.data?.$values || res.data || [];
+      const matchData = res?.data || res?.$values || res || [];
       setMatches(Array.isArray(matchData) ? matchData : []);
     } catch (err) {
       console.error('Lỗi tải trận đấu của tôi:', err);
@@ -59,10 +63,10 @@ export default function IndividualMatchesTab() {
   const loadPickupMatches = async () => {
     try {
       setPickupLoading(true);
-      const res = await publicService.getMatches({ ...pickupFilters, isIndividual: true });
+      const res = await publicService.getIndividualMatches(pickupFilters);
       const data = res?.data || res?.$values || res || [];
-      // Filter out non-individual if the backend didn't do it
-      const filtered = (Array.isArray(data) ? data : []).filter(m => m.isIndividualMatch === true && m.matchStatus === 'LookingForOpponent');
+      // Backend should already filter by IsIndividualMatch
+      const filtered = (Array.isArray(data) ? data : []).filter(m => m.matchStatus === 'LookingForOpponent' || m.matchStatus === 'Pending');
       setPickupMatches(filtered);
     } catch (err) {
       console.error('Lỗi tải kèo công khai:', err);
@@ -75,7 +79,7 @@ export default function IndividualMatchesTab() {
     try {
       setRequestsLoading(true);
       const res = await playerService.getIndividualMatchRequests();
-      const reqData = res.data?.data || res.data?.$values || res.data || [];
+      const reqData = res?.data || res?.$values || res || [];
       setRequests(Array.isArray(reqData) ? reqData : []);
     } catch (err) {
       console.error('Lỗi tải yêu cầu:', err);
@@ -125,32 +129,17 @@ export default function IndividualMatchesTab() {
     }
   };
 
-  const handleUpdateScore = async (matchId) => {
-    try {
-      const { value: formValues } = await Swal.fire({
-        title: 'Cập nhật tỉ số',
-        html:
-          '<input id="swal-input1" type="number" class="swal2-input" placeholder="Điểm của bạn">' +
-          '<input id="swal-input2" type="number" class="swal2-input" placeholder="Điểm đối thủ">',
-        focusConfirm: false,
-        preConfirm: () => {
-          return {
-            homeScore: document.getElementById('swal-input1').value,
-            awayScore: document.getElementById('swal-input2').value
-          }
-        },
-        showCancelButton: true,
-        confirmButtonText: 'Cập nhật'
-      });
+  const openScoreModal = (match) => {
+    setScoreMatch(match);
+    setShowScoreModal(true);
+  };
 
-      if (formValues && formValues.homeScore && formValues.awayScore) {
-        await playerService.updateIndividualMatchScore(matchId, {
-          homeScore: parseInt(formValues.homeScore),
-          awayScore: parseInt(formValues.awayScore)
-        });
-        Swal.fire('Thành công', 'Đã cập nhật tỉ số!', 'success');
-        loadMyMatches();
-      }
+  const submitScore = async (data) => {
+    try {
+      await playerService.updateIndividualMatchScore(scoreMatch.matchId || scoreMatch.id, data);
+      Swal.fire('Thành công', 'Đã cập nhật tỉ số!', 'success');
+      setShowScoreModal(false);
+      loadMyMatches();
     } catch (err) {
       Swal.fire('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra.', 'error');
     }
@@ -185,7 +174,8 @@ export default function IndividualMatchesTab() {
   };
 
   const getStatusText = (status) => {
-    if (status === 'LookingForOpponent') return 'Đang tìm đối';
+    if (status === 'PendingConfirmation') return 'Đang xác nhận';
+    if (status === 'Pending' || status === 'LookingForOpponent') return 'Đang tìm đối';
     if (status === 'Scheduled') return 'Đã lên lịch';
     if (status === 'Completed') return 'Đã kết thúc';
     if (status === 'Cancelled') return 'Đã hủy';
@@ -194,7 +184,8 @@ export default function IndividualMatchesTab() {
   };
 
   const getStatusColor = (status) => {
-    if (status === 'LookingForOpponent') return 'bg-amber-100 text-amber-700';
+    if (status === 'PendingConfirmation') return 'bg-purple-100 text-purple-700';
+    if (status === 'Pending' || status === 'LookingForOpponent') return 'bg-amber-100 text-amber-700';
     if (status === 'Scheduled' || status === 'ExternalBooked') return 'bg-blue-100 text-blue-700';
     if (status === 'Completed') return 'bg-emerald-100 text-emerald-700';
     if (status === 'Cancelled') return 'bg-rose-100 text-rose-700';
@@ -257,8 +248,11 @@ export default function IndividualMatchesTab() {
                     <div>
                       <div className="text-sm font-bold text-slate-800 dark:text-white line-clamp-1">{m.homePlayerName || 'Bạn'}</div>
                     </div>
-                    <div className="font-mono text-xl font-black text-slate-700 dark:text-slate-300">
-                      {m.homeScore ?? '-'} : {m.awayScore ?? '-'}
+                    <div className="font-mono flex flex-col items-center justify-center">
+                      <div className="text-xl font-black text-slate-700 dark:text-slate-300">
+                        {m.homeScore ?? '-'} : {m.awayScore ?? '-'}
+                      </div>
+                      {m.setScores && <div className="text-[10px] font-bold text-slate-500 mt-1">({m.setScores})</div>}
                     </div>
                     <div>
                       <div className="text-sm font-bold text-slate-800 dark:text-white line-clamp-1">{m.awayPlayerName || 'Đang chờ...'}</div>
@@ -267,8 +261,8 @@ export default function IndividualMatchesTab() {
 
                   <div className="flex flex-wrap gap-2">
                     {(m.matchStatus === 'Scheduled' || m.matchStatus === 'ExternalBooked') && (
-                      <button onClick={() => handleUpdateScore(m.matchId)} className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition-colors">
-                        <FiCheckCircle /> Cập nhật tỉ số
+                      <button onClick={() => openScoreModal(m)} className="flex items-center gap-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-indigo-100 transition-colors">
+                        <FiCheckCircle /> Hoàn thành trận đấu
                       </button>
                     )}
                     {m.matchStatus === 'Completed' && !m.isRated && (
@@ -276,13 +270,13 @@ export default function IndividualMatchesTab() {
                         <FiStar /> Đánh giá đối thủ
                       </button>
                     )}
-                    {m.matchStatus === 'LookingForOpponent' && (
+                    {(m.matchStatus === 'LookingForOpponent' || m.matchStatus === 'Pending') && (
                       <button onClick={async () => {
                         if(window.confirm('Hủy kèo này?')) {
                            await playerService.deleteIndividualMatch(m.matchId);
                            loadMyMatches();
                         }
-                      }} className="flex items-center gap-1 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-rose-100 transition-colors">
+                      }} className="flex items-center gap-1 bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:rose-400 px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-rose-100 transition-colors">
                         <FiX /> Hủy kèo
                       </button>
                     )}
@@ -354,7 +348,14 @@ export default function IndividualMatchesTab() {
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-2">{m.description || 'Đang tìm đối thủ giao hữu'}</p>
                   
                   <div className="space-y-2 mb-4 text-sm">
-                    <div className="flex items-center text-slate-500"><FiMapPin className="mr-2 text-rose-500" /> {m.location || m.stadiumName || 'Chưa chọn'}</div>
+                    <div className="flex items-center text-slate-500">
+                      <FiCalendar className="mr-2 text-emerald-500" /> 
+                      {(m.matchDate || m.MatchDate) ? `${new Date(m.matchDate || m.MatchDate).toLocaleDateString('vi-VN')} ${(m.startTime || m.StartTime) ? (m.startTime || m.StartTime).substring(0,5) : ''}` : 'Chưa hẹn'}
+                    </div>
+                    <div className="flex items-start text-slate-500">
+                      <FiMapPin className="mr-2 mt-1 text-rose-500 shrink-0" /> 
+                      <LocationDisplay location={m.location || m.stadiumName} />
+                    </div>
                     <div className="flex items-center text-slate-500"><FiCalendar className="mr-2 text-amber-500" /> {new Date(m.matchDate).toLocaleDateString()}</div>
                   </div>
 
@@ -373,6 +374,16 @@ export default function IndividualMatchesTab() {
           setActiveTab('my-matches');
         }} sports={sports} />
       )}
+
+      <ScoreModal 
+        isOpen={showScoreModal}
+        onClose={() => setShowScoreModal(false)}
+        match={scoreMatch}
+        onSubmit={submitScore}
+        isSetFormat={scoreMatch?.sportName && (scoreMatch.sportName.toLowerCase().includes('bóng bàn') || scoreMatch.sportName.toLowerCase().includes('cầu lông') || scoreMatch.sportName.toLowerCase().includes('pickleball') || scoreMatch.sportName.toLowerCase().includes('tennis') || scoreMatch.sportName.toLowerCase().includes('quần vợt'))}
+        homeName={scoreMatch?.homePlayerName || 'Bạn'}
+        awayName={scoreMatch?.awayPlayerName || 'Đối thủ'}
+      />
     </div>
   );
 }

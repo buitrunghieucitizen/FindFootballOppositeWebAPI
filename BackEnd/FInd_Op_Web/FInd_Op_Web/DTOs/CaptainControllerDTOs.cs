@@ -145,6 +145,9 @@ namespace FInd_Op_Web.DTOs
             public DateTime EndTime { get; set; }
             public int? MatchId { get; set; }
             public string? BookingType { get; set; }
+            public int? NumberOfWeeks { get; set; }
+            public string? SenderBankAccountNumber { get; set; }
+            public string? SenderBankAccountName { get; set; }
         }
     
         public class CaptainCreateTeamDto

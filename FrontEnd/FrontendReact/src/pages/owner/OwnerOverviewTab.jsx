@@ -22,7 +22,7 @@ export default function OwnerOverviewTab() {
       setLoading(true);
       // Fetch bookings
       const bookingsRes = await stadiumOwnerService.getBookings();
-      const bookings = bookingsRes || [];
+      const bookings = Array.isArray(bookingsRes.data) ? bookingsRes.data : (bookingsRes.data?.$values || []);
       
       // Fetch stadiums
       const stadiumsRes = await stadiumOwnerService.getMyStadiums();

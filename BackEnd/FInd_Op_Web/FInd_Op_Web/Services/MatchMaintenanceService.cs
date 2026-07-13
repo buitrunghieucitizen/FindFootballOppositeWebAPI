@@ -28,8 +28,8 @@ namespace FInd_Op_Web.Services
                     _logger.LogError(ex, "Error occurred executing MatchMaintenanceService.");
                 }
 
-                // Run once a day
-                await Task.Delay(TimeSpan.FromHours(24), stoppingToken);
+                // Run every 5 minutes
+                await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
             }
         }
 
@@ -60,6 +60,37 @@ namespace FInd_Op_Web.Services
 
                 await context.SaveChangesAsync();
                 _logger.LogInformation($"MatchMaintenanceService: Cancelled {expiredMatches.Count} matches due to missing scores.");
+            }
+
+            var thirtyMinsFromNow = DateTime.Now.AddMinutes(30);
+
+            // Find pending payment schedules less than 30 mins away
+            var pendingSchedules = await context.PitchSchedules
+                .Where(ps => ps.ScheduleStatus == "PendingPayment"
+                          && ps.StartTime <= thirtyMinsFromNow)
+                .ToListAsync();
+
+            if (pendingSchedules.Any())
+            {
+                foreach (var ps in pendingSchedules)
+                {
+                    ps.ScheduleStatus = "Cancelled";
+                    // Also notify the user who booked it
+                    if (ps.BookedById.HasValue)
+                    {
+                        context.Notifications.Add(new Notification
+                        {
+                            UserId = ps.BookedById.Value,
+                            Title = "Sân đã bị hủy",
+                            Message = $"Lịch đặt sân lúc {ps.StartTime:HH:mm dd/MM/yyyy} đã bị hủy do chưa xác nhận đặt cọc trước 30 phút.",
+                            CreatedAt = DateTime.Now,
+                            IsRead = false
+                        });
+                    }
+                }
+
+                await context.SaveChangesAsync();
+                _logger.LogInformation($"MatchMaintenanceService: Cancelled {pendingSchedules.Count} pending payment schedules.");
             }
         }
     }

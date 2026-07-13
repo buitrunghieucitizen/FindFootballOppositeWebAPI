@@ -9,6 +9,14 @@ const stadiumOwnerService = {
     const res = await apiClient.post('/StadiumOwner/Stadiums', data);
     return res;
   },
+  updateStadiumPaymentInfo: async (id, formData) => {
+    const res = await apiClient.put(`/StadiumOwner/Stadiums/${id}/PaymentInfo`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return res;
+  },
   createPitch: async (data) => {
     const res = await apiClient.post('/StadiumOwner/Pitches', data);
     return res;

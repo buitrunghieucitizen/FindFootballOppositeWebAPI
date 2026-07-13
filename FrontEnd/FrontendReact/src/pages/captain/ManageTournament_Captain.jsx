@@ -372,7 +372,8 @@ export default function ManageTournament_Captain() {
                         const newFormat = (newMax < 8 && settings.format === 'Swiss') ? 'League' : settings.format;
                         setSettings({...settings, maxTeams: newMax, format: newFormat});
                       }}
-                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium outline-none focus:ring-2 focus:ring-emerald-500"
+                      disabled={true}
+                      className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/80 text-slate-500 font-medium outline-none cursor-not-allowed"
                     >
                       <option value={4}>4 Đội</option>
                       <option value={8}>8 Đội</option>

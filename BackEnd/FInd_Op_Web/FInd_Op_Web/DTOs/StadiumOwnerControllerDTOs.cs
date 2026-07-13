@@ -19,6 +19,14 @@ namespace FInd_Op_Web.DTOs
             public string? CloseTime { get; set; } // Format: HH:mm
             public int? SlotDurationMinutes { get; set; }
         }
+
+        public class OwnerUpdateStadiumPaymentDto
+        {
+            public IFormFile? QrCodeImage { get; set; }
+            public string? BankAccountNumber { get; set; }
+            public string? BankName { get; set; }
+            public string? BankAccountName { get; set; }
+        }
     
         public class OwnerCreatePitchDto
         {

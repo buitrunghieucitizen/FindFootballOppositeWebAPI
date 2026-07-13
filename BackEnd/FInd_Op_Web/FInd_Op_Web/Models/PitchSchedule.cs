@@ -20,6 +20,10 @@ public partial class PitchSchedule
     public string? ScheduleStatus { get; set; }
     
     public DateTime? LockedUntil { get; set; }
+    
+    public string? SenderBankAccountNumber { get; set; }
+    
+    public string? SenderBankAccountName { get; set; }
 
     public virtual User? BookedBy { get; set; }
 

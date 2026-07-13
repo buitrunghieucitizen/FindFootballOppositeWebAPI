@@ -486,14 +486,19 @@ public class CaptainController : ControllerBase
 		}
 		string userIdStr = base.User.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value;
 		int.TryParse(userIdStr, out var userId);
+		var pendingMatchIds = await _context.MatchRequests
+			.Where(r => r.RequestingTeamId == team.TeamId && r.Status == "Pending")
+			.Select(r => r.MatchId)
+			.ToListAsync();
+
 		return Ok(await (from m in _context.Matches.Include((Match m) => m.HomeTeam).Include((Match m) => m.AwayTeam).Include((Match m) => m.Schedule)
-			where m.HomeTeamId == (int?)team.TeamId || m.AwayTeamId == (int?)team.TeamId
+			where m.HomeTeamId == (int?)team.TeamId || m.AwayTeamId == (int?)team.TeamId || pendingMatchIds.Contains(m.MatchId)
 			orderby m.MatchDate descending, m.StartTime descending
 			select new
 			{
 				MatchId = m.MatchId,
 				MatchType = m.MatchType,
-				MatchStatus = m.MatchStatus,
+				MatchStatus = (pendingMatchIds.Contains(m.MatchId) && m.HomeTeamId != team.TeamId && m.AwayTeamId != team.TeamId) ? "PendingConfirmation" : m.MatchStatus,
 				HomeTeamId = m.HomeTeamId,
 				HomeTeamName = ((m.HomeTeam != null) ? m.HomeTeam.TeamName : "+ä +í-+Gäói Nh+á"),
 				AwayTeamId = m.AwayTeamId,
@@ -501,6 +506,7 @@ public class CaptainController : ControllerBase
 				OpponentName = ((m.HomeTeamId == (int?)team.TeamId) ? ((m.AwayTeam != null) ? m.AwayTeam.TeamName : null) : ((m.HomeTeam != null) ? m.HomeTeam.TeamName : null)),
 				HomeScore = m.HomeScore,
 				AwayScore = m.AwayScore,
+				SetScores = m.SetScores,
 				HomeConfirmed = m.HomeConfirmed,
 				AwayConfirmed = m.AwayConfirmed,
 				MatchDate = m.MatchDate,
@@ -673,6 +679,38 @@ public class CaptainController : ControllerBase
 			await CalculateRankingScoreAsync(match, match.HomeScore.GetValueOrDefault(), match.AwayScore.GetValueOrDefault());
 		}
 		await _context.SaveChangesAsync();
+		
+		int? opponentCaptainId = null;
+		if (match.HomeTeamId == team.TeamId && match.AwayTeamId.HasValue)
+		{
+			var awayTeam = await _context.Teams.FindAsync(match.AwayTeamId.Value);
+			opponentCaptainId = awayTeam?.CaptainId;
+		}
+		else if (match.AwayTeamId == team.TeamId && match.HomeTeamId.HasValue)
+		{
+			var homeTeam = await _context.Teams.FindAsync(match.HomeTeamId.Value);
+			opponentCaptainId = homeTeam?.CaptainId;
+		}
+
+		if (opponentCaptainId.HasValue && match.MatchStatus != "Completed")
+		{
+			Notification notif = new Notification
+			{
+				UserId = opponentCaptainId.Value,
+				Title = "Xác nhận tỉ số trận đấu",
+				Message = $"Đội đối thủ đã cập nhật tỉ số cho trận đấu của bạn. Vui lòng kiểm tra và xác nhận.",
+				CreatedAt = DateTime.Now,
+				IsRead = false
+			};
+			_context.Notifications.Add(notif);
+			await _context.SaveChangesAsync();
+			string connId = NotificationHub.GetConnectionIdForUser(opponentCaptainId.Value.ToString());
+			if (!string.IsNullOrEmpty(connId))
+			{
+				await _hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+			}
+		}
+		
 		return Ok(new
 		{
 			message = "Score updated successfully."
@@ -861,7 +899,8 @@ public class CaptainController : ControllerBase
 		return Ok(new
 		{
 			message = "Challenge created.",
-			matchId = match.MatchId
+			matchId = match.MatchId,
+			sportId = team.SportId
 		});
 	}
 
@@ -2328,7 +2367,7 @@ public class CaptainController : ControllerBase
 				StadiumName = s.StadiumName,
 				Address = s.Address,
 				Hotline = s.Hotline,
-				Pitches = s.Pitches.Select((Pitch p) => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot })
+				Pitches = s.Pitches.Select((Pitch p) => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot, p.SportId })
 			}).ToListAsync());
 	}
 
@@ -2344,7 +2383,11 @@ public class CaptainController : ControllerBase
 				Hotline = s.Hotline,
 				Description = s.Description,
 				OwnerId = s.OwnerId,
-				Pitches = s.Pitches.Select((Pitch p) => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot, p.GrassType })
+				QrCodeUrl = s.QrCodeUrl,
+				BankAccountNumber = s.BankAccountNumber,
+				BankName = s.BankName,
+				BankAccountName = s.BankAccountName,
+				Pitches = s.Pitches.Select((Pitch p) => new { p.PitchId, p.PitchName, p.PitchSize, p.PricePerSlot, p.GrassType, p.SportId })
 			}).FirstOrDefaultAsync(s => s.StadiumId == id);
 		if (stadium == null)
 		{
@@ -2428,57 +2471,76 @@ public class CaptainController : ControllerBase
 		using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
 		try
 		{
-			if (await _context.PitchSchedules.Where((PitchSchedule ps) => ps.PitchId == (int?)dto.PitchId && ps.StartTime < dto.EndTime && ps.EndTime > dto.StartTime && (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed" || (ps.LockedUntil != null && ps.LockedUntil > DateTime.Now))).AnyAsync())
+			int weeks = dto.NumberOfWeeks ?? 1;
+			if (weeks < 1) weeks = 1;
+			if (weeks > 12) weeks = 12;
+
+			var newSchedules = new List<PitchSchedule>();
+			
+			for (int i = 0; i < weeks; i++)
 			{
-				return BadRequest(new
+				DateTime weekStart = dto.StartTime.AddDays(i * 7);
+				DateTime weekEnd = dto.EndTime.AddDays(i * 7);
+
+				if (await _context.PitchSchedules.Where((PitchSchedule ps) => ps.PitchId == (int?)dto.PitchId && ps.StartTime < weekEnd && ps.EndTime > weekStart && (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed" || (ps.LockedUntil != null && ps.LockedUntil > DateTime.Now))).AnyAsync())
 				{
-					message = "Khung giờ này đã có người đặt hoặc đang trong quá trình thanh toán chờ."
-				});
+					return BadRequest(new { message = $"Khung giờ {weekStart:dd/MM/yyyy HH:mm} đã có người đặt hoặc đang trong quá trình thanh toán chờ." });
+				}
+
+				bool isPayLaterLoop = dto.BookingType == "pay_later";
+				PitchSchedule ps = new PitchSchedule
+				{
+					PitchId = dto.PitchId,
+					StartTime = weekStart,
+					EndTime = weekEnd,
+					ScheduleStatus = (isPayLaterLoop ? "Booked" : "PendingPayment"),
+					LockedUntil = (isPayLaterLoop ? ((DateTime?)null) : new DateTime?(DateTime.Now.AddMinutes(10.0))),
+					BookedById = userId,
+					SenderBankAccountNumber = dto.SenderBankAccountNumber,
+					SenderBankAccountName = dto.SenderBankAccountName
+				};
+				newSchedules.Add(ps);
+				_context.PitchSchedules.Add(ps);
 			}
-			bool isPayLater = dto.BookingType == "pay_later";
-			PitchSchedule pitchSchedule = new PitchSchedule
-			{
-				PitchId = dto.PitchId,
-				StartTime = dto.StartTime,
-				EndTime = dto.EndTime,
-				ScheduleStatus = (isPayLater ? "Booked" : "PendingPayment"),
-				LockedUntil = (isPayLater ? ((DateTime?)null) : new DateTime?(DateTime.Now.AddMinutes(10.0))),
-				BookedById = userId
-			};
-			_context.PitchSchedules.Add(pitchSchedule);
+
 			await _context.SaveChangesAsync();
 			await transaction.CommitAsync();
 
 			Pitch pitch = await _context.Pitches.Include((Pitch p) => p.Stadium).FirstOrDefaultAsync((Pitch p) => p.PitchId == dto.PitchId);
-			if (pitch != null && pitch.Stadium != null && isPayLater)
-		{
-			int ownerId = pitch.Stadium.OwnerId.GetValueOrDefault();
-			Notification notif = new Notification
+            bool isPayLater = dto.BookingType == "pay_later";
+			if (pitch != null && pitch.Stadium != null)
 			{
-				UserId = ownerId,
-				Title = "C\u00f3 \u0111\u1ed9i \u0111\u1eb7t s\u00e2n m\u1edbi",
-				Message = $"S\u00e2n {pitch.PitchName} ({pitch.Stadium.StadiumName}) v\u1eeba \u0111\u01b0\u1ee3c \u0111\u1eb7t v\u00e0o l\u00fac {dto.StartTime:HH:mm dd/MM/yyyy}. Thanh to\u00e1n t\u1ea1i s\u00e2n.",
-				CreatedAt = DateTime.Now,
-				IsRead = false
-			};
-			_context.Notifications.Add(notif);
-			await _context.SaveChangesAsync();
-			string connId = NotificationHub.GetConnectionIdForUser(ownerId.ToString());
-			if (!string.IsNullOrEmpty(connId))
-			{
-				await _hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+				int ownerId = pitch.Stadium.OwnerId.GetValueOrDefault();
+				Notification notif = new Notification
+				{
+					UserId = ownerId,
+					Title = isPayLater ? "Có đội đặt sân mới" : "Yêu cầu xác nhận thanh toán đặt sân",
+					Message = isPayLater 
+                        ? $"Sân {pitch.PitchName} ({pitch.Stadium.StadiumName}) vừa được đặt {(weeks > 1 ? $"cố định {weeks} tuần" : "")} từ {dto.StartTime:HH:mm dd/MM/yyyy}. Thanh toán tại sân."
+                        : $"Người chơi vừa đặt sân {pitch.PitchName} {(weeks > 1 ? $"cố định {weeks} tuần" : "")} từ {dto.StartTime:HH:mm dd/MM/yyyy} qua hình thức CHUYỂN KHOẢN. Vui lòng kiểm tra tài khoản và xác nhận.",
+					CreatedAt = DateTime.Now,
+					IsRead = false
+				};
+				_context.Notifications.Add(notif);
+				await _context.SaveChangesAsync();
+				string connId = NotificationHub.GetConnectionIdForUser(ownerId.ToString());
+				if (!string.IsNullOrEmpty(connId))
+				{
+					await _hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+				}
 			}
-		}
-		if (dto.MatchId.HasValue)
+
+		if (dto.MatchId.HasValue && newSchedules.Any())
 		{
+            var firstSchedule = newSchedules.First();
 			Match match = await _context.Matches.FindAsync(dto.MatchId.Value);
 			if (match != null && (match.HomeTeamId == team?.TeamId || match.AwayTeamId == team?.TeamId))
 			{
-				match.ScheduleId = pitchSchedule.ScheduleId;
+				match.ScheduleId = firstSchedule.ScheduleId;
 				match.MatchStatus = "Scheduled";
-				match.MatchDate = pitchSchedule.StartTime.Date;
-				match.StartTime = pitchSchedule.StartTime.TimeOfDay;
-				match.EndTime = pitchSchedule.EndTime.TimeOfDay;
+				match.MatchDate = firstSchedule.StartTime.Date;
+				match.StartTime = firstSchedule.StartTime.TimeOfDay;
+				match.EndTime = firstSchedule.EndTime.TimeOfDay;
 				if (pitch != null && pitch.Stadium != null)
 				{
 					match.Location = $"{pitch.Stadium.StadiumName} - {pitch.PitchName} (GPS: {pitch.Stadium.Latitude}, {pitch.Stadium.Longitude})";
@@ -2488,10 +2550,10 @@ public class CaptainController : ControllerBase
 		}
 			return Ok(new
 			{
-				message = "Pitch reserved. Please proceed to payment within 10 minutes.",
-				scheduleId = pitchSchedule.ScheduleId,
-				paymentRequired = true,
-				paymentType = "BookingDeposit"
+				message = isPayLater ? "Đặt sân thành công." : "Đã đặt sân, vui lòng chờ chủ sân xác nhận chuyển khoản.",
+				scheduleId = newSchedules.FirstOrDefault()?.ScheduleId,
+				paymentRequired = !isPayLater,
+				paymentType = isPayLater ? "None" : "DirectTransfer"
 			});
 		}
 		catch (Exception ex)
@@ -2712,6 +2774,30 @@ public class CaptainController : ControllerBase
 			r2.Status = "Rejected";
 		}
 		await _context.SaveChangesAsync();
+
+		if (req.RequestingTeamId.HasValue)
+		{
+			Team reqTeam = await _context.Teams.FindAsync(req.RequestingTeamId.Value);
+			if (reqTeam != null && reqTeam.CaptainId > 0)
+			{
+				Notification notification = new Notification
+				{
+					UserId = reqTeam.CaptainId,
+					Title = "Kèo giao hữu được chấp nhận",
+					Message = $"Đội {team.TeamName} đã chấp nhận yêu cầu giao hữu của đội bạn!",
+					IsRead = false,
+					CreatedAt = DateTime.Now
+				};
+				_context.Notifications.Add(notification);
+				await _context.SaveChangesAsync();
+				string connectionId = NotificationHub.GetConnectionIdForUser(reqTeam.CaptainId.ToString());
+				if (!string.IsNullOrEmpty(connectionId))
+				{
+					await _hubContext.Clients.Client(connectionId).SendAsync("ReceiveNotification", notification.Message);
+				}
+			}
+		}
+
 		return Ok(new
 		{
 			message = "\u0110\u00e3 ch\u1ea5p nh\u1eadn k\u00e8o."

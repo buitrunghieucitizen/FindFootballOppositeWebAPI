@@ -205,6 +205,10 @@ namespace FInd_Op_Web.Controllers
                     s.Latitude,
                     s.Longitude,
                     s.ImageUrl,
+                    s.QrCodeUrl,
+                    s.BankAccountNumber,
+                    s.BankName,
+                    s.BankAccountName,
                     s.OwnerId,
                     OwnerName = s.Owner != null ? s.Owner.FullName : "Chủ sân",
                     Sports = s.Pitches.Where(p => p.Sport != null).Select(p => p.Sport.SportName).Distinct(),
@@ -273,7 +277,7 @@ namespace FInd_Op_Web.Controllers
                                          (m.MatchType == "PickUp" && m.SportId == sportId.Value));
             }
 
-            var matches = await query
+            var dbMatches = await query
                 .Select(m => new
                 {
                     m.MatchId,
@@ -295,15 +299,41 @@ namespace FInd_Op_Web.Controllers
                     HomeTeamQuality = m.HomeTeam != null ? m.HomeTeam.QualityLevel : "",
                     AwayTeamQuality = m.AwayTeam != null ? m.AwayTeam.QualityLevel : "",
                     SportName = m.HomeTeam != null && m.HomeTeam.Sport != null ? m.HomeTeam.Sport.SportName : (m.Sport != null ? m.Sport.SportName : null),
-                    StartTime = m.Schedule != null ? m.Schedule.StartTime : (DateTime?)null,
-                    EndTime = m.Schedule != null ? m.Schedule.EndTime : (DateTime?)null,
+                    MatchDate = m.MatchDate,
+                    StartTimeTs = m.StartTime,
+                    ScheduleStartTime = m.Schedule != null ? (DateTime?)m.Schedule.StartTime : null,
+                    ScheduleEndTime = m.Schedule != null ? (DateTime?)m.Schedule.EndTime : null,
+                    Location = m.Location,
                     m.HomeScore,
                     m.AwayScore,
                     StadiumName = m.Schedule != null && m.Schedule.Pitch != null && m.Schedule.Pitch.Stadium != null ? m.Schedule.Pitch.Stadium.StadiumName : "Chưa xác định",
                     PitchName = m.Schedule != null && m.Schedule.Pitch != null ? m.Schedule.Pitch.PitchName : "Chưa xác định"
                 })
-                .OrderByDescending(m => m.StartTime)
+                .OrderByDescending(m => m.MatchDate)
                 .ToListAsync();
+
+            var matches = dbMatches.Select(m => new
+            {
+                m.MatchId,
+                m.MatchStatus,
+                m.MatchType,
+                m.HomeTeamName,
+                m.HomeTeamAvatar,
+                m.HomeTeamPhone,
+                m.CreatorId,
+                m.AwayTeamName,
+                m.HomeTeamQuality,
+                m.AwayTeamQuality,
+                m.SportName,
+                m.MatchDate,
+                StartTime = m.StartTimeTs != null ? m.StartTimeTs.Value.ToString(@"hh\:mm") : (m.ScheduleStartTime != null ? m.ScheduleStartTime.Value.ToString("HH:mm") : null),
+                EndTime = m.ScheduleEndTime,
+                m.Location,
+                m.HomeScore,
+                m.AwayScore,
+                m.StadiumName,
+                m.PitchName
+            });
 
             return Ok(matches);
         }

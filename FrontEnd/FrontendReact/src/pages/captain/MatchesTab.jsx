@@ -8,6 +8,9 @@ import { publicService } from '../../services/publicService';
 import Swal from 'sweetalert2';
 import { FiCalendar, FiClock, FiMapPin, FiStar, FiCheck, FiX, FiPlus, FiMessageSquare, FiInfo, FiUsers, FiMessageCircle, FiCheckSquare, FiCheckCircle } from 'react-icons/fi';
 import MatchChatModal from './MatchChatModal';
+import InviteTeamModal from './InviteTeamModal';
+import LocationDisplay from '../../components/LocationDisplay';
+import ScoreModal from '../../components/ScoreModal';
 
 export default function MatchesTab({ setActiveTab: setDashboardTab }) {
   const navigate = useNavigate();
@@ -39,6 +42,10 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
   // Chat Modal state
   const [showChatModal, setShowChatModal] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState(null);
+
+  // Invite Modal state
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteMatchId, setInviteMatchId] = useState(null);
 
   // Create Challenge logic was extracted to CreateChallenge_Captain.jsx
 
@@ -247,18 +254,17 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
 
   const openScoreModal = (match) => {
     setScoreMatch(match);
-    setScoreData({ homeScore: 0, awayScore: 0, setScores: '' });
     setShowScoreModal(true);
   };
 
-  const submitScore = async () => {
+  const submitScore = async (data) => {
     try {
-      await captainService.updateScore(scoreMatch.matchId || scoreMatch.id, scoreData);
+      await captainService.updateScore(scoreMatch.matchId || scoreMatch.id, data);
       Swal.fire('Thành công', 'Đã lưu tỉ số. Vui lòng chờ đối thủ xác nhận!', 'success');
       setShowScoreModal(false);
       fetchData();
     } catch (err) {
-      Swal.fire('Lỗi', 'Lỗi khi nhập tỉ số: ' + (err.response?.data?.message || err.message), 'error');
+      Swal.fire('Lỗi', err.response?.data?.message || 'Có lỗi xảy ra', 'error');
     }
   };
 
@@ -369,13 +375,15 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                 <div className="flex justify-between items-start mb-4">
                   <div>
                     <span className={`px-2.5 py-1 text-xs font-semibold rounded-md ${
+                      match.matchStatus === 'PendingConfirmation' ? 'bg-purple-100 text-purple-700' :
                       match.matchStatus === 'Completed' ? 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200' :
                       (match.matchStatus === 'Accepted' || match.matchStatus === 'ExternalBooked' || getOpponentName(match)) ? 'bg-emerald-100 text-emerald-700' :
                       match.matchStatus === 'Cancelled' ? 'bg-red-100 text-red-700' : 
                       match.matchStatus === 'LookingForOpponent' ? 'bg-indigo-100 text-indigo-700 animate-pulse' :
                       'bg-emerald-100 text-emerald-700'
                     }`}>
-                      {match.matchStatus === 'Completed' ? 'Đã kết thúc' : 
+                      {match.matchStatus === 'PendingConfirmation' ? 'Đang xác nhận' :
+                       match.matchStatus === 'Completed' ? 'Đã kết thúc' : 
                        match.matchStatus === 'Cancelled' ? 'Đã hủy' :
                        match.matchStatus === 'ExternalBooked' ? 'Đã đặt sân ngoài' :
                        match.matchStatus === 'Accepted' ? 'Đã chốt kèo' : 
@@ -397,10 +405,10 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                     {match.matchDate ? new Date(match.matchDate).toLocaleDateString('vi-VN') : 'Chưa xếp lịch'} 
                     {match.startTime && ` - ${match.startTime.substring(0,5)}`}
                   </p>
-                  <p className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                    <FiMapPin className="text-emerald-600" /> 
-                    {match.location || 'Chưa xác định'}
-                  </p>
+                  <div className="text-sm text-slate-600 dark:text-slate-300 flex items-start gap-2">
+                    <FiMapPin className="text-emerald-600 shrink-0 mt-0.5" /> 
+                    <LocationDisplay location={match.location} />
+                  </div>
                 </div>
                 
                 {match.matchStatus === 'Completed' && (
@@ -438,6 +446,19 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                     </div>
                   </div>
                 )}
+                {match.matchStatus === 'LookingForOpponent' && (
+                  <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50 flex justify-end gap-2">
+                     <button 
+                       onClick={() => {
+                         setInviteMatchId(match.matchId || match.id);
+                         setShowInviteModal(true);
+                       }} 
+                       className="flex items-center gap-1.5 text-xs bg-indigo-500 text-white px-4 py-2 rounded-lg hover:bg-indigo-600 font-semibold transition-colors"
+                     >
+                       <FiUsers size={14} /> Mời đối thủ
+                     </button>
+                  </div>
+                )}
                 {match.matchStatus !== 'Completed' && match.matchStatus !== 'Cancelled' && getOpponentName(match) && (
                   <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50 flex flex-col gap-2">
                     {(() => {
@@ -471,10 +492,9 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                         );
                       }
 
-                      if (teamData?.hasScoring === false) return null;
                       return (
                         <button onClick={() => openScoreModal(match)} className="w-full text-xs bg-blue-50 text-blue-600 px-3 py-2 rounded-lg hover:bg-blue-100 font-bold transition-colors text-center border border-blue-100">
-                          Trận đấu kết thúc (Ghi kết quả)
+                          Hoàn thành trận đấu
                         </button>
                       );
                     })()}
@@ -670,7 +690,8 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                       </div>
                       <div className="text-slate-500 dark:text-slate-400 text-sm">
                         {match.scheduleStartTime ? new Date(match.scheduleStartTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : 'Chưa có giờ'}
-                        {match.matchStatus === 'Completed' ? ' - Đã kết thúc' : 
+                        {match.matchStatus === 'PendingConfirmation' ? ' - Đang xác nhận' :
+                         match.matchStatus === 'Completed' ? ' - Đã kết thúc' : 
                          match.matchStatus === 'ExternalBooked' ? ' - Đã đặt sân ngoài' : 
                          match.matchStatus === 'Accepted' ? ' - Đã chốt kèo' : 
                          ' - Sắp diễn ra'}
@@ -777,38 +798,15 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
       )}
 
       {/* SCORE MODAL */}
-      {showScoreModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-fade-in">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white">Nhập Tỉ Số</h3>
-              <button onClick={() => setShowScoreModal(false)} className="text-slate-400 hover:text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 rounded-full p-1 shadow-sm"><FiX size={20} /></button>
-            </div>
-            <div className="p-6 space-y-4 text-center">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex-1">
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">{scoreMatch?.homeTeamName || 'Đội Nhà'}</label>
-                  <input type="number" min="0" value={scoreData.homeScore} onChange={e => setScoreData({...scoreData, homeScore: parseInt(e.target.value) || 0})} className="w-full text-center text-2xl font-black py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
-                <div className="text-2xl font-bold text-slate-400 mt-6">-</div>
-                <div className="flex-1">
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2">{scoreMatch?.awayTeamName || 'Đội Khách'}</label>
-                  <input type="number" min="0" value={scoreData.awayScore} onChange={e => setScoreData({...scoreData, awayScore: parseInt(e.target.value) || 0})} className="w-full text-center text-2xl font-black py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
-              </div>
-              
-              {teamData?.scoringFormat === 'Sets' && (
-                <div className="mt-4">
-                  <label className="block text-sm font-bold text-slate-700 dark:text-slate-200 mb-2 text-left">Tỉ số các set (VD: 21-19, 15-21, 21-10)</label>
-                  <input type="text" value={scoreData.setScores} onChange={e => setScoreData({...scoreData, setScores: e.target.value})} placeholder="21-19, 15-21..." className="w-full text-center text-lg font-bold py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
-              )}
-              
-              <button onClick={submitScore} className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-500/30">Lưu Tỉ Số</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ScoreModal 
+        isOpen={showScoreModal}
+        onClose={() => setShowScoreModal(false)}
+        match={scoreMatch}
+        onSubmit={submitScore}
+        isSetFormat={teamData?.scoringFormat === 'Sets'}
+        homeName={scoreMatch?.homeTeamName || 'Đội Nhà'}
+        awayName={scoreMatch?.awayTeamName || 'Đội Khách'}
+      />
 
       {/* EDIT MATCH MODAL WAS EXTRACTED */}
 
@@ -816,10 +814,18 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
       {/* CHAT MODAL */}
       {showChatModal && selectedMatchId && (
         <MatchChatModal
-          matchId={selectedMatchId}
-          onClose={() => setShowChatModal(false)}
-        />
+        isOpen={showChatModal}
+        onClose={() => setShowChatModal(false)}
+        matchId={selectedMatchId}
+      />
       )}
+      
+      <InviteTeamModal 
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        matchId={inviteMatchId}
+        onInviteSuccess={fetchData}
+      />
 
       {/* CREATE CHALLENGE MODAL WAS EXTRACTED */}
 

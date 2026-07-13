@@ -5,6 +5,7 @@ import { ToastProvider } from './components/Toast';
 import { NotificationProvider } from './contexts/NotificationContext';
 import FeedbackButton from './components/FeedbackButton';
 import OnboardingTour from './components/OnboardingTour';
+import SurveyPopup from './components/SurveyPopup';
 
 // Modern Pages
 import HomePage from './pages/Home';
@@ -199,6 +200,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           <FeedbackButton />
+          <SurveyPopup />
           <OnboardingTour />
         </NotificationProvider>
       </ToastProvider>

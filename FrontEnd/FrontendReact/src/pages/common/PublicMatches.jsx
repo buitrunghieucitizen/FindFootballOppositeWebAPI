@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { publicService } from '../../services/publicService';
 import { captainService } from '../../services/captainService';
 import { useAuth } from '../../contexts/AuthContext';
-import { FiCalendar, FiMapPin, FiClock, FiShield, FiArrowLeft, FiX, FiMessageSquare, FiSearch } from 'react-icons/fi';
+import { FiCalendar, FiMapPin, FiClock, FiUsers, FiAward, FiShield, FiMessageSquare, FiX, FiSearch, FiArrowLeft } from 'react-icons/fi';
 import { Link, useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { PublicHeader } from '../../components/portal-ui';
+import LocationDisplay from '../../components/LocationDisplay';
 
 export default function PublicMatches() {
   const [matches, setMatches] = useState([]);
@@ -241,11 +242,14 @@ export default function PublicMatches() {
                 <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-700">
                   <div className="flex items-center text-sm text-slate-500 dark:text-slate-400">
                     <FiCalendar className="mr-2 text-slate-400" />
-                    {match.matchDate ? new Date(match.matchDate).toLocaleDateString('vi-VN') : 'Chưa xếp lịch'}
+                    {(match.matchDate || match.MatchDate) ? `${new Date(match.matchDate || match.MatchDate).toLocaleDateString('vi-VN')} ${(match.startTime || match.StartTime) ? (match.startTime || match.StartTime).substring(0,5) : ''}` : 'Chưa xếp lịch'}
                   </div>
                   <div className="flex items-center text-sm text-slate-500 dark:text-slate-400">
-                    <FiMapPin className="mr-2 text-slate-400" />
-                    <span className="line-clamp-1">{match.stadiumName || 'Chưa chọn sân'}</span>
+                    <FiMapPin className="mr-2 text-slate-400 shrink-0" />
+                    <LocationDisplay 
+                      location={match.location || match.Location || match.stadiumName} 
+                      className="line-clamp-1"
+                    />
                   </div>
                 </div>
 
@@ -359,15 +363,18 @@ export default function PublicMatches() {
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
                   <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Thời gian</div>
                   <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
-                    <FiCalendar className="mr-2 text-indigo-500" />
-                    {selectedMatch.matchDate ? new Date(selectedMatch.matchDate).toLocaleDateString('vi-VN') : 'Chưa xếp lịch'}
+                    <FiCalendar className="mr-2 text-slate-400" />
+                    {(selectedMatch.matchDate || selectedMatch.MatchDate) ? `${new Date(selectedMatch.matchDate || selectedMatch.MatchDate).toLocaleDateString('vi-VN')} ${(selectedMatch.startTime || selectedMatch.StartTime) ? (selectedMatch.startTime || selectedMatch.StartTime).substring(0,5) : ''}` : 'Chưa xếp lịch'}
                   </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">
                   <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Địa điểm</div>
-                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
-                    <FiMapPin className="mr-2 text-rose-500" />
-                    {selectedMatch.stadiumName || 'Chưa chọn sân'}
+                  <div className="font-bold text-slate-800 dark:text-slate-200 flex items-start">
+                    <FiMapPin className="mr-2 mt-1 text-rose-500 shrink-0" />
+                    <LocationDisplay 
+                      location={selectedMatch.location || selectedMatch.Location || selectedMatch.stadiumName} 
+                      showMapLink={true}
+                    />
                   </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">

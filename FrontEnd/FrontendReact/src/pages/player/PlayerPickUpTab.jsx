@@ -7,18 +7,10 @@ import PaywallModal from '../../components/PaywallModal';
 import Swal from 'sweetalert2';
 
 export default function PlayerPickUpTab() {
-  const [activeTab, setActiveTab] = useState('team-matches'); // 'team-matches', 'pickup-matches', 'manage', 'create'
+  const [activeTab, setActiveTab] = useState('team-matches'); // 'team-matches', 'pickup-matches'
   
-  const [matchLoading, setMatchLoading] = useState(false);
   const [paywallData, setPaywallData] = useState(null);
   const [sports, setSports] = useState([]);
-  const [matchForm, setMatchForm] = useState({ 
-    sportId: 1, 
-    expiresAt: '',
-    location: '',
-    qualityLevel: 'Trung bình yếu',
-    description: ''
-  });
 
   const [pickupMatches, setPickupMatches] = useState([]);
   const [pickupLoading, setPickupLoading] = useState(false);
@@ -30,14 +22,12 @@ export default function PlayerPickUpTab() {
   const [teamLocation, setTeamLocation] = useState('');
   const [teamSportName, setTeamSportName] = useState('');
 
-  const [myMatches, setMyMatches] = useState([]);
-  const [myMatchesLoading, setMyMatchesLoading] = useState(false);
+
 
   useEffect(() => {
     loadSports();
     loadTeamMatches();
     loadPickupMatches();
-    loadMyMatches();
   }, []);
 
   const loadPickupMatches = async () => {
@@ -66,18 +56,7 @@ export default function PlayerPickUpTab() {
     }
   };
 
-  const loadMyMatches = async () => {
-    try {
-      setMyMatchesLoading(true);
-      const res = await playerService.getMyPickupMatches();
-      const myMatchesData = res.data?.data || res.data?.$values || res.data || [];
-      setMyMatches(Array.isArray(myMatchesData) ? myMatchesData : []);
-    } catch (err) {
-      console.error('Lỗi tải kèo của tôi:', err);
-    } finally {
-      setMyMatchesLoading(false);
-    }
-  };
+
 
   const loadSports = async () => {
     try {
@@ -115,57 +94,7 @@ export default function PlayerPickUpTab() {
     }
   };
 
-  const handleCreateMatch = async (e) => {
-    e.preventDefault();
-    try {
-      setMatchLoading(true);
-      const res = await playerService.createIndividualMatch(matchForm);
-      
-      Swal.fire({
-        title: 'Tạo kèo thành công!',
-        text: res.data.message || 'Kèo giao lưu của bạn đã được đăng lên hệ thống.',
-        icon: 'success',
-        confirmButtonText: 'Tuyệt vời',
-        timer: 3000
-      });
-      
-      setMatchForm({ ...matchForm, description: '', location: '', expiresAt: '' });
-      loadMyMatches();
-      loadPickupMatches();
-      setActiveTab('manage'); // Chuyển về tab quản lý
-    } catch (err) {
-      Swal.fire({
-        title: 'Lỗi',
-        text: err.response?.data?.message || 'Lỗi tạo trận. Vui lòng thử lại.',
-        icon: 'error',
-        confirmButtonText: 'Đóng'
-      });
-    } finally {
-      setMatchLoading(false);
-    }
-  };
 
-  const handleDeleteMatch = async (id) => {
-    const result = await Swal.fire({
-      title: 'Xóa kèo này?',
-      text: 'Bạn sẽ không thể khôi phục lại dữ liệu.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Xóa',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#ef4444'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        await playerService.deletePickupMatch(id);
-        Swal.fire('Đã xóa!', 'Kèo của bạn đã được gỡ.', 'success');
-        loadMyMatches();
-      } catch (err) {
-        Swal.fire('Lỗi', 'Không thể xóa kèo. Vui lòng thử lại.', 'error');
-      }
-    }
-  };
 
   // Lọc danh sách đội
   const filteredTeamMatches = allTeamMatches.filter(m => {
@@ -195,19 +124,9 @@ export default function PlayerPickUpTab() {
             </div>
             <div>
               <h1 className="font-sport text-xl sm:text-3xl font-bold text-white tracking-tight uppercase">Gạ Kèo & Bắt Đối</h1>
-              <p className="text-emerald-50 text-sm mt-1">Giao lưu thể thao cá nhân và tìm đối thủ cho Đội.</p>
+              <p className="text-emerald-50 text-sm mt-1">Xem danh sách các trận giao hữu đội và xin tham gia đá ké khi đội thiếu người.</p>
             </div>
           </div>
-          
-          {/* Nút Tạo Kèo Lớn */}
-          {activeTab !== 'create' && (
-            <button 
-              onClick={() => setActiveTab('create')}
-              className="px-6 py-3 bg-white text-emerald-600 font-bold rounded-xl shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center gap-2"
-            >
-              <FiPlusCircle size={20} /> Tạo Kèo Cá Nhân
-            </button>
-          )}
         </div>
       </div>
 
@@ -233,16 +152,6 @@ export default function PlayerPickUpTab() {
             }`}
           >
             <FiTarget /> Xin Đá Ké
-          </button>
-          <button
-            onClick={() => setActiveTab('manage')}
-            className={`flex-1 min-w-[140px] px-4 py-3 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-              activeTab === 'manage' 
-                ? 'bg-white dark:bg-slate-700 text-purple-600 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'
-            }`}
-          >
-            <FiCheckCircle /> Kèo Đã Tạo
           </button>
         </div>
       )}
@@ -395,205 +304,7 @@ export default function PlayerPickUpTab() {
         </div>
       )}
 
-      {/* ── VIEW: MANAGE MATCHES ── */}
-      {activeTab === 'manage' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden relative animate-fade-in">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-purple-500 to-pink-500"></div>
-          <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
-            <h3 className="font-sport text-xl font-bold text-slate-800 dark:text-white uppercase">Quản Lý Kèo Đã Tạo</h3>
-          </div>
 
-          <div className="p-6">
-            {myMatchesLoading ? (
-              <div className="flex justify-center h-32 items-center">
-                <div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-purple-500 animate-spin" />
-              </div>
-            ) : myMatches.length === 0 ? (
-              <div className="text-center text-slate-500 py-12 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-                <FiCheckCircle className="text-3xl mx-auto mb-2 text-slate-300" />
-                <p>Bạn chưa tạo kèo cá nhân nào.</p>
-              </div>
-            ) : (
-              <div className="grid gap-4">
-                {myMatches.map(match => {
-                  let info = {};
-                  try { if(match.cancelReason) info = JSON.parse(match.cancelReason); } catch(e){}
-
-                  return (
-                    <div key={match.matchId} className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-5 transition-all">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${match.matchStatus === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'}`}>
-                            {match.matchStatus}
-                          </span>
-                          <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                            ID: #{match.matchId}
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2 mt-2">
-                          <FiMapPin /> {info.Location || 'Chưa rõ địa điểm'}
-                        </p>
-                        <p className="text-sm font-medium text-slate-600 dark:text-slate-400 flex items-center gap-2 mt-1">
-                          <FiClock /> Hết hạn: {match.expiresAt ? new Date(match.expiresAt).toLocaleString('vi-VN') : ''}
-                        </p>
-                      </div>
-                      
-                      <button 
-                        onClick={() => handleDeleteMatch(match.matchId)}
-                        className="p-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
-                        title="Hủy kèo"
-                      >
-                        <FiTrash2 size={20} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* ── VIEW: CREATE MATCH ── */}
-      {activeTab === 'create' && (
-        <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden relative animate-fade-in">
-          <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-          <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center">
-            <h3 className="font-sport text-xl font-bold text-slate-800 dark:text-white uppercase flex items-center gap-2">
-              <FiPlusCircle className="text-emerald-500" /> Tạo Kèo Mới
-            </h3>
-            <button 
-              onClick={() => setActiveTab('team-matches')}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
-            >
-              <FiX size={24} />
-            </button>
-          </div>
-
-          <div className="p-6 sm:p-8">
-            <form onSubmit={handleCreateMatch} className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <FiActivity className="text-emerald-500" /> Môn Thể Thao
-                  </label>
-                  <select
-                    className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all font-medium"
-                    value={matchForm.sportId}
-                    onChange={e => setMatchForm({ ...matchForm, sportId: Number(e.target.value) })}
-                  >
-                    {sports.map(s => (
-                      <option key={s.sportId} value={s.sportId}>{s.sportName}</option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <FiTarget className="text-emerald-500" /> Trình Độ Mong Muốn
-                  </label>
-                  <select
-                    className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all font-medium"
-                    value={matchForm.qualityLevel}
-                    onChange={e => setMatchForm({ ...matchForm, qualityLevel: e.target.value })}
-                  >
-                    <option value="Yếu">Yếu</option>
-                    <option value="Trung bình yếu">Trung bình yếu</option>
-                    <option value="Trung bình">Trung bình</option>
-                    <option value="Trung bình khá">Trung bình khá</option>
-                    <option value="Khá">Khá</option>
-                    <option value="Mạnh">Mạnh</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                    <FiMapPin className="text-emerald-500" /> Địa Điểm (Dự Kiến)
-                  </label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="VD: Sân Chùa Láng, Đống Đa"
-                    value={matchForm.location}
-                    onChange={e => setMatchForm({...matchForm, location: e.target.value})}
-                    className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-slate-400"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <FiCalendar className="text-emerald-500" /> Ngày Diễn Ra
-                    </label>
-                    <input 
-                      type="date" 
-                      required
-                      value={matchForm.expiresAt ? matchForm.expiresAt.split('T')[0] : ''}
-                      onChange={e => {
-                        const timePart = (matchForm.expiresAt && matchForm.expiresAt.includes('T')) ? matchForm.expiresAt.split('T')[1] : '00:00';
-                        setMatchForm({...matchForm, expiresAt: `${e.target.value}T${timePart}`});
-                      }}
-                      className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <FiClock className="text-emerald-500" /> Giờ Diễn Ra
-                    </label>
-                    <input 
-                      type="time" 
-                      required
-                      value={matchForm.expiresAt && matchForm.expiresAt.includes('T') ? matchForm.expiresAt.split('T')[1] : ''}
-                      onChange={e => {
-                        const datePart = (matchForm.expiresAt && matchForm.expiresAt.includes('T')) ? matchForm.expiresAt.split('T')[0] : new Date().toISOString().split('T')[0];
-                        setMatchForm({...matchForm, expiresAt: `${datePart}T${e.target.value}`});
-                      }}
-                      className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all [color-scheme:light] dark:[color-scheme:dark]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                  <FiFileText className="text-emerald-500" /> Ghi Chú & Thể Thức
-                </label>
-                <textarea 
-                  rows="3"
-                  required
-                  placeholder="VD: Giao lưu vui vẻ, chia tiền sân 50/50, cần tìm 2 bạn đá cánh..."
-                  value={matchForm.description}
-                  onChange={e => setMatchForm({...matchForm, description: e.target.value})}
-                  className="w-full px-4 py-3.5 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all placeholder:text-slate-400 resize-none"
-                ></textarea>
-              </div>
-
-              <div className="pt-4 flex gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setActiveTab('team-matches')}
-                  className="px-6 py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
-                >
-                  Hủy Bỏ
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={matchLoading}
-                  className="flex-1 px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold rounded-xl hover:from-emerald-600 hover:to-teal-600 shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {matchLoading ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <>Xác Nhận Đăng Kèo <FiCheckCircle /></>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       <PaywallModal 
         isOpen={!!paywallData} 

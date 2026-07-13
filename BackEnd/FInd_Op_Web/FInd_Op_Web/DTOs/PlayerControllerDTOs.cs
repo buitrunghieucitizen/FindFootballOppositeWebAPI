@@ -28,6 +28,8 @@ namespace FInd_Op_Web.DTOs
         public class CreateIndividualMatchDto
         {
             public int SportId { get; set; }
+            public DateTime? MatchDate { get; set; }
+            public TimeSpan? StartTime { get; set; }
             public DateTime ExpiresAt { get; set; }
             public string? Location { get; set; }
             public string? QualityLevel { get; set; }
@@ -43,6 +45,7 @@ namespace FInd_Op_Web.DTOs
         {
             public int HomeScore { get; set; }
             public int AwayScore { get; set; }
+            public string? SetScores { get; set; }
         }
 }
 
