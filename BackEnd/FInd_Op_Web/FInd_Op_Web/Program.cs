@@ -17,7 +17,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowReactApp",
         policy =>
         {
-            policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173", "https://sportifyx.id.vn", "http://sportifyx.id.vn") // Default Vite port & Prod domain
+            policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173", "https://sportifyx.id.vn", "http://sportifyx.id.vn", "https://findfootballoppositewebapi-1.onrender.com") // Default Vite port & Prod domain
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials();
