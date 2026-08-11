@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.DEV ? 'http://localhost:5229/api' : '/api';
+const API_URL = import.meta.env.DEV ? 'http://localhost:5229/api' : 'https://findfootballoppositewebapi.onrender.com/api';
 
 // Create axios instance with default config
 const apiClient = axios.create({
