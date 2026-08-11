@@ -194,7 +194,7 @@ namespace FInd_Op_Web.Controllers
             dbUser.TwoFactorSecret = secret;
             await _context.SaveChangesAsync();
 
-            return Ok(new { secret = secret, qrCodeUrl = setupInfo.QrCodeSetupImageUrl });
+            return Ok(new { qrCodeImageUrl = setupInfo.QrCodeSetupImageUrl, manualEntryKey = setupInfo.ManualEntryKey });
         }
 
         public class Verify2FARequest
