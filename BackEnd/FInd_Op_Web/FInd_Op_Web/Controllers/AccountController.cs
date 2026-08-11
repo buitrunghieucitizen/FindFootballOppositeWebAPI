@@ -141,6 +141,7 @@ namespace FInd_Op_Web.Controllers
             public string Username { get; set; }
             public string FullName { get; set; }
             public string Phone { get; set; }
+            public string? Email { get; set; }
             public string Password { get; set; }
             public string ConfirmPassword { get; set; }
             public string? UserRole { get; set; }
@@ -156,7 +157,7 @@ namespace FInd_Op_Web.Controllers
             }
 
             var userRole = string.IsNullOrWhiteSpace(request.UserRole) ? "Player" : request.UserRole;
-            var user = await _authService.RegisterAsync(request.Username, request.FullName, request.Phone, request.Password, userRole);
+            var user = await _authService.RegisterAsync(request.Username, request.FullName, request.Phone, request.Email ?? "", request.Password, userRole);
 
             if (user == null)
             {
@@ -182,11 +183,14 @@ namespace FInd_Op_Web.Controllers
             if (user == null || user.Roles?.FirstOrDefault()?.RoleName != "Admin")
                 return Unauthorized(new { message = "Tài khoản không hợp lệ hoặc không phải Admin" });
 
+            var dbUser = await _context.Users.FindAsync(user.UserId);
+            if (dbUser.IsTwoFactorEnabled)
+                return BadRequest(new { message = "2FA đã được thiết lập. Vô hiệu hóa trước khi thiết lập lại." });
+
             var tfa = new Google.Authenticator.TwoFactorAuthenticator();
             var secret = Guid.NewGuid().ToString().Replace("-", "").Substring(0, 10);
             var setupInfo = tfa.GenerateSetupCode("SportifyX", user.Username, secret, false, 3);
             
-            var dbUser = await _context.Users.FindAsync(user.UserId);
             dbUser.TwoFactorSecret = secret;
             await _context.SaveChangesAsync();
 
@@ -206,6 +210,11 @@ namespace FInd_Op_Web.Controllers
             var user = await _authService.LoginAsync(request.Username, request.Password);
             if (user == null) return Unauthorized(new { message = "Tài khoản không hợp lệ" });
 
+            var tfa = new Google.Authenticator.TwoFactorAuthenticator();
+            bool isCorrectPIN = tfa.ValidateTwoFactorPIN(user.TwoFactorSecret, request.Code);
+            if (!isCorrectPIN)
+                return BadRequest(new { message = "Mã xác thực không đúng" });
+
             if (user.Roles?.FirstOrDefault()?.RoleName == "Admin" && !user.IsTwoFactorEnabled)
             {
                 var dbUser = await _context.Users.FindAsync(user.UserId);
@@ -213,11 +222,6 @@ namespace FInd_Op_Web.Controllers
                 await _context.SaveChangesAsync();
                 user.IsTwoFactorEnabled = true;
             }
-
-            var tfa = new Google.Authenticator.TwoFactorAuthenticator();
-            bool isCorrectPIN = tfa.ValidateTwoFactorPIN(user.TwoFactorSecret, request.Code);
-            if (!isCorrectPIN)
-                return BadRequest(new { message = "Mã xác thực không đúng" });
 
             var userRole = user.Roles?.FirstOrDefault()?.RoleName ?? "Player";
             var claims = new List<Claim>
