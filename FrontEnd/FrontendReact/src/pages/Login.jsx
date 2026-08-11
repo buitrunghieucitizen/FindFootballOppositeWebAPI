@@ -220,6 +220,7 @@ export default function LoginPage() {
                     </div>
                     <input
                       type="text"
+                      inputMode="numeric"
                       maxLength="6"
                       value={pin}
                       onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}

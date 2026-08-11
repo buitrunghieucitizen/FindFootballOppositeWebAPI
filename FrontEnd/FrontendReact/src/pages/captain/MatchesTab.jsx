@@ -67,7 +67,8 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
     setAttendanceData([]);
     try {
       const data = await captainService.getMatchAttendance(matchId);
-      setAttendanceData(data?.attendance || data?.Attendance || data || []);
+      const attData = data?.attendance || data?.Attendance || data;
+      setAttendanceData(Array.isArray(attData) ? attData : (attData?.$values || []));
     } catch (err) {
       alert('Không thể lấy danh sách điểm danh');
     } finally {
@@ -118,14 +119,14 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
       }
       if (activeTab === 'matches') {
         const data = await captainService.getMatches();
-        setMatches(data || []);
+        setMatches(Array.isArray(data) ? data : (data?.$values || []));
       } else if (activeTab === 'requests') {
         const [reqData, inviteData] = await Promise.all([
           captainService.getMatchRequests(),
           captainService.getReceivedInvites()
         ]);
-        setRequests(reqData || []);
-        setInvites(inviteData || []);
+        setRequests(Array.isArray(reqData) ? reqData : (reqData?.$values || []));
+        setInvites(Array.isArray(inviteData) ? inviteData : (inviteData?.$values || []));
       }
     } catch (err) {
       console.error(err);
@@ -402,8 +403,16 @@ export default function MatchesTab({ setActiveTab: setDashboardTab }) {
                 <div className="mb-4 flex flex-col gap-1.5">
                   <p className="text-sm text-slate-600 dark:text-slate-300 flex items-center gap-2">
                     <FiCalendar className="text-emerald-600" /> 
-                    {match.matchDate ? new Date(match.matchDate).toLocaleDateString('vi-VN') : 'Chưa xếp lịch'} 
+                    {(() => {
+                      if (match.matchDate) {
+                        return new Date(match.matchDate).toLocaleDateString('vi-VN');
+                      } else if (match.scheduleStartTime) {
+                        return new Date(match.scheduleStartTime).toLocaleDateString('vi-VN');
+                      }
+                      return 'Chưa xếp lịch';
+                    })()}
                     {match.startTime && ` - ${match.startTime.substring(0,5)}`}
+                    {!match.startTime && match.scheduleStartTime && ` - ${new Date(match.scheduleStartTime).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}`}
                   </p>
                   <div className="text-sm text-slate-600 dark:text-slate-300 flex items-start gap-2">
                     <FiMapPin className="text-emerald-600 shrink-0 mt-0.5" /> 

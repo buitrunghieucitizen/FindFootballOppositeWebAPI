@@ -57,6 +57,10 @@ export default function CreateTournament_Captain() {
       Swal.fire('Chú ý', 'Vui lòng đồng ý với các điều khoản trước khi tạo giải đấu.', 'warning');
       return;
     }
+    if (!/^\d{12}$/.test(formData.organizerCccd)) {
+      Swal.fire('Lỗi', 'Số CCCD phải là 12 chữ số.', 'error');
+      return;
+    }
     
     const confirm = await Swal.fire({
       title: 'Xác nhận tạo giải đấu?',
@@ -212,6 +216,7 @@ export default function CreateTournament_Captain() {
                 <h4 className="font-bold text-lg text-slate-800 dark:text-white mb-4">Bước 3: Cung cấp thông tin xác thực</h4>
                 <div className="bg-amber-50 dark:bg-amber-900/20 p-5 rounded-2xl text-amber-800 dark:text-amber-200 text-sm mb-6 border border-amber-200 dark:border-amber-900/50">
                   Để đảm bảo tính minh bạch, vui lòng cung cấp mã số CCCD và Bằng lái xe của người chịu trách nhiệm giải đấu.
+                  Thông tin của bạn được mã hóa và chỉ dùng cho mục đích xác thực giải đấu, không chia sẻ với bên thứ ba.
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Số CCCD (Bắt buộc)</label>

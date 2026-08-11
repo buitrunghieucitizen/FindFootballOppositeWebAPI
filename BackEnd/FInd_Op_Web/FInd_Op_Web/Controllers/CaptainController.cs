@@ -94,12 +94,9 @@ public class CaptainController : ControllerBase
 		}
 		catch (Exception ex)
 		{
-			Exception ex2 = ex;
 			return StatusCode(500, new
 			{
-				message = ex2.Message,
-				stackTrace = ex2.StackTrace,
-				innerException = ex2.InnerException?.Message
+				message = "Có lỗi xảy ra: " + ex.Message
 			});
 		}
 	}
@@ -166,12 +163,9 @@ public class CaptainController : ControllerBase
 		}
 		catch (Exception ex)
 		{
-			Exception ex2 = ex;
 			return StatusCode(500, new
 			{
-				message = ex2.Message,
-				stackTrace = ex2.StackTrace,
-				innerException = ex2.InnerException?.Message
+				message = "Có lỗi xảy ra: " + ex.Message
 			});
 		}
 	}
@@ -212,12 +206,9 @@ public class CaptainController : ControllerBase
 		}
 		catch (Exception ex)
 		{
-			Exception ex2 = ex;
 			return StatusCode(500, new
 			{
-				message = ex2.Message,
-				stackTrace = ex2.StackTrace,
-				innerException = ex2.InnerException?.Message
+				message = "Có lỗi xảy ra: " + ex.Message
 			});
 		}
 	}
@@ -441,7 +432,7 @@ public class CaptainController : ControllerBase
 		{
 			return BadRequest(new
 			{
-				message = "Bß¦ín cß¦ºn tß¦ío -æß+Öi b+¦ng tr¦¦ß+¢c khi +äGÇÿ+ä¦Æng b+â\u00a0i."
+				message = "Bạn cần tạo đội bóng trước khi đăng bài."
 			});
 		}
 		string postType = dto.PostType ?? "Recruitment";
@@ -449,7 +440,7 @@ public class CaptainController : ControllerBase
 		{
 			return BadRequest(new
 			{
-				message = "+ä +í-+Gäói b+¦ng cß+ºa bß¦ín -æ+ú d+¦ng hß¦+t 2 l¦¦ß+út +ä +ä¦Æng b+â\u00a0i T+â-¼m +ä +í-+GÇÿi/Ng+å-¦+í-+ i miß+àn ph+¡ trong th+íng n+áy. Vui l+¦ng n+óng cß¦Ñp Team Pro.",
+				message = "Gói bóng của bạn đã dùng hết 2 lượt đăng bài Tìm Đối/Người miễn phí trong tháng này. Vui lòng nâng cấp Team Pro.",
 				requiresPayment = true,
 				paymentType = "TeamPro",
 				price = 120000
@@ -621,7 +612,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "+ä +â-ú c+í-¦\u00adp nh+í-¦\u00adt s+ón ngo+ái th+ánh c+¦ng."
+			message = "Đã cập nhật sân ngoài thành công."
 		});
 	}
 
@@ -832,12 +823,6 @@ public class CaptainController : ControllerBase
 			return NotFound(new { message = "Team not found." });
 		}
 
-		if (team.FairplayScore == 0 && team.FairplayWarnings == 0)
-		{
-			team.FairplayScore = 100;
-			await _context.SaveChangesAsync();
-		}
-
 		if (team.FairplayScore <= 40)
 		{
 			var currentMonth = DateTime.Now.Month;
@@ -931,7 +916,14 @@ public class CaptainController : ControllerBase
 		{
 			return BadRequest(new
 			{
-				message = "+ä\u0090+â-óy kh+¦ng phß¦úi l+á tr+í-¦\u00adn giao hß+»u tß+¦ do."
+				message = "Đây không phải là trận giao hữu tự do."
+			});
+		}
+		if (match.MatchStatus != "LookingForOpponent")
+		{
+			return BadRequest(new
+			{
+				message = "Không thể cập nhật kèo khi đã có đội nhận lời."
 			});
 		}
 		match.MatchDate = dto.MatchDate;
@@ -941,7 +933,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "Cß¦¡p nhß¦¡t th+¦ng tin k+â\u00a8o th+ánh c+¦ng."
+			message = "Cập nhật thông tin kèo thành công."
 		});
 	}
 
@@ -1040,8 +1032,8 @@ public class CaptainController : ControllerBase
 					Notification notification = new Notification
 					{
 						UserId = homeTeam.CaptainId,
-						Title = "K+¿o -æ+ú -æ¦¦ß+úc nhß¦¡n!",
-						Message = "-Éß+Öi " + team.TeamName + " -æ+ú nhß¦¡n k+¿o th+ích -æß¦Ñu cß+ºa bß¦ín!",
+						Title = "Kèo đã được nhận!",
+						Message = "Đội " + team.TeamName + " đã nhận kèo thích đấu của bạn!",
 						IsRead = false,
 						CreatedAt = DateTime.Now
 					};
@@ -1095,7 +1087,21 @@ public class CaptainController : ControllerBase
 		{
 			return BadRequest(new
 			{
-				message = "Can only rate after match is completed."
+				message = "Chỉ có thể đánh giá sau khi trận đấu kết thúc."
+			});
+		}
+		if (match.HomeTeamId != team.TeamId && match.AwayTeamId != team.TeamId)
+		{
+			return BadRequest(new
+			{
+				message = "Đội của bạn không tham gia trận đấu này."
+			});
+		}
+		if (!match.AwayTeamId.HasValue || !match.HomeTeamId.HasValue)
+		{
+			return BadRequest(new
+			{
+				message = "Trận đấu chưa có đủ 2 đội."
 			});
 		}
 		int ratedTeamId = ((match.HomeTeamId == team.TeamId) ? match.AwayTeamId.Value : match.HomeTeamId.Value);
@@ -1104,6 +1110,13 @@ public class CaptainController : ControllerBase
 			return BadRequest(new
 			{
 				message = "You have already rated the opponent for this match."
+			});
+		}
+		if (dto.Score < 1 || dto.Score > 5)
+		{
+			return BadRequest(new
+			{
+				message = "Điểm đánh giá phải từ 1 đến 5."
 			});
 		}
 		TeamRating rating = new TeamRating
@@ -1143,6 +1156,10 @@ public class CaptainController : ControllerBase
 			{
 				ratedTeam.FairplayScore = 100;
 			}
+			if (ratedTeam.FairplayScore < 0)
+			{
+				ratedTeam.FairplayScore = 0;
+			}
 			string notificationMessage = "";
 			if (ratedTeam.FairplayScore <= 0 && ratedTeam.FairplayWarnings < 5)
 			{
@@ -1174,7 +1191,7 @@ public class CaptainController : ControllerBase
 				Notification notification = new Notification
 				{
 					UserId = ratedTeam.CaptainId.Value,
-					Title = "Cß¦únh b+ío Fairplay",
+					Title = "Cảnh báo Fairplay",
 					Message = notificationMessage,
 					CreatedAt = DateTime.Now,
 					IsRead = false
@@ -1344,13 +1361,13 @@ public class CaptainController : ControllerBase
 			SportId = dto.SportId,
 			OrganizerCccd = ((dto.Scope != "Internal") ? dto.OrganizerCccd : null),
 			OrganizerDriverLicense = ((dto.Scope != "Internal") ? dto.OrganizerDriverLicense : null),
-			Description = $"C¦í chß¦+: {dto.AssignmentType}, Max -æß+Öi: {dto.MaxTeams}" + ((!string.IsNullOrEmpty(dto.Stadium)) ? (", S+ón dß+¦ kiß¦+n: " + dto.Stadium) : "")
+			Description = $"Cơ chế: {dto.AssignmentType}, Max đội: {dto.MaxTeams}" + ((!string.IsNullOrEmpty(dto.Stadium)) ? (", Sân dự kiến: " + dto.Stadium) : "")
 		};
 		_context.Tournaments.Add(tournament);
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "Tß¦ío giß¦úi -æß¦Ñu th+ánh c+¦ng.",
+			message = "Tạo giải đấu thành công.",
 			tournamentId = tournament.TournamentId
 		});
 	}
@@ -1489,7 +1506,7 @@ public class CaptainController : ControllerBase
 		tournament.Format = dto.Format;
 		tournament.StartDate = dto.StartDate;
 		tournament.EndDate = dto.EndDate;
-		tournament.Description = $"Sport: {dto.Sport}, Scope: {dto.Scope}, Stadium: {dto.Stadium}, MaxTeams: {dto.MaxTeams}";
+		tournament.MaxTeams = dto.MaxTeams > 0 ? dto.MaxTeams : 16;
 		
 		if (tournament.Status == "Completed" && tournament.EndDate > DateTime.Now)
 		{
@@ -1528,15 +1545,15 @@ public class CaptainController : ControllerBase
 		_context.Notifications.Add(new Notification
 		{
 			UserId = 1,
-			Title = "Y+¬u cß¦ºu ho+án tiß+ün giß¦úi -æß¦Ñu",
-			Message = $"Ng¦¦ß+¥i d+¦ng {userId} y+¬u cß¦ºu ho+án tiß+ün 80% cho giß¦úi -æß¦Ñu '{tournament.TournamentName}' bß+ï hß+ºy.",
+			Title = "Yêu cầu hoàn tiền giải đấu",
+			Message = $"Người dùng {userId} yêu cầu hoàn tiền 80% cho giải đấu '{tournament.TournamentName}' bị hủy.",
 			IsRead = false,
 			CreatedAt = DateTime.Now
 		});
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É+ú hß+ºy giß¦úi v+á y+¬u cß¦ºu ho+án tiß+ün 80%."
+			message = "Đã hủy giải và yêu cầu hoàn tiền 80%."
 		});
 	}
 
@@ -1557,14 +1574,14 @@ public class CaptainController : ControllerBase
 		{
 			return BadRequest(new
 			{
-				message = "Admin ch¦¦a ho+án tiß+ün hoß¦+c bß¦ín -æ+ú x+íc nhß¦¡n rß+ôi."
+				message = "Admin chưa hoàn tiền hoặc bạn đã xác nhận rồi."
 			});
 		}
 		tournament.RefundStatus = "Completed";
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É+ú x+íc nhß¦¡n nhß¦¡n -æ¦¦ß+úc tiß+ün."
+			message = "Đã xác nhận nhận được tiền."
 		});
 	}
 
@@ -1659,7 +1676,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É+ú duyß+çt -æß+Öi v+áo giß¦úi."
+			message = "Đã duyệt đội vào giải."
 		});
 	}
 
@@ -1689,7 +1706,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É+ú tß+½ chß+æi v+á x+¦a y+¬u cß¦ºu."
+			message = "Đã từ chối và xóa yêu cầu."
 		});
 	}
 
@@ -1701,7 +1718,7 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound(new
 			{
-				message = "Bß¦ín cß¦ºn c+¦ -æß+Öi b+¦ng -æß+â -æ-âng k++ giß¦úi."
+				message = "Bạn cần có đội bóng để đăng ký giải."
 			});
 		}
 		Tournament tournament = await _context.Tournaments.FindAsync(id);
@@ -1718,28 +1735,39 @@ public class CaptainController : ControllerBase
 		{
 			return BadRequest(new
 			{
-				message = "-É+óy l+á giß¦úi -æß¦Ñu nß+Öi bß+Ö, bß¦ín kh+¦ng thß+â tß+¦ -æ-âng k++."
+				message = "Đây là giải đấu nội bộ, bạn không thể tự đăng ký."
 			});
 		}
 		if (!dto.NoBettingCommitment)
 		{
 			return BadRequest(new
 			{
-				message = "Bß¦ín phß¦úi cam kß¦+t ch¦íi b+¦ng -æ+í kh+¦ng c+í -æß+Ö."
+				message = "Bạn phải cam kết chơi bóng để không cá độ."
 			});
 		}
 		if (tournament.MaxPlayersPerTeam.HasValue && dto.PlayerIds != null && dto.PlayerIds.Count > tournament.MaxPlayersPerTeam.Value)
 		{
 			return BadRequest(new
 			{
-				message = $"Sß+æ l¦¦ß+úng cß¦ºu thß+º v¦¦ß+út qu+í giß+¢i hß¦ín ({tournament.MaxPlayersPerTeam.Value} ng¦¦ß+¥i)."
+				message = $"Số lượng cầu thủ vượt quá giới hạn ({tournament.MaxPlayersPerTeam.Value} người)."
 			});
+		}
+		if (tournament.MaxTeams > 0)
+		{
+			int registeredCount = await _context.TournamentTeams.CountAsync(tt => tt.TournamentId == id);
+			if (registeredCount >= tournament.MaxTeams)
+			{
+				return BadRequest(new
+				{
+					message = $"Giải đấu đã đạt số lượng đội tối đa ({tournament.MaxTeams} đội)."
+				});
+			}
 		}
 		if (await _context.TournamentTeams.AnyAsync((TournamentTeam tt) => tt.TournamentId == id && tt.TeamId == team.TeamId))
 		{
 			return BadRequest(new
 			{
-				message = "-Éß+Öi cß+ºa bß¦ín -æ+ú -æ-âng k++ giß¦úi -æß¦Ñu n+áy rß+ôi."
+				message = "Đội của bạn đã đăng ký giải đấu này rồi."
 			});
 		}
 		TournamentTeam tt2 = new TournamentTeam
@@ -1767,7 +1795,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É-âng k++ th+ánh c+¦ng."
+			message = "Đăng ký thành công."
 		});
 	}
 
@@ -1784,21 +1812,21 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound(new
 			{
-				message = "Kh+¦ng t+¼m thß¦Ñy giß¦úi -æß¦Ñu hoß¦+c bß¦ín kh+¦ng c+¦ quyß+ün."
+				message = "Không tìm thấy giải đấu hoặc bạn không có quyền."
 			});
 		}
 		if (tournament.Scope != "Internal")
 		{
 			return BadRequest(new
 			{
-				message = "Chß+ë +íp dß+Ñng cho giß¦úi -æß¦Ñu nß+Öi bß+Ö."
+				message = "Chỉ áp dụng cho giải đấu nội bộ."
 			});
 		}
 		if (playerIds == null || !playerIds.Any())
 		{
 			return BadRequest(new
 			{
-				message = "Danh s+ích ng¦¦ß+¥i ch¦íi trß+æng."
+				message = "Danh sách người chơi trống."
 			});
 		}
 		int playersPerTeam = tournament.MaxPlayersPerTeam ?? 5;
@@ -1899,28 +1927,28 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound(new
 			{
-				message = "Kh+¦ng t+¼m thß¦Ñy -æß+Öi hoß¦+c bß¦ín kh+¦ng c+¦ quyß+ün."
+				message = "Không tìm thấy đội hoặc bạn không có quyền."
 			});
 		}
 		if (!(await _context.TournamentTeams.AnyAsync((TournamentTeam tt) => tt.TournamentId == id && tt.TeamId == teamId)))
 		{
 			return BadRequest(new
 			{
-				message = "-Éß+Öi kh+¦ng thuß+Öc giß¦úi -æß¦Ñu n+áy."
+				message = "Đội không thuộc giải đấu này."
 			});
 		}
 		if (string.IsNullOrWhiteSpace(newName))
 		{
 			return BadRequest(new
 			{
-				message = "T+¬n kh+¦ng hß+úp lß+ç."
+				message = "Tên không hợp lệ."
 			});
 		}
 		team.TeamName = newName;
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-Éß+òi t+¬n -æß+Öi th+ánh c+¦ng."
+			message = "Đổi tên đội thành công."
 		});
 	}
 
@@ -1953,11 +1981,19 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound(new
 			{
-				message = "Kh+¦ng t+¼m thß¦Ñy giß¦úi -æß¦Ñu hoß¦+c bß¦ín kh+¦ng c+¦ quyß+ün."
+				message = "Không tìm thấy giải đấu hoặc bạn không có quyền."
 			});
 		}
+		try
+		{
+			JsonSerializer.Deserialize<object>(payload.GetRawText());
+		}
+		catch (JsonException)
+		{
+			return BadRequest(new { message = "Dữ liệu bracket không hợp lệ." });
+		}
 		tournament.BracketJson = payload.GetRawText();
-		List<Match> existingMatches = _context.Matches.Where((Match m) => m.TournamentId == (int?)id && (m.MatchStatus == "Upcoming" || m.MatchStatus == "Ch¦¦a xß¦+p lß+ïch")).ToList();
+		List<Match> existingMatches = _context.Matches.Where((Match m) => m.TournamentId == (int?)id && (m.MatchStatus == "Upcoming" || m.MatchStatus == "Chưa xếp lịch")).ToList();
 		_context.Matches.RemoveRange(existingMatches);
 		List<Match> matchesToCreate = new List<Match>();
 		ExtractMatchesFromJson(payload, matchesToCreate, id);
@@ -1968,7 +2004,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "L¦¦u s¦í -æß+ô nh+ính -æß¦Ñu th+ánh c+¦ng."
+			message = "Lưu sơ đồ nhánh đấu thành công."
 		});
 	}
 
@@ -1985,14 +2021,14 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound(new
 			{
-				message = "Kh+¦ng t+¼m thß¦Ñy giß¦úi -æß¦Ñu hoß¦+c bß¦ín kh+¦ng c+¦ quyß+ün."
+				message = "Không tìm thấy giải đấu hoặc bạn không có quyền."
 			});
 		}
 		if (tournament.Status == "Completed")
 		{
 			return BadRequest(new
 			{
-				message = "Kh+¦ng thß+â hß+ºy giß¦úi -æß¦Ñu -æ+ú kß¦+t th+¦c."
+				message = "Không thể hủy giải đấu đã kết thúc."
 			});
 		}
 		tournament.Status = "Cancelled";
@@ -2006,7 +2042,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É+ú hß+ºy giß¦úi -æß¦Ñu th+ánh c+¦ng."
+			message = "Đã hủy giải đấu thành công."
 		});
 	}
 
@@ -2062,14 +2098,14 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound(new
 			{
-				message = "Kh+¦ng t+¼m thß¦Ñy trß¦¡n -æß¦Ñu"
+				message = "Không tìm thấy trận đấu"
 			});
 		}
 		if (match.Tournament == null || match.Tournament.OrganizerId != userId)
 		{
 			return Unauthorized(new
 			{
-				message = "Chß+ë ng¦¦ß+¥i tß¦ío giß¦úi mß+¢i -æ¦¦ß+úc cß¦¡p nhß¦¡t kß¦+t quß¦ú"
+				message = "Chỉ người tạo giải mới được cập nhật kết quả"
 			});
 		}
 		match.HomeScore = dto.HomeScore;
@@ -2082,7 +2118,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É+ú l¦¦u kß¦+t quß¦ú trß¦¡n -æß¦Ñu"
+			message = "Đã lưu kết quả trận đấu"
 		});
 	}
 
@@ -2097,7 +2133,7 @@ public class CaptainController : ControllerBase
 		{
 			return NotFound(new
 			{
-				message = "Kh+¦ng t+¼m thß¦Ñy trß¦¡n -æß¦Ñu"
+				message = "Không tìm thấy trận đấu"
 			});
 		}
 		bool isOrganizer = match.Tournament != null && match.Tournament.OrganizerId == userId;
@@ -2106,7 +2142,7 @@ public class CaptainController : ControllerBase
 		{
 			return Unauthorized(new
 			{
-				message = "Bß¦ín kh+¦ng c+¦ quyß+ün chß+ënh sß+¡a trß¦¡n -æß¦Ñu n+áy"
+				message = "Bạn không có quyền chỉnh sửa trận đấu này"
 			});
 		}
 		if (dto.PitchId.HasValue && dto.MatchDate.HasValue && dto.StartTime.HasValue)
@@ -2130,7 +2166,7 @@ public class CaptainController : ControllerBase
 			{
 				return BadRequest(new
 				{
-					message = "Lß+ïch thi -æß¦Ñu tr+¦ng vß+¢i mß+Öt trß¦¡n kh+íc tr+¬n c+¦ng s+ón n+áy!"
+					message = "Lịch thi đấu trùng với một trận khác trên cùng sân này!"
 				});
 			}
 		}
@@ -2255,7 +2291,7 @@ public class CaptainController : ControllerBase
 		{
 			return BadRequest(new
 			{
-				message = "Kh+¦ng c+¦ trß¦¡n -æß¦Ñu n+áo trong giß¦úi -æß+â xß¦+p lß+ïch."
+				message = "Không có trận đấu nào trong giải để xếp lịch."
 			});
 		}
 		DateTime startDate = tournament.StartDate ?? DateTime.Now.Date;
@@ -2263,25 +2299,52 @@ public class CaptainController : ControllerBase
 		DateTime currentDay = startDate;
 		int matchCountPerDay = 2;
 		int currentMatchInDay = 0;
+		List<Pitch> pitches = tournament.StadiumId.HasValue
+			? await _context.Pitches.Where(p => p.StadiumId == tournament.StadiumId).ToListAsync()
+			: new List<Pitch>();
 		foreach (Match m2 in matches.OrderBy((Match m) => m.MatchId))
 		{
 			m2.MatchDate = currentDay;
 			m2.DurationMinutes = 90;
 			m2.HasExtraTime = false;
-			int startHour = random.Next(16, 21);
-			m2.StartTime = new TimeSpan(startHour, 0, 0);
-			m2.EndTime = m2.StartTime.Value.Add(TimeSpan.FromMinutes(90.0));
-			if (tournament.StadiumId.HasValue)
+			m2.MatchStatus = "Scheduled";
+			if (pitches.Any())
 			{
-				List<Pitch> pitches = await _context.Pitches.Where((Pitch p) => p.StadiumId == tournament.StadiumId).ToListAsync();
-				if (pitches.Any())
+				bool slotAssigned = false;
+				for (int attempt = 0; attempt < 5 && !slotAssigned; attempt++)
 				{
-					Pitch randomPitch = pitches[random.Next(pitches.Count)];
-					m2.PitchId = randomPitch.PitchId;
-					m2.Location = randomPitch.PitchName;
+					Pitch candidate = pitches[random.Next(pitches.Count)];
+					int startHour = random.Next(16, 21);
+					var candidateStart = new TimeSpan(startHour, 0, 0);
+					var candidateEnd = candidateStart.Add(TimeSpan.FromMinutes(90));
+					bool overlapping = await _context.PitchSchedules
+						.AnyAsync(ps => ps.PitchId == candidate.PitchId
+							&& ps.StartTime.Date == currentDay.Date
+							&& ps.StartTime.TimeOfDay < candidateEnd
+							&& ps.EndTime.TimeOfDay > candidateStart
+							&& (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed"));
+					if (!overlapping)
+					{
+						m2.PitchId = candidate.PitchId;
+						m2.Location = candidate.PitchName;
+						m2.StartTime = candidateStart;
+						m2.EndTime = candidateEnd;
+						slotAssigned = true;
+					}
+				}
+				if (!slotAssigned)
+				{
+					m2.StartTime = new TimeSpan(random.Next(16, 21), 0, 0);
+					m2.EndTime = m2.StartTime.Value.Add(TimeSpan.FromMinutes(90));
+					m2.Location = "Chờ xác nhận sân";
 				}
 			}
-			m2.MatchStatus = "Scheduled";
+			else
+			{
+				int startHour = random.Next(16, 21);
+				m2.StartTime = new TimeSpan(startHour, 0, 0);
+				m2.EndTime = m2.StartTime.Value.Add(TimeSpan.FromMinutes(90.0));
+			}
 			currentMatchInDay++;
 			if (currentMatchInDay >= matchCountPerDay)
 			{
@@ -2292,7 +2355,7 @@ public class CaptainController : ControllerBase
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É+ú tß+¦ -æß+Öng xß¦+p lß+ïch thi -æß¦Ñu th+ánh c+¦ng!"
+			message = "Đã tự động xếp lịch thi đấu thành công!"
 		});
 	}
 
@@ -2313,14 +2376,14 @@ public class CaptainController : ControllerBase
 		{
 			return BadRequest(new
 			{
-				message = "Giß¦úi -æß¦Ñu -æ+ú bß¦»t -æß¦ºu hoß¦+c -æ+ú kß¦+t th+¦c."
+				message = "Giải đấu đã bắt đầu hoặc đã kết thúc."
 			});
 		}
 		tournament.Status = "InProgress";
 		await _context.SaveChangesAsync();
 		return Ok(new
 		{
-			message = "-É+ú bß¦»t -æß¦ºu giß¦úi -æß¦Ñu!"
+			message = "Đã bắt đầu giải đấu!"
 		});
 	}
 

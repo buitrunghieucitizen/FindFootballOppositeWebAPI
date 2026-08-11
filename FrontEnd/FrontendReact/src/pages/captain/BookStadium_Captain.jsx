@@ -88,7 +88,6 @@ export default function BookStadium_Captain() {
           StartTime: startDateTime,
           EndTime: endDateTime,
           MatchId: bookingMatchId ? parseInt(bookingMatchId) : null,
-          MatchId: bookingMatchId ? parseInt(bookingMatchId) : null,
           BookingType: paymentOption,
           SenderBankAccountNumber: paymentOption === 'deposit_30' ? senderBankAccountNumber : null,
           SenderBankAccountName: paymentOption === 'deposit_30' ? senderBankAccountName : null
@@ -103,8 +102,6 @@ export default function BookStadium_Captain() {
           PitchId: pitchId,
           DayOfWeek: bookingData.dayOfWeek,
           StartTime: `${bookingData.startTime}:00`,
-          EndTime: `${bookingData.endTime}:00`,
-          FromDate: bookingData.fromDate,
           EndTime: `${bookingData.endTime}:00`,
           FromDate: bookingData.fromDate,
           ToDate: bookingData.toDate,

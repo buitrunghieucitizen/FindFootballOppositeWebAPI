@@ -62,7 +62,7 @@ export default function MatchHistoryTab() {
                   {m.homeTeamName || 'Đội nhà'} <span className="text-slate-400 font-normal mx-2">vs</span> {m.awayTeamName || 'Đội khách'}
                 </h3>
                 <div className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                  {m.matchDate ? new Date(m.matchDate).toLocaleDateString('vi-VN') : 'Chưa xếp lịch'}
+                  {m.matchDate ? new Date(m.matchDate).toLocaleDateString('vi-VN') : (m.scheduleStartTime ? new Date(m.scheduleStartTime).toLocaleDateString('vi-VN') : 'Chưa xếp lịch')}
                 </div>
                 {m.location && (
                   <div className="text-sm text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">

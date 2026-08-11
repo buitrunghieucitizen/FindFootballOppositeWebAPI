@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { PublicLayout } from '../components/portal-ui';
 import Pagination from '../components/Pagination';
+import { APP_NAME } from '../constants';
 
 export default function CommunityFeed() {
   const { user } = useAuth();
@@ -78,7 +79,7 @@ export default function CommunityFeed() {
 
   return (
     <PublicLayout 
-      title="Cộng Đồng SportifyX"
+      title={`Cộng Đồng ${APP_NAME}`}
       subtitle="Tìm đội, gạ kèo, chia sẻ quảng cáo hoặc theo dõi thông báo mới nhất từ ban quản trị."
     >
       <div className="max-w-4xl mx-auto py-8 px-4">

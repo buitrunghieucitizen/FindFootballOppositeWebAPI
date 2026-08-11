@@ -3,6 +3,8 @@ import { FiUsers, FiUserPlus, FiCheck, FiRefreshCw, FiX } from 'react-icons/fi';
 import { captainService } from '../../services/captainService';
 import playerService from '../../services/playerService';
 import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../components/Toast';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import Pagination from '../../components/Pagination';
 
 export default function MembersTab() {
@@ -24,6 +26,8 @@ export default function MembersTab() {
   const pageSize = 10;
 
   const { logout } = useAuth();
+  const { addToast } = useToast();
+  const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'danger' });
 
   const loadData = async () => {
     setLoading(true);
@@ -54,46 +58,61 @@ export default function MembersTab() {
       loadData(); // reload
     } catch (error) {
       console.error('Error accepting member', error);
-      alert('Có lỗi xảy ra khi duyệt thành viên');
+      addToast('Có lỗi xảy ra khi duyệt thành viên', 'error');
     }
   };
 
-  const handleReject = async (requestId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn từ chối yêu cầu này?')) return;
-    try {
-      await captainService.rejectMember(requestId);
-      loadData(); // reload
-    } catch (error) {
-      console.error('Error rejecting member', error);
-      alert('Có lỗi xảy ra khi từ chối thành viên');
-    }
+  const handleReject = (requestId) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Từ chối yêu cầu',
+      message: 'Bạn có chắc chắn muốn từ chối yêu cầu này?',
+      variant: 'warning',
+      onConfirm: async () => {
+        try {
+          await captainService.rejectMember(requestId);
+          addToast('Đã từ chối yêu cầu', 'success');
+          loadData();
+        } catch (error) {
+          console.error('Error rejecting member', error);
+          addToast('Có lỗi xảy ra khi từ chối thành viên', 'error');
+        }
+      }
+    });
   };
 
-  const handleKick = async (playerId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn kick (xóa) thành viên này khỏi đội không?')) return;
-    try {
-      await captainService.kickMember(playerId);
-      alert('Đã xóa thành viên khỏi đội!');
-      loadData(); // reload
-    } catch (error) {
-      console.error('Error kicking member', error);
-      alert(error.response?.data?.message || 'Có lỗi xảy ra khi kick thành viên');
-    }
+  const handleKick = (playerId) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Xóa thành viên',
+      message: 'Bạn có chắc chắn muốn kick (xóa) thành viên này khỏi đội không?',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await captainService.kickMember(playerId);
+          addToast('Đã xóa thành viên khỏi đội!', 'success');
+          loadData();
+        } catch (error) {
+          console.error('Error kicking member', error);
+          addToast(error.response?.data?.message || 'Có lỗi xảy ra khi kick thành viên', 'error');
+        }
+      }
+    });
   };
 
   const handleTransferRole = async () => {
-    if (!selectedMemberId) return alert('Vui lòng chọn thành viên');
+    if (!selectedMemberId) return addToast('Vui lòng chọn thành viên', 'warning');
     try {
       await captainService.transferRole({
         newCaptainId: parseInt(selectedMemberId),
         newRoleForOldCaptain: newRole
       });
-      alert('Chuyển quyền thành công! Bạn sẽ được đăng xuất để cập nhật quyền.');
+      addToast('Chuyển quyền thành công! Bạn sẽ được đăng xuất để cập nhật quyền.', 'success');
       setShowTransferModal(false);
       logout();
     } catch (error) {
       console.error(error);
-      alert('Lỗi khi chuyển quyền');
+      addToast('Lỗi khi chuyển quyền', 'error');
     }
   };
 
@@ -106,13 +125,13 @@ export default function MembersTab() {
         year: rateData.year,
         comment: rateData.comment
       });
-      alert('Đánh giá cầu thủ thành công!');
+      addToast('Đánh giá cầu thủ thành công!', 'success');
       setShowRateModal(false);
       setRateData({ score: 5, month: new Date().getMonth() + 1, year: new Date().getFullYear(), comment: '' });
-      loadData(); // reload
+      loadData();
     } catch (error) {
       console.error(error);
-      alert(error.response?.data?.message || 'Lỗi khi đánh giá cầu thủ');
+      addToast(error.response?.data?.message || 'Lỗi khi đánh giá cầu thủ', 'error');
     }
   };
 
@@ -477,6 +496,14 @@ export default function MembersTab() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant={confirmState.variant}
+        onConfirm={() => { confirmState.onConfirm?.(); setConfirmState({ isOpen: false, title: '', message: '', onConfirm: null }); }}
+        onCancel={() => setConfirmState({ isOpen: false, title: '', message: '', onConfirm: null })}
+      />
     </div>
   );
 }

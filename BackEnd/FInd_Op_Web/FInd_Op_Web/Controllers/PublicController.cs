@@ -120,7 +120,7 @@ namespace FInd_Op_Web.Controllers
             var matches = await _context.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
-                .Where(m => (m.HomeTeamId == id || m.AwayTeamId == id) && m.MatchStatus == "Đã kết thúc")
+                .Where(m => (m.HomeTeamId == id || m.AwayTeamId == id) && m.MatchStatus == "Completed")
                 .OrderByDescending(m => m.MatchDate)
                 .ToListAsync();
 
@@ -328,6 +328,7 @@ namespace FInd_Op_Web.Controllers
                 m.MatchDate,
                 StartTime = m.StartTimeTs != null ? m.StartTimeTs.Value.ToString(@"hh\:mm") : (m.ScheduleStartTime != null ? m.ScheduleStartTime.Value.ToString("HH:mm") : null),
                 EndTime = m.ScheduleEndTime,
+                ScheduleStartTime = m.ScheduleStartTime,
                 m.Location,
                 m.HomeScore,
                 m.AwayScore,

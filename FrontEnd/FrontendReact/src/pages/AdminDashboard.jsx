@@ -4,6 +4,9 @@ import { Button, Loading, Alert, Table } from '../components';
 import { adminService } from '../services/adminService';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { APP_NAME } from '../constants';
+import { useToast } from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { directMessageService } from '../services/directMessageService';
 import { FiLogOut, FiUsers, FiTarget, FiMapPin, FiCalendar, FiPlus, FiSearch, FiHome, FiGrid, FiChevronDown, FiBarChart2, FiAward, FiUser, FiSun, FiMoon, FiMessageSquare, FiDollarSign, FiSettings } from 'react-icons/fi';
 import AdminRevenueTab from './admin/AdminRevenueTab';
@@ -21,12 +24,14 @@ import Pagination from '../components/Pagination';
 export default function AdminDashboard() {
   const { user, logout, isAuthenticated } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { addToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const initialTab = searchParams.get('tab') || 'overview';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [hideOnboarding, setHideOnboarding] = useState(localStorage.getItem('hideOnboarding') === 'true');
+  const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
 
   const toggleOnboarding = () => {
     const newVal = !hideOnboarding;
@@ -86,7 +91,7 @@ export default function AdminDashboard() {
           phone: formData.phone || '0000000000',
           roles: [formData.role || 'Player']
         };
-        if (!editData) payload.password = formData.password || '123456';
+        if (!editData) payload.password = formData.password;
         if (editData) await adminService.updateUser(editData.userId, payload);
         else await adminService.createUser(payload);
       } else if (createType === 'teams') {
@@ -110,9 +115,9 @@ export default function AdminDashboard() {
       }
       setShowCreateModal(false);
       loadData();
-      alert(editData ? 'Cập nhật thành công!' : 'Thêm mới thành công!');
+      addToast(editData ? 'Cập nhật thành công!' : 'Thêm mới thành công!', 'success');
     } catch (err) {
-      alert('Lỗi: ' + (err.response?.data?.message || err.message));
+      addToast('Lỗi: ' + (err.response?.data?.message || err.message), 'error');
     }
   };
 
@@ -184,7 +189,7 @@ export default function AdminDashboard() {
 
   const sidebar = (
     <DashboardSidebar
-      brandLabel="SportifyX"
+      brandLabel={APP_NAME}
       subLabel="Admin Panel"
       navItems={navItems}
       activeTab={activeTab}
@@ -298,12 +303,12 @@ export default function AdminDashboard() {
                       <button key="msg" className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-200 rounded-lg text-sm hover:bg-blue-100 dark:hover:bg-blue-900/30" onClick={async () => {
                         try {
                           await directMessageService.sendMessage(row.userId, "Xin chào từ Admin hệ thống.");
-                          alert('Đã gửi tin nhắn tự động. Chuyển sang tab Tin Nhắn để tiếp tục trò chuyện.');
+                          addToast('Đã gửi tin nhắn tự động. Chuyển sang tab Tin Nhắn để tiếp tục trò chuyện.', 'success');
                           setActiveTab('messages');
-                        } catch (err) { alert('Lỗi: ' + err.message); }
+                        } catch (err) { addToast('Lỗi: ' + err.message, 'error'); }
                       }}>Nhắn tin</button>,
                       <button key="edit" className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-600" onClick={() => handleOpenCreate('users', row)}>Sửa</button>,
-                      <button key="delete" className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => { if (confirm('Xóa người dùng này?')) adminService.deleteUser(row.userId).then(() => loadData()); }}>Xóa</button>,
+                      <button key="delete" className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => setConfirmState({ isOpen: true, title: 'Xóa người dùng', message: 'Xóa người dùng này?', onConfirm: () => adminService.deleteUser(row.userId).then(() => { loadData(); addToast('Đã xóa người dùng', 'success'); }) })}>Xóa</button>,
                     ]}
                   />
                   {userTotalPages > 1 && (
@@ -347,7 +352,7 @@ export default function AdminDashboard() {
                     data={teams}
                     actions={(row) => [
                       <button key="edit" className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-600" onClick={() => handleOpenCreate('teams', row)}>Sửa</button>,
-                      <button key="delete" className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => { if (confirm('Xóa đội này?')) adminService.deleteTeam(row.teamId).then(() => loadData()); }}>Xóa</button>,
+                      <button key="delete" className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => setConfirmState({ isOpen: true, title: 'Xóa đội', message: 'Xóa đội này?', onConfirm: () => adminService.deleteTeam(row.teamId).then(() => { loadData(); addToast('Đã xóa đội', 'success'); }) })}>Xóa</button>,
                     ]}
                   />
                   {teamTotalPages > 1 && (
@@ -407,7 +412,7 @@ export default function AdminDashboard() {
                     data={stadiums}
                     actions={(row) => [
                       <button key="edit" className="px-3 py-1.5 bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-sm hover:bg-slate-50 dark:hover:bg-slate-600" onClick={() => handleOpenCreate('stadiums', row)}>Sửa</button>,
-                      <button key="delete" className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => { if (confirm('Xóa sân này?')) adminService.deleteStadium(row.stadiumId).then(() => loadData()); }}>Xóa</button>,
+                      <button key="delete" className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => setConfirmState({ isOpen: true, title: 'Xóa sân', message: 'Xóa sân này?', onConfirm: () => adminService.deleteStadium(row.stadiumId).then(() => { loadData(); addToast('Đã xóa sân', 'success'); }) })}>Xóa</button>,
                     ]}
                   />
                   {stadiumTotalPages > 1 && (
@@ -437,7 +442,11 @@ export default function AdminDashboard() {
                 <div className="table-wrap">
                   <Table
                     columns={[
-                      { key: 'schedule', label: 'Ngày', render: (s) => s?.startTime ? new Date(s.startTime).toLocaleDateString('vi-VN') : 'Chưa xếp lịch' },
+                      { key: 'schedule', label: 'Ngày', render: (s, row) => {
+                        if (s?.startTime) return new Date(s.startTime).toLocaleDateString('vi-VN');
+                        if (row?.matchDate) return new Date(row.matchDate).toLocaleDateString('vi-VN');
+                        return 'Chưa xếp lịch';
+                      }},
                       { key: 'homeTeamName', label: 'Đội nhà', render: (name) => name || 'N/A' },
                       { key: 'awayTeamName', label: 'Đội khách', render: (name) => name || 'N/A' },
                       { key: 'matchStatus', label: 'Trạng thái', render: (s) => (
@@ -450,7 +459,7 @@ export default function AdminDashboard() {
                     ]}
                     data={matches}
                     actions={(row) => [
-                      <button key="delete" className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => { if (confirm('Xóa trận này?')) adminService.deleteMatch(row.matchId).then(() => loadData()); }}>Xóa</button>,
+                      <button key="delete" className="px-3 py-1.5 bg-red-50 dark:bg-red-900/20 text-red-600 rounded-lg text-sm hover:bg-red-100 dark:hover:bg-red-900/30" onClick={() => setConfirmState({ isOpen: true, title: 'Xóa trận', message: 'Xóa trận này?', onConfirm: () => adminService.deleteMatch(row.matchId).then(() => { loadData(); addToast('Đã xóa trận', 'success'); }) })}>Xóa</button>,
                     ]}
                   />
                   {matchTotalPages > 1 && (
@@ -482,7 +491,7 @@ export default function AdminDashboard() {
               {createType === 'users' && (
                 <>
                   <input type="text" placeholder="Tên đăng nhập" required className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.username || ''} onChange={e => setFormData({...formData, username: e.target.value})} disabled={!!editData} />
-                  {!editData && <input type="password" placeholder="Mật khẩu (mặc định 123456)" className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.password || ''} onChange={e => setFormData({...formData, password: e.target.value})} />}
+                  {!editData && <input type="password" placeholder="Mật khẩu" required className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.password || ''} onChange={e => setFormData({...formData, password: e.target.value})} />}
                   <input type="text" placeholder="Họ và tên" required className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.fullName || ''} onChange={e => setFormData({...formData, fullName: e.target.value})} />
                   <input type="text" placeholder="Số điện thoại" required className="w-full border border-slate-200 dark:border-slate-700 p-2.5 rounded-lg focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none dark:bg-slate-700 dark:text-white dark:placeholder-slate-500" value={formData.phone || ''} onChange={e => setFormData({...formData, phone: e.target.value})} />
                   <select
@@ -520,6 +529,13 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        onConfirm={() => { confirmState.onConfirm?.(); setConfirmState({ isOpen: false, title: '', message: '', onConfirm: null }); }}
+        onCancel={() => setConfirmState({ isOpen: false, title: '', message: '', onConfirm: null })}
+      />
     </DashboardLayout>
   );
 }

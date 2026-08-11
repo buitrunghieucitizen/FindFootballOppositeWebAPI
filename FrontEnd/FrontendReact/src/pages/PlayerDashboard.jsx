@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { APP_NAME } from '../constants';
 import playerService from '../services/playerService';
 import {
   FiUsers, FiCalendar, FiAward, FiShield, FiArrowRight, FiSearch, FiChevronDown, FiUser, FiDollarSign, FiHome, FiLogOut, FiSun, FiMoon, FiMapPin, FiActivity, FiMessageSquare, FiSettings
@@ -107,7 +108,7 @@ export default function PlayerDashboard() {
 
   const sidebar = (
     <DashboardSidebar
-      brandLabel="SportifyX"
+      brandLabel={APP_NAME}
       subLabel="Player Panel"
       navItems={navItems}
       activeTab={activeTab}
@@ -203,7 +204,7 @@ export default function PlayerDashboard() {
     );
   }
 
-  if (!myTeam && activeTab !== 'create-team' && activeTab !== 'pickup' && activeTab !== 'find-teams' && activeTab !== 'profile' && activeTab !== 'tournaments' && activeTab !== 'messages' && activeTab !== 'stadiums' && activeTab !== 'overview') {
+  if (!myTeam && activeTab !== 'create-team' && activeTab !== 'pickup' && activeTab !== 'find-teams' && activeTab !== 'profile' && activeTab !== 'tournaments' && activeTab !== 'messages' && activeTab !== 'stadiums' && activeTab !== 'overview' && activeTab !== 'individual-matches') {
     return (
       <DashboardLayout sidebar={sidebar} topBar={topBar}>
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-12 text-center shadow-sm border border-slate-200 dark:border-slate-700 max-w-3xl mx-auto">
@@ -259,21 +260,20 @@ export default function PlayerDashboard() {
                   {myTeam.history || 'Chưa có thông tin giới thiệu về đội thể thao.'}
                 </p>
                 
-                <button
-                  onClick={async () => {
-                    if (!window.confirm('Bạn có chắc chắn muốn rời đội không?')) return;
-                    try {
-                      await playerService.leaveTeam();
-                      alert('Rời đội thành công!');
-                      window.location.reload();
-                    } catch(err) {
-                      alert('Lỗi rời đội: ' + (err.response?.data?.message || err.message));
-                    }
-                  }}
-                  className="w-full py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-bold rounded-xl transition-colors border border-red-500/20"
-                >
-                  Rời Đội Thể Thao
-                </button>
+                  <button
+                    onClick={async () => {
+                      if (!window.confirm('Bạn có chắc chắn muốn rời đội không?')) return;
+                      try {
+                        await playerService.leaveTeam();
+                        setMyTeam(null);
+                      } catch(err) {
+                        alert('Lỗi rời đội: ' + (err.response?.data?.message || err.message));
+                      }
+                    }}
+                    className="w-full py-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 font-bold rounded-xl transition-colors border border-red-500/20"
+                  >
+                    Rời Đội Thể Thao
+                  </button>
               </div>
             </div>
 

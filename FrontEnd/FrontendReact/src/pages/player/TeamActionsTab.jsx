@@ -68,19 +68,9 @@ export default function TeamActionsTab() {
       
       if (res.data?.roleChanged) {
         setSuccess(res.data.message);
-        
-        // Cập nhật token và user info
-        if (res.data.token) {
-          localStorage.setItem('token', res.data.token);
-          
-          const currentUser = JSON.parse(localStorage.getItem('user')) || {};
-          currentUser.role = res.data.role || 'Captain';
-          localStorage.setItem('user', JSON.stringify(currentUser));
-        }
 
         setTimeout(() => {
-          // Force page reload to re-initialize context with new role and token
-          window.location.href = '/captain-home';
+          navigate('/captain-home');
         }, 1500);
       } else {
         setSuccess('Tạo đội thành công!');

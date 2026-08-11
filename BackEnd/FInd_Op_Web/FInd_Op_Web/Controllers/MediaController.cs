@@ -22,6 +22,9 @@ namespace FInd_Op_Web.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded.");
 
+            if (file.Length > 10 * 1024 * 1024)
+                return BadRequest(new { message = "File quá lớn. Kích thước tối đa là 10MB." });
+
             if (_cloudinary == null)
             {
                 return StatusCode(500, "Cloudinary is not configured on the server.");

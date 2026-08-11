@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi';
 import { captainService } from '../../services/captainService';
 import { useTheme } from '../../contexts/ThemeContext';
+import { APP_NAME } from '../../constants';
 
 const roleThemes = {
   Admin: {
@@ -310,7 +311,7 @@ export default function ProfilePage() {
         <div className="p-6 pb-4 border-b border-slate-100 dark:border-slate-800">
           <div className="flex flex-col gap-2 mb-1">
             <div className="h-16 w-auto flex items-start">
-              <img src="/favicon.png" alt="SportifyX Logo" className="h-full w-auto object-contain" />
+              <img src="/favicon.png" alt={`${APP_NAME} Logo`} className="h-full w-auto object-contain" />
             </div>
             <div>
               <span className={`block text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-[0.2em] mt-1`}>{theme.label}</span>

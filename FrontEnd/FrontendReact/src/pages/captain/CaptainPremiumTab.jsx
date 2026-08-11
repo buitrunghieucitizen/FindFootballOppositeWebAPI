@@ -11,14 +11,15 @@ export default function CaptainPremiumTab() {
     if (window.confirm('Bạn sẽ được chuyển hướng tới cổng thanh toán PayOS để thanh toán 120.000đ cho gói Quản Lý Đội Thể Thao (30 ngày). Bạn có đồng ý?')) {
       setIsProcessing(true);
       try {
-        // Giả lập redirect qua PayOS và xử lý callback
-        setTimeout(() => {
-          alert('Giao dịch PayOS thành công! Cảm ơn bạn đã nâng cấp gói Quản Lý Đội.');
+        const res = await paymentService.createPaymentLink({ type: 'TeamUpgrade' });
+        if (res.checkoutUrl) {
+          window.location.href = res.checkoutUrl;
+        } else {
+          alert('Không thể tạo link thanh toán. Vui lòng thử lại sau.');
           setIsProcessing(false);
-          window.location.reload(); // Refresh để update role
-        }, 1500);
+        }
       } catch (err) {
-        alert('Lỗi khi khởi tạo thanh toán PayOS!');
+        alert('Lỗi khi khởi tạo thanh toán: ' + (err.response?.data?.message || err.message));
         setIsProcessing(false);
       }
     }

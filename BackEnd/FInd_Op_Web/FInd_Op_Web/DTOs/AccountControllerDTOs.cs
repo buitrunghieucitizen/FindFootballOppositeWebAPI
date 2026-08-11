@@ -28,6 +28,7 @@ namespace FInd_Op_Web.DTOs
                 public string Username { get; set; }
                 public string FullName { get; set; }
                 public string Phone { get; set; }
+                public string? Email { get; set; }
                 public string Password { get; set; }
                 public string ConfirmPassword { get; set; }
                 public string UserRole { get; set; }

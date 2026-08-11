@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { APP_NAME } from '../constants';
 import { FiHome, FiLogOut, FiMenu, FiCheckSquare, FiChevronDown, FiDollarSign, FiBarChart2, FiAward, FiUser, FiSun, FiMoon, FiClock, FiInfo, FiMessageSquare, FiSettings, FiMapPin } from 'react-icons/fi';
 import { useTheme } from '../contexts/ThemeContext';
 import MyStadiumsTab from './owner/MyStadiumsTab';
@@ -74,7 +75,7 @@ export default function StadiumOwnerDashboard() {
 
   const sidebar = (
     <DashboardSidebar
-      brandLabel="SportifyX"
+      brandLabel={APP_NAME}
       subLabel="Owner Panel"
       navItems={navItems}
       activeTab={activeTab}

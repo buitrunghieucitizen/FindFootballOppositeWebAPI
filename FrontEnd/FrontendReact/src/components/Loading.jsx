@@ -11,8 +11,8 @@ export const Loading = () => {
   );
 };
 
-export const Skeleton = ({ width = 'w-full', height = 'h-4' }) => {
+export const Skeleton = ({ width = 'w-full', height = 'h-4', rounded = 'rounded-lg', className = '' }) => {
   return (
-    <div className={`${width} ${height} bg-gray-200 dark:bg-slate-700 rounded animate-pulse`}></div>
+    <div className={`${width} ${height} ${rounded} bg-gray-200 dark:bg-slate-700 animate-pulse ${className}`}></div>
   );
 };

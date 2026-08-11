@@ -130,17 +130,23 @@ namespace FInd_Op_Web.Controllers
         {
             var userId = GetUserId();
             var teamMember = await _context.TeamMembers
+                .Include(tm => tm.Team)
                 .FirstOrDefaultAsync(tm => tm.PlayerId == userId && tm.Status == "Active");
 
             if (teamMember == null)
             {
-                return BadRequest(new { message = "You are not in a team." });
+                return BadRequest(new { message = "Bạn không ở trong đội nào." });
+            }
+
+            if (teamMember.Team?.CaptainId == userId)
+            {
+                return BadRequest(new { message = "Bạn là đội trưởng. Hãy chuyển quyền đội trưởng trước khi rời đội." });
             }
 
             _context.TeamMembers.Remove(teamMember);
             await _context.SaveChangesAsync();
 
-            return Ok(new { message = "Gửi yêu cầu đánh giá thành công." });
+            return Ok(new { message = "Rời đội thành công." });
         }
 
         // --- STADIUM BOOKING FOR PLAYERS (PRACTICE) ---
@@ -577,12 +583,13 @@ namespace FInd_Op_Web.Controllers
                 return NotFound(new { message = "Invite not found or already processed." });
             }
 
-            // Check if already in a team
-            var existingMember = await _context.TeamMembers
-                .FirstOrDefaultAsync(tm => tm.PlayerId == userId && tm.Status == "Active");
-            if (existingMember != null)
+            // Check team limit (max 2 teams)
+            var activeTeams = await _context.TeamMembers
+                .Where(tm => tm.PlayerId == userId && tm.Status == "Active")
+                .CountAsync();
+            if (activeTeams >= 2)
             {
-                return BadRequest(new { message = "You are already in a team. Please leave your team first." });
+                return BadRequest(new { message = "Bạn đã tham gia tối đa 2 đội thể thao. Vui lòng rời đội trước khi tham gia đội mới." });
             }
 
             request.Status = "Accepted";
@@ -1052,6 +1059,11 @@ namespace FInd_Op_Web.Controllers
                 return BadRequest(new { message = "Bạn đã đạt giới hạn 3 trận tạo cá nhân trong tháng này. Vui lòng nâng cấp VIP để tạo không giới hạn." });
             }
 
+            if (dto.MatchDate.HasValue && dto.MatchDate.Value.Date < DateTime.Now.Date)
+            {
+                return BadRequest(new { message = "Không thể tạo trận đấu với ngày trong quá khứ." });
+            }
+
             var newMatch = new Match
             {
                 SportId = dto.SportId,
@@ -1263,10 +1275,81 @@ namespace FInd_Op_Web.Controllers
             if (match.HomePlayerId != userId && match.AwayPlayerId != userId)
                 return Forbid();
 
-            match.HomeScore = dto.HomeScore;
-            match.AwayScore = dto.AwayScore;
-            if (dto.SetScores != null) match.SetScores = dto.SetScores;
-            match.MatchStatus = "Completed";
+            if (match.MatchStatus == "Completed")
+                return BadRequest(new { message = "Trận đấu đã kết thúc." });
+
+            // Find the opponent
+            int? opponentId = match.HomePlayerId == userId ? match.AwayPlayerId : match.HomePlayerId;
+
+            // Check if a confirmation request exists
+            var existingConfirm = await _context.MatchRequests
+                .FirstOrDefaultAsync(r => r.MatchId == id && r.RequestingPlayerId == userId
+                    && r.Status == "Pending" && r.Message == "SCORE_CONFIRMATION");
+
+            if (existingConfirm != null)
+            {
+                // This is the confirmation step - apply the score
+                existingConfirm.Status = "Accepted";
+                match.HomeScore = dto.HomeScore;
+                match.AwayScore = dto.AwayScore;
+                if (dto.SetScores != null) match.SetScores = dto.SetScores;
+                match.MatchStatus = "Completed";
+
+                // Notify opponent
+                if (opponentId.HasValue)
+                {
+                    var confirmer = await _context.Users.FindAsync(userId);
+                    var notif = new Notification
+                    {
+                        UserId = opponentId.Value,
+                        Title = "Tỉ số đã được xác nhận",
+                        Message = $"Tỉ số trận đấu {dto.HomeScore}-{dto.AwayScore} đã được xác nhận.",
+                        IsRead = false,
+                        CreatedAt = DateTime.Now
+                    };
+                    _context.Notifications.Add(notif);
+                    await _context.SaveChangesAsync();
+                    string connId = FInd_Op_Web.Hubs.NotificationHub.GetConnectionIdForUser(opponentId.Value.ToString());
+                    if (!string.IsNullOrEmpty(connId))
+                        await _hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+                }
+            }
+            else
+            {
+                // First player submits score - create confirmation request for opponent
+                if (opponentId == null || opponentId == userId)
+                    return BadRequest(new { message = "Không tìm thấy đối thủ." });
+
+                var confirmReq = new MatchRequest
+                {
+                    MatchId = id,
+                    RequestingPlayerId = userId,
+                    Message = "SCORE_CONFIRMATION",
+                    Status = "Pending"
+                };
+                _context.MatchRequests.Add(confirmReq);
+
+                // Save the proposed score temporarily
+                match.HomeScore = dto.HomeScore;
+                match.AwayScore = dto.AwayScore;
+                if (dto.SetScores != null) match.SetScores = dto.SetScores;
+
+                // Notify opponent to confirm
+                var submitter = await _context.Users.FindAsync(userId);
+                var notif = new Notification
+                {
+                    UserId = opponentId.Value,
+                    Title = "Xác nhận tỉ số",
+                    Message = $"{submitter?.FullName ?? submitter?.Username} đã gửi tỉ số {dto.HomeScore}-{dto.AwayScore}. Vui lòng xác nhận.",
+                    IsRead = false,
+                    CreatedAt = DateTime.Now
+                };
+                _context.Notifications.Add(notif);
+                await _context.SaveChangesAsync();
+                string connId = FInd_Op_Web.Hubs.NotificationHub.GetConnectionIdForUser(opponentId.Value.ToString());
+                if (!string.IsNullOrEmpty(connId))
+                    await _hubContext.Clients.Client(connId).SendAsync("ReceiveNotification", notif.Message);
+            }
 
             await _context.SaveChangesAsync();
 

@@ -51,7 +51,7 @@ function ToastItem({ toast, onRemove }) {
     const timer = setTimeout(() => {
       setIsLeaving(true);
       setTimeout(() => onRemove(toast.id), 300);
-    }, toast.duration || 4000);
+    }, toast.duration ?? 4000);
 
     return () => clearTimeout(timer);
   }, [toast.id, toast.duration, onRemove]);

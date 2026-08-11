@@ -49,7 +49,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     if (connection) {
-      connection.on('ReceiveNotification', (message) => {
+      const handleReceiveNotification = (message) => {
         const decodedMessage = tryDecode(message);
         const newNotif = {
           id: Date.now(),
@@ -62,7 +62,17 @@ export default function NotificationBell() {
         };
         setNotifications((prev) => [newNotif, ...prev]);
         setUnreadCount((prev) => prev + 1);
+      };
+
+      connection.on('ReceiveNotification', handleReceiveNotification);
+      connection.on('ReceiveDirectMessage', () => {
+        fetchNotifications();
       });
+
+      return () => {
+        connection.off('ReceiveNotification', handleReceiveNotification);
+        connection.off('ReceiveDirectMessage');
+      };
     }
   }, [connection]);
 

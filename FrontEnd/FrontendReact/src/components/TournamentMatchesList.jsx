@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { FiEdit2, FiSave, FiX, FiCalendar, FiClock, FiSettings, FiPlay } from 'react-icons/fi';
 import { publicService } from '../services/publicService';
+import { useToast } from './Toast';
+import ConfirmDialog from './ConfirmDialog';
 
 export default function TournamentMatchesList({ tournamentId, service, settings }) {
+  const { addToast } = useToast();
+  const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null });
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -79,44 +83,54 @@ export default function TournamentMatchesList({ tournamentId, service, settings 
         setScores: editForm.setScores || null,
         matchStatus: editForm.matchStatus
       });
-      alert('Cập nhật trận đấu thành công');
+      addToast('Cập nhật trận đấu thành công', 'success');
       setEditingId(null);
       await loadMatches();
     } catch (e) {
-      alert(e.response?.data?.message || 'Lỗi khi cập nhật trận đấu');
+      addToast(e.response?.data?.message || 'Lỗi khi cập nhật trận đấu', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAutoSchedule = async () => {
-    if (confirm('Tự động xếp lịch sẽ random thời gian và sân cho TẤT CẢ các trận chưa có lịch. Tiếp tục?')) {
-      try {
-        setLoading(true);
-        const res = await service.autoScheduleMatches(tournamentId);
-        alert(res.message);
-        await loadMatches();
-      } catch (e) {
-        alert(e.response?.data?.message || 'Lỗi khi tự động xếp lịch');
-      } finally {
-        setLoading(false);
+  const handleAutoSchedule = () => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Tự động xếp lịch',
+      message: 'Tự động xếp lịch sẽ random thời gian và sân cho TẤT CẢ các trận chưa có lịch. Tiếp tục?',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const res = await service.autoScheduleMatches(tournamentId);
+          addToast(res.message, 'success');
+          await loadMatches();
+        } catch (e) {
+          addToast(e.response?.data?.message || 'Lỗi khi tự động xếp lịch', 'error');
+        } finally {
+          setLoading(false);
+        }
       }
-    }
+    });
   };
 
-  const handleStartTournament = async () => {
-    if (confirm('Bắt đầu giải đấu? Trạng thái sẽ được cập nhật thành Đang diễn ra.')) {
-      try {
-        setLoading(true);
-        const res = await service.startTournament(tournamentId);
-        alert(res.message);
-        if (settings) settings.status = 'InProgress';
-      } catch (e) {
-        alert(e.response?.data?.message || 'Lỗi khi bắt đầu giải đấu');
-      } finally {
-        setLoading(false);
+  const handleStartTournament = () => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Bắt đầu giải đấu',
+      message: 'Bắt đầu giải đấu? Trạng thái sẽ được cập nhật thành Đang diễn ra.',
+      onConfirm: async () => {
+        try {
+          setLoading(true);
+          const res = await service.startTournament(tournamentId);
+          addToast(res.message, 'success');
+          if (settings) settings.status = 'InProgress';
+        } catch (e) {
+          addToast(e.response?.data?.message || 'Lỗi khi bắt đầu giải đấu', 'error');
+        } finally {
+          setLoading(false);
+        }
       }
-    }
+    });
   };
 
   if (loading && matches.length === 0) return <div className="p-4 text-center">Đang tải trận đấu...</div>;
@@ -323,6 +337,14 @@ export default function TournamentMatchesList({ tournamentId, service, settings 
           </table>
         </div>
       )}
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant="info"
+        onConfirm={() => { confirmState.onConfirm?.(); setConfirmState({ isOpen: false, title: '', message: '', onConfirm: null }); }}
+        onCancel={() => setConfirmState({ isOpen: false, title: '', message: '', onConfirm: null })}
+      />
     </div>
   );
 }

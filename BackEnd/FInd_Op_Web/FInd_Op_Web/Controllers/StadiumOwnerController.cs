@@ -38,7 +38,7 @@ namespace FInd_Op_Web.Controllers
             {
                 return userId;
             }
-            throw new UnauthorizedAccessException("Invalid user token");
+            throw new InvalidOperationException("Invalid user token");
         }
 
         [HttpGet("OwnerRevenue")]
@@ -58,19 +58,8 @@ namespace FInd_Op_Web.Controllers
                                      && ps.StartTime.Year == year && ps.StartTime.Month == i)
                         .ToListAsync();
 
-                    decimal ownerRevenueSum = 0;
-                    foreach (var s in ownerSchedules)
-                    {
-                        var durationHours = (decimal)(s.EndTime - s.StartTime).TotalHours;
-                        ownerRevenueSum += durationHours * (s.Pitch?.PricePerSlot ?? 0);
-                    }
-
-                    // Include BookingCommissions if any
-                    var commissionRevenueSum = await _context.BookingCommissions
-                        .Where(c => c.StadiumOwnerId == ownerId && c.CreatedAt.Year == year && c.CreatedAt.Month == i)
-                        .SumAsync(c => (decimal?)(c.BookingAmount - c.CommissionAmount)) ?? 0;
-
-                    ownerRevenueSum += commissionRevenueSum;
+                    decimal ownerRevenueSum = ownerSchedules
+                        .Sum(s => s.Pitch?.PricePerSlot ?? 0);
 
                     monthlyData.Add(new
                     {
@@ -151,77 +140,70 @@ namespace FInd_Op_Web.Controllers
         [HttpPost("Stadiums")]
         public async Task<IActionResult> CreateStadium([FromForm] OwnerCreateStadiumDto dto)
         {
-            try
+            var userId = GetUserId();
+
+            // Check how many stadiums the owner currently has
+            var stadiumCount = await _context.Stadiums.CountAsync(s => s.OwnerId == userId);
+            var paidCount = await _context.PaymentTransactions
+                .CountAsync(pt => pt.UserId == userId && pt.TransactionType == "PitchCreation" && pt.Status == "Paid");
+
+            var allowedCount = 2 + paidCount;
+
+            if (stadiumCount >= allowedCount)
             {
-                var userId = GetUserId();
+                return StatusCode(402, new { message = "Bạn đã đạt giới hạn sân miễn phí (2 sân). Vui lòng thanh toán 30k để tạo sân thứ 3." });
+            }
 
-                // Check how many stadiums the owner currently has
-                var stadiumCount = await _context.Stadiums.CountAsync(s => s.OwnerId == userId);
-                var paidCount = await _context.PaymentTransactions
-                    .CountAsync(pt => pt.UserId == userId && pt.TransactionType == "PitchCreation" && pt.Status == "Paid");
-
-                var allowedCount = 2 + paidCount;
-
-                if (stadiumCount >= allowedCount)
+            string? imageUrl = null;
+            if (dto.ImageFile != null && dto.ImageFile.Length > 0)
+            {
+                if (_cloudinary == null)
                 {
-                    return StatusCode(402, new { message = "Bạn đã đạt giới hạn sân miễn phí (2 sân). Vui lòng thanh toán 30k để tạo sân thứ 3." });
+                    return StatusCode(500, new { message = "Cấu hình Cloudinary bị thiếu trên máy chủ." });
                 }
 
-                string? imageUrl = null;
-                if (dto.ImageFile != null && dto.ImageFile.Length > 0)
+                var uploadParams = new ImageUploadParams()
                 {
-                    if (_cloudinary == null)
-                    {
-                        return StatusCode(500, new { message = "Cấu hình Cloudinary bị thiếu trên máy chủ." });
-                    }
-
-                    var uploadParams = new ImageUploadParams()
-                    {
-                        File = new FileDescription(dto.ImageFile.FileName, dto.ImageFile.OpenReadStream()),
-                        Folder = "stadiums"
-                    };
-                    var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-                    if (uploadResult.Error != null)
-                    {
-                        return BadRequest(new { message = uploadResult.Error.Message });
-                    }
-                    imageUrl = uploadResult.SecureUrl.ToString();
-                }
-
-                double? parsedLat = null;
-                if (!string.IsNullOrEmpty(dto.Latitude) && double.TryParse(dto.Latitude, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var lat))
-                {
-                    parsedLat = lat;
-                }
-
-                double? parsedLng = null;
-                if (!string.IsNullOrEmpty(dto.Longitude) && double.TryParse(dto.Longitude, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var lng))
-                {
-                    parsedLng = lng;
-                }
-
-                var stadium = new Stadium
-                {
-                    OwnerId = userId,
-                    StadiumName = dto.StadiumName,
-                    Address = dto.Address,
-                    Hotline = dto.Hotline,
-                    Description = dto.Description,
-                    Latitude = parsedLat,
-                    Longitude = parsedLng,
-                    ImageUrl = imageUrl,
-                    CreatedAt = DateTime.Now
+                    File = new FileDescription(dto.ImageFile.FileName, dto.ImageFile.OpenReadStream()),
+                    Folder = "stadiums"
                 };
-
-                _context.Stadiums.Add(stadium);
-                await _context.SaveChangesAsync();
-
-                return Ok(stadium);
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                if (uploadResult.Error != null)
+                {
+                    return BadRequest(new { message = uploadResult.Error.Message });
+                }
+                imageUrl = uploadResult.SecureUrl.ToString();
             }
-            catch (Exception ex)
+
+            double? parsedLat = null;
+            if (!string.IsNullOrEmpty(dto.Latitude) && double.TryParse(dto.Latitude, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var lat))
             {
-                throw;
+                parsedLat = lat;
             }
+
+            double? parsedLng = null;
+            if (!string.IsNullOrEmpty(dto.Longitude) && double.TryParse(dto.Longitude, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var lng))
+            {
+                parsedLng = lng;
+            }
+
+            var stadium = new Stadium
+            {
+                OwnerId = userId,
+                StadiumName = dto.StadiumName,
+                Address = dto.Address,
+                Hotline = dto.Hotline,
+                Description = dto.Description,
+                Latitude = parsedLat,
+                Longitude = parsedLng,
+                ImageUrl = imageUrl,
+                CreatedAt = DateTime.Now
+            };
+
+            _context.Stadiums.Add(stadium);
+            await _context.SaveChangesAsync();
+
+            return Ok(stadium);
         }
 
         // 3. POST api/StadiumOwner/Pitches
@@ -234,6 +216,11 @@ namespace FInd_Op_Web.Controllers
             if (stadium == null)
             {
                 return BadRequest("Stadium not found or you do not have ownership.");
+            }
+
+            if (dto.HourlyRate <= 0)
+            {
+                return BadRequest(new { message = "Giá thuê sân phải lớn hơn 0." });
             }
 
             var pitch = new Pitch
@@ -296,6 +283,16 @@ namespace FInd_Op_Web.Controllers
             if (schedule == null)
             {
                 return NotFound("Booking not found or access denied.");
+            }
+
+            if (schedule.ScheduleStatus == "Confirmed")
+            {
+                return BadRequest(new { message = "Booking already confirmed." });
+            }
+
+            if (schedule.ScheduleStatus == "Rejected" || schedule.ScheduleStatus == "Cancelled")
+            {
+                return BadRequest(new { message = "Cannot confirm a rejected or cancelled booking." });
             }
 
             schedule.ScheduleStatus = "Confirmed";
@@ -379,7 +376,6 @@ namespace FInd_Op_Web.Controllers
                 var schedule = new PitchSchedule
                 {
                     PitchId = pitchId,
-                    BookedById = userId, // Owner locks it for themselves/customer
                     StartTime = startTime,
                     EndTime = endTime,
                     ScheduleStatus = "Confirmed"
@@ -408,7 +404,7 @@ namespace FInd_Op_Web.Controllers
                 StartDate = dto.StartDate,
                 EndDate = dto.EndDate,
                 Status = "Upcoming",
-                Description = $"Sport: {dto.SportId}, Scope: {dto.Scope}, Stadium: {dto.Stadium}, MaxTeams: {dto.MaxTeams}",
+                MaxTeams = dto.MaxTeams > 0 ? dto.MaxTeams : 16,
                 CreatedAt = DateTime.Now
             };
 
@@ -471,7 +467,7 @@ namespace FInd_Op_Web.Controllers
 
             tournament.TournamentName = dto.Name;
             tournament.Format = dto.Format;
-            tournament.Description = $"Sport: {dto.Sport}, Scope: {dto.Scope}, Stadium: {dto.Stadium}, MaxTeams: {dto.MaxTeams}";
+            tournament.MaxTeams = dto.MaxTeams > 0 ? dto.MaxTeams : 16;
             
             await _context.SaveChangesAsync();
             return Ok(new { message = "Settings updated." });
@@ -595,7 +591,7 @@ namespace FInd_Op_Web.Controllers
                 .Select(tt => new {
                     TeamId = tt.TeamId,
                     TeamName = tt.Team.TeamName,
-                    CaptainName = tt.Team.Captain.FullName ?? tt.Team.Captain.Username,
+                    CaptainName = tt.Team.Captain != null ? (tt.Team.Captain.FullName ?? tt.Team.Captain.Username) : "N/A",
                     RegistrationDate = tt.RegistrationDate
                 })
                 .OrderBy(tt => tt.RegistrationDate)

@@ -42,7 +42,7 @@ export const Table = ({
         <tbody>
           {data.map((row, idx) => (
             <tr
-              key={idx}
+              key={row.id || row._id || idx}
               onClick={() => onRowClick?.(row)}
               className="border-b border-gray-200 dark:border-slate-800 hover:bg-gray-50 dark:hover:bg-slate-800 transition-all duration-300 cursor-pointer bg-white dark:bg-slate-900 animate-fade-in-up"
               style={{ animationDelay: `${(idx % 15) * 50}ms`, animationFillMode: 'both' }}

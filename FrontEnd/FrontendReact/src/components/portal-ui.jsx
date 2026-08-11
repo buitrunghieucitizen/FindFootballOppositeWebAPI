@@ -1,6 +1,9 @@
 import { Link, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { FiMenu, FiX, FiLogOut, FiHome, FiUser, FiAward, FiSun, FiMoon, FiDollarSign, FiHeart, FiSettings } from 'react-icons/fi';
+import { useState } from 'react';
+import { APP_NAME } from '../constants';
 
 const publicNav = [
   { label: 'Trang Chủ', tab: 'home' },
@@ -20,8 +23,6 @@ const adminNav = [
   { id: 'stadiums', label: 'Quản Lý Sân Thể Thao', to: '/admin-home?tab=stadiums' },
   { id: 'matches', label: 'Quản Lý Trận Đấu', to: '/admin-home?tab=matches' },
 ];
-import { FiMenu, FiX, FiLogOut, FiHome, FiUser, FiAward, FiSun, FiMoon, FiDollarSign, FiHeart, FiSettings } from 'react-icons/fi';
-import { useState } from 'react';
 
 export function cn(...classes) {
   return classes.filter(Boolean).join(' ');
@@ -184,7 +185,7 @@ export function PublicHeader() {
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center group">
               <div className="h-20 w-auto flex items-center justify-center">
-                <img src="/favicon.png" alt="SportifyX Logo" className="h-full w-auto object-contain" />
+                <img src="/favicon.png" alt={`${APP_NAME} Logo`} className="h-full w-auto object-contain" />
               </div>
             </Link>
           </div>
@@ -370,7 +371,7 @@ export function PublicLayout({ title, subtitle, actions, children }) {
           </div>
           <div className="relative z-10 max-w-3xl">
             <span className="inline-block px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-wc-gold-500/30 text-wc-gold-300 text-sm font-bold tracking-widest uppercase mb-6">
-              ⚽ SportifyX Platform
+              ⚽ {APP_NAME} Platform
             </span>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight mb-6 leading-tight">
               {title}
@@ -619,7 +620,7 @@ export function EmptyState({ title, description, action }) {
   );
 }
 
-export function DashboardSidebar({ brandLabel = 'SportifyX', subLabel, navItems, activeTab, setActiveTab, onLogout, userRole }) {
+export function DashboardSidebar({ brandLabel = APP_NAME, subLabel, navItems, activeTab, setActiveTab, onLogout, userRole }) {
   const [showDonateModal, setShowDonateModal] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const { isDark, toggleTheme } = useTheme();

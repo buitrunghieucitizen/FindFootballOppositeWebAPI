@@ -6,8 +6,9 @@ import {
   FiChevronRight, FiPlay, FiZap
 } from 'react-icons/fi';
 import { PublicHeader } from '../components/portal-ui';
+import { APP_NAME } from '../constants';
 
-// SportifyX Theme Components
+// App Theme Components
 
 export default function HomePage() {
   const [visibleSections, setVisibleSections] = useState(new Set());
@@ -310,8 +311,8 @@ export default function HomePage() {
             {/* Brand */}
             <div className="md:col-span-2">
               <div className="flex items-center justify-center sm:justify-start gap-3 mb-6">
-                <img src="/favicon.png" alt="SportifyX Logo" className="w-10 h-10 object-contain" />
-                <h1 className="text-xl font-black text-slate-800 dark:text-white tracking-tight">SportifyX</h1>
+                <img src="/favicon.png" alt={`${APP_NAME} Logo`} className="w-10 h-10 object-contain" />
+                <h1 className="text-xl font-black text-slate-800 dark:text-white tracking-tight">{APP_NAME}</h1>
               </div>
               <p className="text-slate-500 dark:text-slate-400 max-w-sm mx-auto sm:mx-0 leading-relaxed">
                 Nền tảng công nghệ giúp kết nối và phát triển cộng đồng bóng đá phong trào tại Việt Nam.
@@ -342,7 +343,7 @@ export default function HomePage() {
 
           {/* Bottom bar */}
           <div className="pt-8 border-t border-slate-200/80 dark:border-wc-navy-800 text-slate-400 dark:text-slate-500 text-sm flex flex-col md:flex-row justify-between items-center gap-4">
-            <p>&copy; {new Date().getFullYear()} SportifyX — Nền Tảng Kết Nối Thể Thao ⚽🏆</p>
+            <p>&copy; {new Date().getFullYear()} {APP_NAME} — Nền Tảng Kết Nối Thể Thao ⚽🏆</p>
             <div className="flex gap-3">
               <a href="#" className="w-9 h-9 rounded-full bg-slate-100 hover:bg-wc-gold-500 dark:bg-wc-navy-800 flex items-center justify-center text-slate-400 hover:text-white dark:text-slate-400 dark:hover:bg-wc-gold-500 dark:hover:text-white shadow-sm hover:shadow-md transition-all duration-300" aria-label="Facebook">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>

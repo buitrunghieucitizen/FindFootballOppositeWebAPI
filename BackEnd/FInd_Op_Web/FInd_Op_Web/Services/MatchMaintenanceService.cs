@@ -64,9 +64,10 @@ namespace FInd_Op_Web.Services
 
             var thirtyMinsFromNow = DateTime.Now.AddMinutes(30);
 
-            // Find pending payment schedules less than 30 mins away
+            var now = DateTime.Now;
             var pendingSchedules = await context.PitchSchedules
                 .Where(ps => ps.ScheduleStatus == "PendingPayment"
+                          && ps.StartTime >= now
                           && ps.StartTime <= thirtyMinsFromNow)
                 .ToListAsync();
 

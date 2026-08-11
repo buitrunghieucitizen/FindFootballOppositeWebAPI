@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FiMessageSquare, FiX, FiSend, FiCheckCircle } from 'react-icons/fi';
 import apiClient from '../services/apiClient';
 import { useAuth } from '../contexts/AuthContext';
+import { APP_NAME } from '../constants';
 
 export default function FeedbackButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -63,7 +64,7 @@ export default function FeedbackButton() {
               </button>
               <FiMessageSquare size={48} className="mx-auto mb-4 opacity-80" />
               <h3 className="text-2xl font-black">Gửi Ý Kiến Đóng Góp</h3>
-              <p className="text-indigo-200 mt-2 text-sm">Hãy giúp chúng tôi cải thiện SportifyX tốt hơn!</p>
+              <p className="text-indigo-200 mt-2 text-sm">Hãy giúp chúng tôi cải thiện {APP_NAME} tốt hơn!</p>
             </div>
 
             <div className="p-6">

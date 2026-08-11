@@ -10,7 +10,7 @@ namespace FInd_Op_Web.Services
     public interface IAuthenticationService
     {
         Task<User> LoginAsync(string username, string password);
-        Task<User> RegisterAsync(string username, string fullName, string phone, string password, string roleName);
+        Task<User> RegisterAsync(string username, string fullName, string phone, string email, string password, string roleName);
         Task<bool> VerifyPasswordAsync(string password, string hash);
         string HashPassword(string password);
     }
@@ -43,7 +43,7 @@ namespace FInd_Op_Web.Services
             return user;
         }
 
-        public async Task<User> RegisterAsync(string username, string fullName, string phone, string password, string roleName)
+        public async Task<User> RegisterAsync(string username, string fullName, string phone, string email, string password, string roleName)
         {
             if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(fullName) || 
                 string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(roleName))
@@ -67,6 +67,7 @@ namespace FInd_Op_Web.Services
                 Username = username,
                 FullName = fullName,
                 Phone = phone,
+                Email = email,
                 PasswordHash = HashPassword(password),
                 IsFreeAgent = false,
                 CreatedAt = System.DateTime.UtcNow

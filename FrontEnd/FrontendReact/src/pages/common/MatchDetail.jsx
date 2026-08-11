@@ -64,12 +64,25 @@ export default function MatchDetail() {
     try {
       setLoading(true);
       const data = await publicService.getMatches();
-      if (!Array.isArray(data)) {
+      const list = Array.isArray(data) ? data : (data?.$values || []);
+      if (!Array.isArray(list) || list.length === 0) {
         setError('Dữ liệu không hợp lệ');
         return;
       }
-      const currentMatch = data.find(m => m.matchId === Number(id));
+      const currentMatch = list.find(m => m.matchId === Number(id));
       if (currentMatch) {
+        // Compute kickoffLabel from available date fields
+        const md = currentMatch.matchDate || currentMatch.MatchDate;
+        const st = currentMatch.startTime || currentMatch.StartTime;
+        const schedStart = currentMatch.scheduleStartTime || currentMatch.ScheduleStartTime;
+        if (md) {
+          currentMatch.kickoffLabel = `${new Date(md).toLocaleDateString('vi-VN')}${st ? ' ' + st.substring(0,5) : (schedStart ? ' ' + new Date(schedStart).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '')}`;
+        } else if (schedStart) {
+          const d = new Date(schedStart);
+          currentMatch.kickoffLabel = `${d.toLocaleDateString('vi-VN')} ${d.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}`;
+        }
+        // Compute venueLabel
+        currentMatch.venueLabel = currentMatch.stadiumName || currentMatch.location || currentMatch.Location;
         setMatch(currentMatch);
       } else {
         setError('Không tìm thấy trận đấu');

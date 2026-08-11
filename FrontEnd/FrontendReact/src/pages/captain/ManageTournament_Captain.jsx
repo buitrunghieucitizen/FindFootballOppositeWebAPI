@@ -13,6 +13,7 @@ import GroupStageMap, { DEFAULT_GROUP_STAGE, generateGroupStage } from '../../co
 import LeagueMap, { DEFAULT_LEAGUE, generateRoundRobin } from '../../components/LeagueMap';
 import TournamentMatchesList from '../../components/TournamentMatchesList';
 import { useAuth } from '../../contexts/AuthContext';
+import { APP_NAME } from '../../constants';
 import { useTheme } from '../../contexts/ThemeContext';
 
 export default function ManageTournament_Captain() {
@@ -216,7 +217,7 @@ export default function ManageTournament_Captain() {
 
   const sidebar = (
     <DashboardSidebar
-      brandLabel="SportifyX"
+      brandLabel={APP_NAME}
       subLabel="Captain Panel"
       navItems={navItems}
       activeTab={'tournaments'}

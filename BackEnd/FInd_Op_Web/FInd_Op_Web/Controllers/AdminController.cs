@@ -276,6 +276,10 @@ namespace FInd_Op_Web.Controllers
             if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
                 return BadRequest(new { message = "Tên đăng nhập đã tồn tại." });
 
+            // Validate password required for new users
+            if (string.IsNullOrWhiteSpace(dto.Password) || dto.Password.Length < 8)
+                return BadRequest(new { message = "Mật khẩu phải có ít nhất 8 ký tự." });
+
             // Validate phone unique (if provided)
             if (!string.IsNullOrWhiteSpace(dto.Phone))
             {
@@ -291,8 +295,7 @@ namespace FInd_Op_Web.Controllers
                 Username = dto.Username,
                 FullName = dto.FullName,
                 Phone = dto.Phone,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(
-                    string.IsNullOrWhiteSpace(dto.Password) ? "Pass12345" : dto.Password, 12),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password, 12),
                 CreatedAt = DateTime.Now,
                 IsFreeAgent = false
             };
@@ -921,6 +924,7 @@ namespace FInd_Op_Web.Controllers
                     m.AwayTeamId,
                     awayTeamName = m.AwayTeam != null ? m.AwayTeam.TeamName : null,
                     m.MatchStatus,
+                    m.MatchDate,
                     m.CancelRequestedBy,
                     m.CancelReason,
                     schedule = m.Schedule == null ? null : new

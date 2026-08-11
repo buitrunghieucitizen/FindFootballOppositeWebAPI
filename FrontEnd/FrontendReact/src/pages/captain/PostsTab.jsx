@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { captainService } from '../../services/captainService';
+import { paymentService } from '../../services/paymentService';
 import { FiMessageSquare, FiImage, FiPlus, FiX } from 'react-icons/fi';
 
 export default function PostsTab() {
@@ -87,7 +88,8 @@ export default function PostsTab() {
         await captainService.createRecruitment({
           title,
           content,
-          positionNeeded
+          positionNeeded,
+          imageUrls: imageUrls.join(',')
         });
       } else {
         await captainService.createPost({
@@ -119,14 +121,16 @@ export default function PostsTab() {
   };
 
   const handleBuffPost = async (postId) => {
-    if (window.confirm('Bạn có muốn đẩy bài viết này lên trang chủ với phí 10.000đ (trừ vào số dư)?')) {
-      try {
-        // Gọi API buff bài (hiện tại giả lập thành công)
-        // await captainService.buffPost(postId);
-        alert('Đã trừ 10.000đ. Bài viết của bạn đã được đẩy lên TOP 1 ưu tiên!');
-      } catch (err) {
-        alert('Số dư không đủ hoặc có lỗi xảy ra');
+    if (!window.confirm('Bạn có muốn đẩy bài viết này lên trang chủ với phí 10.000đ?')) return;
+    try {
+      const res = await paymentService.createPaymentLink({ type: 'BoostPost', pitchId: postId });
+      if (res.checkoutUrl) {
+        window.location.href = res.checkoutUrl;
+      } else {
+        alert('Không thể tạo link thanh toán.');
       }
+    } catch (err) {
+      alert('Có lỗi xảy ra: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -291,8 +295,8 @@ export default function PostsTab() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-6">
-          {posts.map((post) => (
-            <div key={post.id || Math.random()} className="bg-white dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-700/60">
+          {posts.map((post, index) => (
+            <div key={post.id || post.postId || index} className="bg-white dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl p-6 shadow-xl border border-slate-200 dark:border-slate-700/60">
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-lg font-bold text-slate-800 dark:text-white">{post.title}</h3>
@@ -306,7 +310,7 @@ export default function PostsTab() {
                     </span>
                   </div>
                 </div>
-                <button onClick={() => handleBuffPost(post.id || Math.random())} className="text-xs bg-gradient-to-r from-amber-400 to-orange-500 text-white px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all font-bold flex items-center gap-1">
+                <button onClick={() => handleBuffPost(post.id || post.postId)} className="text-xs bg-gradient-to-r from-amber-400 to-orange-500 text-white px-3 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all font-bold flex items-center gap-1">
                   Đẩy tin (10k)
                 </button>
               </div>

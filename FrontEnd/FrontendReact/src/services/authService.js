@@ -63,12 +63,13 @@ export const authService = {
     }
   },
 
-  register: async (username, fullName, phone, password, confirmPassword, userRole = 'Player') => {
+  register: async (username, fullName, phone, email, password, confirmPassword, userRole = 'Player') => {
     try {
       const response = await apiClient.post('/Account/Register', {
         username,
         fullName,
         phone,
+        email,
         password,
         confirmPassword,
         userRole

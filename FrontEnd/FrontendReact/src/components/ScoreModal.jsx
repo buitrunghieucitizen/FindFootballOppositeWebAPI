@@ -40,8 +40,8 @@ export default function ScoreModal({ isOpen, onClose, match, onSubmit, isSetForm
       let homeWins = 0;
       let awayWins = 0;
       sets.forEach(s => {
-        const h = parseInt(s.home);
-        const a = parseInt(s.away);
+        const h = parseInt(s.home, 10);
+        const a = parseInt(s.away, 10);
         if (!isNaN(h) && !isNaN(a)) {
           if (h > a) homeWins++;
           else if (a > h) awayWins++;
@@ -97,7 +97,7 @@ export default function ScoreModal({ isOpen, onClose, match, onSubmit, isSetForm
                 type="number" 
                 min="0" 
                 value={homeScore} 
-                onChange={e => !isSetFormat && setHomeScore(parseInt(e.target.value) || 0)} 
+                onChange={e => !isSetFormat && setHomeScore(parseInt(e.target.value, 10) || 0)} 
                 readOnly={isSetFormat}
                 className={`w-24 mx-auto text-center text-3xl font-black py-4 rounded-xl border ${isSetFormat ? 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-500' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500'} outline-none`} 
               />
@@ -109,7 +109,7 @@ export default function ScoreModal({ isOpen, onClose, match, onSubmit, isSetForm
                 type="number" 
                 min="0" 
                 value={awayScore} 
-                onChange={e => !isSetFormat && setAwayScore(parseInt(e.target.value) || 0)} 
+                onChange={e => !isSetFormat && setAwayScore(parseInt(e.target.value, 10) || 0)} 
                 readOnly={isSetFormat}
                 className={`w-24 mx-auto text-center text-3xl font-black py-4 rounded-xl border ${isSetFormat ? 'bg-slate-100 dark:bg-slate-900 border-transparent text-slate-500' : 'bg-white dark:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500'} outline-none`} 
               />

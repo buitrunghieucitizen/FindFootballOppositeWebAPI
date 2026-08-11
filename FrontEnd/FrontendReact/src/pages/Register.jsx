@@ -3,13 +3,14 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Alert } from '../components';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { FiUserPlus, FiUser, FiPhone, FiLock, FiArrowRight, FiShield, FiSun, FiMoon, FiArrowLeft } from 'react-icons/fi';
+import { FiUserPlus, FiUser, FiPhone, FiLock, FiArrowRight, FiShield, FiSun, FiMoon, FiArrowLeft, FiMail } from 'react-icons/fi';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     username: '',
     fullName: '',
     phone: '',
+    email: '',
     password: '',
     confirmPassword: '',
     userRole: 'Player',
@@ -30,7 +31,7 @@ export default function RegisterPage() {
   };
 
   const validateForm = () => {
-    if (!formData.username || !formData.fullName || !formData.phone || !formData.password || !formData.confirmPassword) {
+    if (!formData.username || !formData.fullName || !formData.phone || !formData.email || !formData.password || !formData.confirmPassword) {
       setError('Vui lòng điền đầy đủ tất cả các trường');
       return false;
     }
@@ -38,8 +39,8 @@ export default function RegisterPage() {
       setError('Mật khẩu xác nhận không khớp');
       return false;
     }
-    if (formData.password.length < 6) {
-      setError('Mật khẩu phải có ít nhất 6 ký tự');
+    if (formData.password.length < 8) {
+      setError('Mật khẩu phải có ít nhất 8 ký tự');
       return false;
     }
     const phoneDigits = formData.phone.replace(/\D/g, '');
@@ -56,13 +57,28 @@ export default function RegisterPage() {
     if (!validateForm()) return;
     setLoading(true);
     try {
-      await register(formData.username, formData.fullName, formData.phone, formData.password, formData.confirmPassword, formData.userRole);
+      await register(formData.username, formData.fullName, formData.phone, formData.email, formData.password, formData.confirmPassword, formData.userRole);
       navigate('/login', { state: { message: 'Đăng ký thành công! Vui lòng đăng nhập.' } });
     } catch (err) {
       setError(err.message || 'Đăng ký thất bại. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const PasswordStrengthBar = ({ password }) => {
+    const len = password.length;
+    let color = 'bg-red-500';
+    let width = '0%';
+    if (len === 0) { color = 'bg-gray-200 dark:bg-slate-600'; width = '0%'; }
+    else if (len < 6) { color = 'bg-red-500'; width = '33%'; }
+    else if (len < 10) { color = 'bg-yellow-500'; width = '66%'; }
+    else { color = 'bg-green-500'; width = '100%'; }
+    return (
+      <div className="mt-2 h-1.5 w-full bg-gray-200 dark:bg-slate-600 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-300 ${color}`} style={{ width }} />
+      </div>
+    );
   };
 
   const inputCls = "w-full pl-11 pr-4 py-3 bg-white dark:bg-wc-navy-800/80 border border-slate-200 dark:border-wc-navy-700 rounded-xl text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-wc-gold-500/30 focus:border-wc-gold-500 transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500";
@@ -152,7 +168,15 @@ export default function RegisterPage() {
               <label className={labelCls}>Số điện thoại</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><FiPhone className={iconCls} /></div>
-                <input type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="Nhập 10 chữ số" required className={inputCls} />
+                <input type="tel" inputMode="numeric" name="phone" value={formData.phone} onChange={handleChange} placeholder="Nhập 10 chữ số" required className={inputCls} />
+              </div>
+            </div>
+
+            <div>
+              <label className={labelCls}>Email</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><FiMail className={iconCls} /></div>
+                <input type="email" name="email" value={formData.email} onChange={handleChange} placeholder="VD: nguyenvan.a@email.com" className={inputCls} />
               </div>
             </div>
 
@@ -161,8 +185,9 @@ export default function RegisterPage() {
                 <label className={labelCls}>Mật khẩu</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><FiLock className={iconCls} /></div>
-                  <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Ít nhất 6 ký tự" required className={inputCls} />
+                  <input type="password" name="password" value={formData.password} onChange={handleChange} placeholder="Ít nhất 8 ký tự" required className={inputCls} />
                 </div>
+                <PasswordStrengthBar password={formData.password} />
               </div>
               <div>
                 <label className={labelCls}>Xác nhận mật khẩu</label>

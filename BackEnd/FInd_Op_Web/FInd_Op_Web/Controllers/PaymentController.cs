@@ -168,138 +168,11 @@ namespace FInd_Op_Web.Controllers
                         orderCode = orderCode
                     });
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Mock success
-                    transaction.Status = "Paid";
-                    if (transaction.TransactionType == "UserPremium" || string.IsNullOrEmpty(transaction.TransactionType))
-                    {
-                        if (user != null)
-                        {
-                            user.IsPremium = true;
-                            user.PremiumUntil = DateTime.Now.AddMonths(1);
-                        }
-                    }
-                    else if (transaction.TransactionType == "TeamUpgrade")
-                    {
-                        var team = await _context.Teams.FirstOrDefaultAsync(t => t.CaptainId == transaction.UserId);
-                        if (team != null)
-                        {
-                            team.IsSubscriptionActive = true;
-                            team.SubscriptionEndDate = DateTime.Now.AddMonths(1);
-                        }
-                    }
-                    else if (transaction.TransactionType == "VenuePro")
-                    {
-                        if (user != null)
-                        {
-                            user.IsPremium = true;
-                            user.PremiumUntil = DateTime.Now.AddMonths(1);
-                        }
-                    }
-                    else if (transaction.TransactionType == "TournamentFee")
-                    {
-                        var tournament = await _context.Tournaments.FindAsync(transaction.ReferenceId);
-
-                        if (tournament != null && tournament.OrganizerId == transaction.UserId)
-                        {
-                            tournament.IsFeePaid = true;
-                            tournament.Status = "Upcoming";
-
-                            // Send notification
-                            _context.Notifications.Add(new Notification
-                            {
-                                UserId = tournament.OrganizerId,
-                                Title = "Thanh toán thành công",
-                                Message = $"Bạn đã thanh toán lệ phí cho giải đấu '{tournament.TournamentName}'. Bây giờ bạn có thể truy cập Quản lý giải.",
-                                IsRead = false,
-                                CreatedAt = DateTime.Now
-                            });
-                        }
-                    }
-                    else if (transaction.TransactionType == "BookingDeposit")
-                    {
-                        var schedule = await _context.PitchSchedules
-                            .Where(ps => ps.BookedById == transaction.UserId && ps.ScheduleStatus == "PendingPayment")
-                            .OrderByDescending(ps => ps.ScheduleId)
-                            .FirstOrDefaultAsync();
-
-                        if (schedule != null)
-                        {
-                            var overlap = await _context.PitchSchedules.Where(ps => ps.PitchId == schedule.PitchId && ps.ScheduleId != schedule.ScheduleId && ps.StartTime < schedule.EndTime && ps.EndTime > schedule.StartTime && (ps.ScheduleStatus == "Booked" || ps.ScheduleStatus == "Confirmed")).AnyAsync();
-                            if (overlap)
-                            {
-                                schedule.ScheduleStatus = "RefundRequired";
-                            }
-                            else
-                            {
-                                schedule.ScheduleStatus = "Booked"; // or Confirmed
-
-                                // Calculate 8% commission
-                                var fullSchedule = await _context.PitchSchedules.Include(s => s.Pitch).ThenInclude(p => p.Stadium).FirstOrDefaultAsync(s => s.ScheduleId == schedule.ScheduleId);
-                                if (fullSchedule?.Pitch?.Stadium != null)
-                                {
-                                    var slots = (decimal)Math.Max(1, Math.Ceiling((fullSchedule.EndTime - fullSchedule.StartTime).TotalMinutes / (fullSchedule.Pitch.SlotDurationMinutes ?? 60.0)));
-                                    var totalAmount = slots * fullSchedule.Pitch.PricePerSlot;
-                                    var commission = totalAmount * 0.08m;
-
-                                    var commissionRecord = new BookingCommission
-                                    {
-                                        ScheduleId = fullSchedule.ScheduleId,
-                                        StadiumOwnerId = fullSchedule.Pitch.Stadium.OwnerId ?? 0,
-                                        BookingAmount = totalAmount,
-                                        CommissionAmount = commission,
-                                        IsPaidToPlatform = false,
-                                        CreatedAt = DateTime.Now
-                                    };
-                                    _context.BookingCommissions.Add(commissionRecord);
-                                }
-                            }
-                        }
-                    }
-                    else if (transaction.TransactionType == "BoostPost" && dto.PitchId.HasValue) // PitchId here acts as PostId or we can just give generic tokens
-                    {
-                        // Ignore for now
-                    }
-                    else if (transaction.TransactionType == "TokenTopup")
-                    {
-                        if (user != null)
-                        {
-                            user.Tokens += dto.Tokens ?? 50;
-                            
-                            _context.TokenTransactions.Add(new TokenTransaction {
-                                UserId = user.UserId,
-                                Amount = dto.Tokens ?? 50,
-                                TransactionType = "Topup",
-                                Description = "Nạp Token",
-                                CreatedAt = DateTime.Now
-                            });
-                        }
-                    }
-                    else if (transaction.TransactionType == "PayDebt")
-                    {
-                        var commissions = await _context.BookingCommissions
-                            .Where(c => c.StadiumOwnerId == transaction.UserId && c.Status == "Pending")
-                            .ToListAsync();
-                        foreach (var c in commissions)
-                        {
-                            c.Status = "Paid";
-                            c.IsPaidToPlatform = true;
-                        }
-                    }
-                    
+                    transaction.Status = "Failed";
                     await _context.SaveChangesAsync();
-
-                    string returnUrl = _configuration["PayOS:ReturnUrl"] ?? "http://localhost:5173/payment-success";
-                    string mockedCheckoutUrl = $"{returnUrl}?code=00&id={orderCode}&cancel=false&status=PAID&orderCode={orderCode}";
-
-                    return Ok(new
-                    {
-                        checkoutUrl = mockedCheckoutUrl,
-                        qrCode = "",
-                        orderCode = orderCode,
-                        isMocked = true
-                    });
+                    return StatusCode(502, new { message = "Cổng thanh toán tạm thời không khả dụng: " + ex.Message });
                 }
             }
             catch (Exception ex)
@@ -331,7 +204,7 @@ namespace FInd_Op_Web.Controllers
                     {
                         transaction.Status = "Paid";
 
-                        if (transaction.TransactionType == "UserPremium" || string.IsNullOrEmpty(transaction.TransactionType))
+                        if (transaction.TransactionType == "UserPremium")
                         {
                             var user = await _context.Users.FindAsync(transaction.UserId);
                             if (user != null)
@@ -342,7 +215,9 @@ namespace FInd_Op_Web.Controllers
                         }
                         else if (transaction.TransactionType == "TeamUpgrade")
                         {
-                            var team = await _context.Teams.FirstOrDefaultAsync(t => t.CaptainId == transaction.UserId);
+                            var team = transaction.ReferenceId.HasValue
+                                ? await _context.Teams.FindAsync(transaction.ReferenceId.Value)
+                                : await _context.Teams.FirstOrDefaultAsync(t => t.CaptainId == transaction.UserId);
                             if (team != null)
                             {
                                 team.IsSubscriptionActive = true;
@@ -474,6 +349,7 @@ namespace FInd_Op_Web.Controllers
                 CreatedAt = DateTime.Now
             };
             _context.TeamSubscriptions.Add(subscription);
+            team.IsSubscriptionActive = true;
             
             _context.TokenTransactions.Add(new TokenTransaction {
                 UserId = userId,
@@ -487,6 +363,7 @@ namespace FInd_Op_Web.Controllers
             return Ok(new { message = "Nâng cấp Đội VIP thành công!" });
         }
 
+        [Authorize]
         [HttpGet("VerifyPayment")]
         public async Task<IActionResult> VerifyPayment([FromQuery] long orderCode)
         {
@@ -588,6 +465,7 @@ namespace FInd_Op_Web.Controllers
             return Ok(new { message = "Nâng cấp Chủ Sân VIP thành công!" });
         }
 
+        [Authorize]
         [HttpPost("UpgradePlayer")]
         public async Task<IActionResult> UpgradePlayer()
         {

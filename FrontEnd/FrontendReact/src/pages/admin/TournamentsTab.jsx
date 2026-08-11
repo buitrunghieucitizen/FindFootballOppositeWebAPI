@@ -2,8 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { adminService } from '../../services/adminService';
 import { Table, Button } from '../../components';
 import { FiAward, FiPlus } from 'react-icons/fi';
+import { useToast } from '../../components/Toast';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 export default function TournamentsTab() {
+  const { addToast } = useToast();
+  const [confirmState, setConfirmState] = useState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'danger' });
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,29 +95,11 @@ export default function TournamentsTab() {
           actions={(row) => [
             row.approvalStatus === 'Pending' && (
               <React.Fragment key={`actions-${row.tournamentId}`}>
-                <Button variant="primary" size="sm" className="rounded-lg mr-2" onClick={async () => {
-                  if(confirm('Bạn có chắc chắn muốn duyệt giải đấu này?')) {
-                    try {
-                      await adminService.approveTournament(row.tournamentId);
-                      loadData();
-                    } catch(e) {
-                      alert('Lỗi: ' + e.message);
-                    }
-                  }
-                }}>Duyệt</Button>
-                <Button variant="danger" size="sm" className="rounded-lg mr-2" onClick={async () => {
-                  if(confirm('Bạn có chắc chắn muốn từ chối giải đấu này?')) {
-                    try {
-                      await adminService.rejectTournament(row.tournamentId);
-                      loadData();
-                    } catch(e) {
-                      alert('Lỗi: ' + e.message);
-                    }
-                  }
-                }}>Từ chối</Button>
+                <Button variant="primary" size="sm" className="rounded-lg mr-2" onClick={() => setConfirmState({ isOpen: true, title: 'Duyệt giải đấu', message: 'Bạn có chắc chắn muốn duyệt giải đấu này?', variant: 'info', onConfirm: async () => { try { await adminService.approveTournament(row.tournamentId); loadData(); addToast('Đã duyệt giải đấu', 'success'); } catch(e) { addToast('Lỗi: ' + e.message, 'error'); } } })}>Duyệt</Button>
+                <Button variant="danger" size="sm" className="rounded-lg mr-2" onClick={() => setConfirmState({ isOpen: true, title: 'Từ chối giải đấu', message: 'Bạn có chắc chắn muốn từ chối giải đấu này?', variant: 'warning', onConfirm: async () => { try { await adminService.rejectTournament(row.tournamentId); loadData(); addToast('Đã từ chối giải đấu', 'success'); } catch(e) { addToast('Lỗi: ' + e.message, 'error'); } } })}>Từ chối</Button>
               </React.Fragment>
             ),
-            <Button key="delete" variant="outline" size="sm" className="rounded-lg text-red-500 border-red-200 hover:bg-red-50" onClick={() => { if (confirm('Xóa giải đấu này?')) adminService.deleteTournament(row.tournamentId).then(() => loadData()); }}>Xóa</Button>,
+            <Button key="delete" variant="outline" size="sm" className="rounded-lg text-red-500 border-red-200 hover:bg-red-50" onClick={() => setConfirmState({ isOpen: true, title: 'Xóa giải đấu', message: 'Xóa giải đấu này?', variant: 'danger', onConfirm: () => adminService.deleteTournament(row.tournamentId).then(() => { loadData(); addToast('Đã xóa giải đấu', 'success'); }) })}>Xóa</Button>,
           ]}
         />
         
@@ -147,6 +133,14 @@ export default function TournamentsTab() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        isOpen={confirmState.isOpen}
+        title={confirmState.title}
+        message={confirmState.message}
+        variant={confirmState.variant}
+        onConfirm={() => { confirmState.onConfirm?.(); setConfirmState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'danger' }); }}
+        onCancel={() => setConfirmState({ isOpen: false, title: '', message: '', onConfirm: null, variant: 'danger' })}
+      />
     </div>
   );
 }

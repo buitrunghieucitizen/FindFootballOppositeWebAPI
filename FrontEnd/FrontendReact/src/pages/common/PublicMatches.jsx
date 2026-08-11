@@ -83,7 +83,8 @@ export default function PublicMatches() {
     try {
       setLoading(true);
       const data = await publicService.getMatches(filters);
-      setMatches(data || []);
+      const list = Array.isArray(data) ? data : (data?.$values || []);
+      setMatches(list);
     } catch (err) {
       console.error(err);
       setError('Không thể tải danh sách trận đấu. Vui lòng thử lại sau.');
@@ -242,7 +243,18 @@ export default function PublicMatches() {
                 <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-700">
                   <div className="flex items-center text-sm text-slate-500 dark:text-slate-400">
                     <FiCalendar className="mr-2 text-slate-400" />
-                    {(match.matchDate || match.MatchDate) ? `${new Date(match.matchDate || match.MatchDate).toLocaleDateString('vi-VN')} ${(match.startTime || match.StartTime) ? (match.startTime || match.StartTime).substring(0,5) : ''}` : 'Chưa xếp lịch'}
+                    {(() => {
+                      const md = match.matchDate || match.MatchDate;
+                      const st = match.startTime || match.StartTime;
+                      const schedStart = match.scheduleStartTime || match.ScheduleStartTime;
+                      if (md) {
+                        return `${new Date(md).toLocaleDateString('vi-VN')}${st ? ' ' + st.substring(0,5) : (schedStart ? ' ' + new Date(schedStart).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '')}`;
+                      } else if (schedStart) {
+                        const d = new Date(schedStart);
+                        return `${d.toLocaleDateString('vi-VN')} ${d.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}`;
+                      }
+                      return 'Chưa xếp lịch';
+                    })()}
                   </div>
                   <div className="flex items-center text-sm text-slate-500 dark:text-slate-400">
                     <FiMapPin className="mr-2 text-slate-400 shrink-0" />
@@ -364,7 +376,18 @@ export default function PublicMatches() {
                   <div className="text-xs text-slate-500 dark:text-slate-400 mb-1">Thời gian</div>
                   <div className="font-bold text-slate-800 dark:text-slate-200 flex items-center">
                     <FiCalendar className="mr-2 text-slate-400" />
-                    {(selectedMatch.matchDate || selectedMatch.MatchDate) ? `${new Date(selectedMatch.matchDate || selectedMatch.MatchDate).toLocaleDateString('vi-VN')} ${(selectedMatch.startTime || selectedMatch.StartTime) ? (selectedMatch.startTime || selectedMatch.StartTime).substring(0,5) : ''}` : 'Chưa xếp lịch'}
+                    {(() => {
+                      const md = selectedMatch.matchDate || selectedMatch.MatchDate;
+                      const st = selectedMatch.startTime || selectedMatch.StartTime;
+                      const schedStart = selectedMatch.scheduleStartTime || selectedMatch.ScheduleStartTime;
+                      if (md) {
+                        return `${new Date(md).toLocaleDateString('vi-VN')}${st ? ' ' + st.substring(0,5) : (schedStart ? ' ' + new Date(schedStart).toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'}) : '')}`;
+                      } else if (schedStart) {
+                        const d = new Date(schedStart);
+                        return `${d.toLocaleDateString('vi-VN')} ${d.toLocaleTimeString('vi-VN', {hour:'2-digit', minute:'2-digit'})}`;
+                      }
+                      return 'Chưa xếp lịch';
+                    })()}
                   </div>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl">

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { publicService } from '../services/publicService';
+import { APP_NAME } from '../constants';
+
 import {
   FiLogOut, FiUsers, FiTarget, FiMapPin, FiCalendar, FiHome, FiGrid,
   FiTrendingUp, FiAward, FiChevronDown, FiUser, FiMessageSquare, FiDollarSign, FiSun, FiMoon, FiSearch, FiSettings, FiEdit
@@ -104,7 +105,7 @@ export default function CaptainDashboard() {
 
   const sidebar = (
     <DashboardSidebar
-      brandLabel="SportifyX"
+      brandLabel={APP_NAME}
       subLabel="Captain Panel"
       navItems={navItems}
       activeTab={activeTab}
@@ -165,24 +166,6 @@ export default function CaptainDashboard() {
       </div>
     </div>
   );
-
-  const tutorialSteps = [
-    {
-      target: 'body',
-      content: 'Chào mừng Đội trưởng đến với SportifyX! Hãy cùng xem qua các tính năng quản lý nhé.',
-      placement: 'center',
-    },
-    {
-      target: '.user-menu-btn',
-      content: 'Cài đặt tài khoản của bạn. (Có thể tắt hướng dẫn trong Cài đặt ứng dụng)',
-      placement: 'bottom',
-    },
-    {
-      target: '.sidebar-nav',
-      content: 'Menu quản lý chính: đăng bài, tìm kèo, tạo giải đấu, v.v.',
-      placement: 'right',
-    },
-  ];
 
   return (
     <DashboardLayout sidebar={sidebar} topBar={topBar}>
