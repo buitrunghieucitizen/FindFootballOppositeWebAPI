@@ -591,6 +591,13 @@ public partial class ApplicationDbContext : DbContext
             entity.Property(e => e.BoostUntil).HasColumnType("datetime");
         });
 
+        modelBuilder.Entity<DirectMessage>(entity =>
+        {
+            entity.HasKey(e => e.MessageId);
+            entity.HasOne(d => d.Sender).WithMany().HasForeignKey(d => d.SenderId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(d => d.Receiver).WithMany().HasForeignKey(d => d.ReceiverId).OnDelete(DeleteBehavior.Restrict);
+        });
+
         OnModelCreatingPartial(modelBuilder);
     }
 
